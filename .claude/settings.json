@@ -8,7 +8,8 @@
       "Bash(rm -rf 'C:\\\\Users\\\\11541/.claude/skills/react-frontend-scaffold')",
       "Bash(cp -r /c/Users/11541/AppData/Local/Temp/rfss-skill 'C:\\\\Users\\\\11541/.claude/skills/react-frontend-scaffold')",
       "Bash(rm -rf 'C:\\\\Users\\\\11541/.claude/skills/react-frontend-scaffold/.git')",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Read(//c/Users/11541/Documents/Codex/2026-07-05/skill-sync-agent-superpowers-subagent-driven/outputs/**)"
     ]
   }
 }
