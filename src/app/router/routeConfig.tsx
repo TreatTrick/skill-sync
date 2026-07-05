@@ -16,12 +16,23 @@ import { OnboardingPage } from '@/modules/onboarding'
 import { SettingsPage } from '@/modules/settings'
 import { SkillsPage } from '@/modules/skills'
 import { SyncPreviewPage } from '@/modules/sync'
-import { t } from '@/shared/i18n'
+
+export type RouteTitleKey =
+  | 'routes.backups'
+  | 'routes.conflicts'
+  | 'routes.dashboard'
+  | 'routes.onboarding'
+  | 'routes.settings'
+  | 'routes.skills'
+  | 'routes.sync'
+
+export type RouteGroupKey = 'routeGroups.main'
 
 export interface AppRouteConfig {
   path: string
-  title: string
-  group: string
+  // i18n key resolved at render time so the nav follows language switches
+  title: RouteTitleKey
+  group: RouteGroupKey
   element: ReactElement
   icon: ComponentType<{ className?: string }>
 }
@@ -29,50 +40,50 @@ export interface AppRouteConfig {
 export const appRoutes: AppRouteConfig[] = [
   {
     path: '/app/dashboard',
-    title: t('routes.dashboard'),
-    group: t('routeGroups.main'),
+    title: 'routes.dashboard',
+    group: 'routeGroups.main',
     element: <DashboardPage />,
     icon: LayoutDashboard,
   },
   {
     path: '/app/skills',
-    title: t('routes.skills'),
-    group: t('routeGroups.main'),
+    title: 'routes.skills',
+    group: 'routeGroups.main',
     element: <SkillsPage />,
     icon: Package,
   },
   {
     path: '/app/sync',
-    title: t('routes.sync'),
-    group: t('routeGroups.main'),
+    title: 'routes.sync',
+    group: 'routeGroups.main',
     element: <SyncPreviewPage />,
     icon: FolderSync,
   },
   {
     path: '/app/conflicts',
-    title: t('routes.conflicts'),
-    group: t('routeGroups.main'),
+    title: 'routes.conflicts',
+    group: 'routeGroups.main',
     element: <ConflictsPage />,
     icon: ListChecks,
   },
   {
     path: '/app/backups',
-    title: t('routes.backups'),
-    group: t('routeGroups.main'),
+    title: 'routes.backups',
+    group: 'routeGroups.main',
     element: <BackupsPage />,
     icon: RotateCcw,
   },
   {
     path: '/app/settings',
-    title: t('routes.settings'),
-    group: t('routeGroups.main'),
+    title: 'routes.settings',
+    group: 'routeGroups.main',
     element: <SettingsPage />,
     icon: SettingsIcon,
   },
   {
     path: '/app/onboarding',
-    title: t('routes.onboarding'),
-    group: t('routeGroups.main'),
+    title: 'routes.onboarding',
+    group: 'routeGroups.main',
     element: <OnboardingPage />,
     icon: Sparkles,
   },

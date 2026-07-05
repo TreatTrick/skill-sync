@@ -10,7 +10,7 @@ import {
   BreadcrumbSeparator,
 } from '@/shared/ui'
 
-import { appRoutes } from '../router/routeConfig'
+import { appRoutes, type RouteGroupKey } from '../router/routeConfig'
 
 const routeGroups = appRoutes.reduce<Record<string, typeof appRoutes>>(
   (groups, route) => {
@@ -51,7 +51,7 @@ export const AppLayout = () => {
           {Object.entries(routeGroups).map(([group, routes]) => (
             <div className="grid gap-1" key={group}>
               <div className="px-2.5 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                {group}
+                {t(group as RouteGroupKey)}
               </div>
               {routes.map((route) => {
                 const Icon = route.icon
@@ -70,7 +70,7 @@ export const AppLayout = () => {
                     to={route.path}
                   >
                     <Icon className="size-4 shrink-0" />
-                    <span className="truncate">{route.title}</span>
+                    <span className="truncate">{t(route.title)}</span>
                   </NavLink>
                 )
               })}
@@ -91,12 +91,12 @@ export const AppLayout = () => {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>{currentRoute.title}</BreadcrumbPage>
+                  <BreadcrumbPage>{t(currentRoute.title)}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
             <h1 className="mt-1.5 text-2xl font-bold text-strong-foreground">
-              {currentRoute.title}
+              {t(currentRoute.title)}
             </h1>
           </div>
         </header>

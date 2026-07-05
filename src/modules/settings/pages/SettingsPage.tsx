@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { cn, errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
-import { useThemeStore } from '@/shared/stores'
+import { useLanguageStore, useThemeStore } from '@/shared/stores'
 import {
   Button,
   Card,
@@ -31,6 +31,8 @@ export const SettingsPage = () => {
   const queryClient = useQueryClient()
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
+  const language = useLanguageStore((s) => s.language)
+  const setLanguage = useLanguageStore((s) => s.setLanguage)
   const state = useQuery({ queryKey: ['app-state'], queryFn: getAppState })
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [codexPaths, setCodexPaths] = useState('')
@@ -112,6 +114,11 @@ export const SettingsPage = () => {
     },
   ]
 
+  const languageOptions = [
+    { code: 'zh-CN' as const, label: t('settings.languageZh') },
+    { code: 'en-US' as const, label: t('settings.languageEn') },
+  ]
+
   return (
     <div className="grid gap-4">
       <Card>
@@ -152,6 +159,35 @@ export const SettingsPage = () => {
                   type="button"
                 >
                   <Icon className="size-4" />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          description={t('settings.languageDesc')}
+          title={t('settings.language')}
+        />
+        <CardBody>
+          <div className="flex gap-2">
+            {languageOptions.map(({ code, label }) => {
+              const active = language === code
+              return (
+                <button
+                  className={cn(
+                    'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                    active
+                      ? 'border-primary bg-primary-muted text-primary-muted-foreground'
+                      : 'border-border bg-surface text-foreground hover:bg-surface-hover',
+                  )}
+                  key={code}
+                  onClick={() => setLanguage(code)}
+                  type="button"
+                >
                   {label}
                 </button>
               )

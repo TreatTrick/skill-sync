@@ -1,0 +1,187 @@
+{
+  "common": {
+    "actions": {
+      "apply": "Apply Sync",
+      "back": "Back",
+      "browse": "Browse",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "open": "Open",
+      "refresh": "Refresh",
+      "rescan": "Rescan",
+      "restore": "Restore",
+      "retry": "Retry",
+      "save": "Save",
+      "skip": "Skip",
+      "view": "View"
+    },
+    "brandMark": "S",
+    "host": {
+      "claude": "Claude Code",
+      "codex": "Codex"
+    },
+    "more": "More",
+    "status": {
+      "disabled": "Disabled",
+      "empty": "No data",
+      "enabled": "Enabled",
+      "error": "Error",
+      "loading": "Loading…",
+      "ready": "Ready"
+    },
+    "workspace": "Workspace"
+  },
+  "layout": {
+    "brandSubtitle": "Agent Skills Sync",
+    "brandTitle": "Skill Sync",
+    "environment": "Local",
+    "navLabel": "App navigation",
+    "userName": "Developer"
+  },
+  "routes": {
+    "backups": "Backups",
+    "conflicts": "Conflicts",
+    "dashboard": "Dashboard",
+    "onboarding": "Setup",
+    "settings": "Settings",
+    "skills": "Skills",
+    "sync": "Sync"
+  },
+  "routeGroups": {
+    "main": "Workspace"
+  },
+  "onboarding": {
+    "branch": "Branch",
+    "checkGit": "Check Git",
+    "checkRemote": "Check Remote",
+    "description": "Choose a local Git repository as the skills sync source, and enter the remote URL (optional; leave empty for local backup only).",
+    "gitCheck": "Git Check",
+    "gitMissing": "Git not detected. Please install it first.",
+    "gitOk": "Git available: {{version}}",
+    "localPath": "Local sync repository folder",
+    "needGit": "Please make sure Git is available before saving.",
+    "remote": "Remote Git URL (optional)",
+    "remoteCheck": "Remote Check",
+    "remoteFail": "Remote unreachable: {{message}}",
+    "remoteOk": "Remote reachable.",
+    "save": "Save and continue",
+    "saved": "Configuration saved.",
+    "title": "Initial Setup"
+  },
+  "dashboard": {
+    "description": "View the sync status of agent skills on this machine.",
+    "goToOnboarding": "Go to setup",
+    "gitUnavailable": "Git unavailable",
+    "metrics": {
+      "conflicts": "Conflicts",
+      "discovered": "Discovered skills",
+      "lastSync": "Last sync",
+      "never": "Never synced",
+      "toDownload": "To download",
+      "toUpload": "To upload"
+    },
+    "notConfigured": "No sync repository configured. Please complete setup first.",
+    "preview": "Preview sync",
+    "scanWarnings": "Scan warnings",
+    "title": "Dashboard"
+  },
+  "skills": {
+    "columns": {
+      "actions": "Actions",
+      "hash": "Content hash",
+      "host": "Source",
+      "modified": "Modified",
+      "name": "Name",
+      "path": "Local path",
+      "status": "Status"
+    },
+    "description": "Manage discovered agent skills on this machine.",
+    "empty": "No skills found. Check the agent paths or rescan.",
+    "enabled": "Enabled",
+    "openFolder": "Open folder",
+    "rescan": "Rescan",
+    "title": "Skills",
+    "warnings": "Scan warnings"
+  },
+  "sync": {
+    "applied": "Sync complete: applied {{count}} item(s), backed up {{backups}} item(s).",
+    "applyError": "Sync failed: {{message}}",
+    "applying": "Syncing…",
+    "description": "Review all planned changes before syncing.",
+    "direction": {
+      "download": "Remote → Local",
+      "upload": "Local → Remote"
+    },
+    "empty": "All skills are up to date. Nothing to sync.",
+    "groups": {
+      "conflicts": "Needs review",
+      "deletes": "Will delete",
+      "downloads": "Will download",
+      "updates": "Will update",
+      "uploads": "Will upload"
+    },
+    "loadError": "Failed to load sync plan: {{message}}",
+    "notConfigured": "No sync repository configured.",
+    "recheck": "Recheck",
+    "skip": "Skip this round",
+    "title": "Sync Preview"
+  },
+  "conflicts": {
+    "columns": {
+      "local": "Local",
+      "reason": "Reason",
+      "remote": "Remote",
+      "skill": "Skill"
+    },
+    "description": "Decide the keep direction for each conflicting skill, then run sync.",
+    "empty": "No conflicts to resolve.",
+    "keepLocal": "Keep local",
+    "localHash": "Local hash",
+    "remoteHash": "Remote hash",
+    "reviewAtSync": "Decisions take effect when sync runs.",
+    "skip": "Skip",
+    "title": "Conflict Resolution",
+    "useRemote": "Use remote"
+  },
+  "backups": {
+    "columns": {
+      "actions": "Actions",
+      "path": "Original path",
+      "size": "Size",
+      "skill": "Skill",
+      "time": "Time"
+    },
+    "description": "View and restore backups made before sync writes.",
+    "empty": "No backups yet.",
+    "restoreError": "Restore failed: {{message}}",
+    "restored": "Restored.",
+    "title": "Backups"
+  },
+  "settings": {
+    "appearance": "Appearance",
+    "appearanceDesc": "Choose the app color theme.",
+    "backup": "Back up before writing",
+    "branch": "Branch",
+    "claudeEnabled": "Enable Claude Code",
+    "claudePaths": "Claude Code paths (one per line)",
+    "codexEnabled": "Enable Codex",
+    "codexPaths": "Codex paths (one per line)",
+    "description": "Manage the sync repository and agent paths.",
+    "hosts": "Agent paths",
+    "ignore": "Ignore rules (one per line)",
+    "language": "Language",
+    "languageDesc": "Choose the interface language.",
+    "languageEn": "English",
+    "languageZh": "简体中文",
+    "localPath": "Local sync repository folder",
+    "remote": "Remote Git URL (optional)",
+    "repository": "Sync repository",
+    "save": "Save settings",
+    "saveError": "Save failed: {{message}}",
+    "saved": "Settings saved.",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeSystem": "System",
+    "title": "Settings"
+  }
+}
