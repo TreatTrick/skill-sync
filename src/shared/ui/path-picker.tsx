@@ -5,6 +5,9 @@ import { chooseDirectory } from '@/shared/lib'
 import { t } from '@/shared/i18n'
 import { cn } from '@/shared/lib/utils'
 
+import { Button } from './button'
+import { Input } from './input'
+
 interface PathPickerProps {
   value: string
   onChange: (path: string) => void
@@ -27,30 +30,28 @@ export const PathPicker = ({
   }
 
   return (
-    <div className={cn('flex flex-col gap-1.5 sm:flex-row', className)}>
+    <div className={cn('grid gap-1.5', className)}>
       <label
         className="text-sm font-medium text-muted-foreground"
         htmlFor={inputId}
       >
         {placeholder}
       </label>
-      <div className="flex flex-1 items-center gap-2">
-        <input
-          className="h-9 flex-1 rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
+      <div className="flex items-center gap-2">
+        <Input
           id={inputId}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          type="text"
           value={value}
         />
-        <button
-          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-surface-hover"
+        <Button
+          icon={<FolderOpen className="size-4" />}
           onClick={() => void handlePick()}
           type="button"
+          variant="secondary"
         >
-          <FolderOpen className="size-4" />
           {t('common.actions.browse')}
-        </button>
+        </Button>
       </div>
     </div>
   )

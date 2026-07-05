@@ -4,7 +4,14 @@ import { useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
-import { PathPicker } from '@/shared/ui'
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Input,
+  PathPicker,
+} from '@/shared/ui'
 import { getAppState } from '@/modules/settings'
 
 import { checkGit, checkRemote, prepareRepo } from '../api/onboardingApi'
@@ -69,102 +76,99 @@ export const OnboardingPage = () => {
   }
 
   return (
-    <section className="grid gap-4">
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-lg font-bold text-strong-foreground">
-          {t('onboarding.title')}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('onboarding.description')}
-        </p>
-      </div>
+    <div className="grid max-w-2xl gap-4">
+      <Card>
+        <CardHeader
+          description={t('onboarding.description')}
+          title={t('onboarding.title')}
+        />
+      </Card>
 
       {msg ? (
-        <p className="rounded-lg border border-destructive-border bg-destructive-muted p-3 text-sm text-destructive">
-          {msg}
-        </p>
+        <Card className="border-destructive-border bg-destructive-muted">
+          <CardBody className="text-sm text-destructive">{msg}</CardBody>
+        </Card>
       ) : null}
 
-      <div className="grid gap-3 rounded-lg border border-border bg-surface p-4">
-        <PathPicker
-          onChange={setLocalPath}
-          placeholder={t('onboarding.localPath')}
-          value={localPath}
-        />
-        <label className="grid gap-1.5 text-sm font-medium text-muted-foreground">
-          {t('onboarding.remote')}
-          <input
-            className="h-9 rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
-            onChange={(event) => setRemote(event.target.value)}
-            type="text"
-            value={remote}
+      <Card>
+        <CardBody className="grid gap-4">
+          <PathPicker
+            onChange={setLocalPath}
+            placeholder={t('onboarding.localPath')}
+            value={localPath}
           />
-        </label>
-        <label className="grid gap-1.5 text-sm font-medium text-muted-foreground">
-          {t('onboarding.branch')}
-          <input
-            className="h-9 rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
-            onChange={(event) => setBranch(event.target.value)}
-            type="text"
-            value={branch}
-          />
-        </label>
-      </div>
+          <label className="grid gap-1.5 text-sm font-medium text-muted-foreground">
+            {t('onboarding.remote')}
+            <Input
+              onChange={(event) => setRemote(event.target.value)}
+              value={remote}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm font-medium text-muted-foreground">
+            {t('onboarding.branch')}
+            <Input
+              onChange={(event) => setBranch(event.target.value)}
+              value={branch}
+            />
+          </label>
+        </CardBody>
+      </Card>
 
-      <div className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-bold text-strong-foreground">
-              {t('onboarding.gitCheck')}
-            </span>
-            <button
-              className="inline-flex h-8 items-center rounded-lg border border-border px-2.5 text-xs font-medium text-foreground hover:bg-surface-hover"
-              onClick={() => void handleCheckGit()}
-              type="button"
-            >
-              {t('onboarding.checkGit')}
-            </button>
+      <Card>
+        <CardBody className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-bold text-strong-foreground">
+                {t('onboarding.gitCheck')}
+              </span>
+              <Button
+                onClick={() => void handleCheckGit()}
+                size="sm"
+                variant="secondary"
+              >
+                {t('onboarding.checkGit')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {gitCheck
+                ? gitCheck.available
+                  ? t('onboarding.gitOk', { version: gitCheck.version })
+                  : t('onboarding.gitMissing')
+                : '—'}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {gitCheck
-              ? gitCheck.available
-                ? t('onboarding.gitOk', { version: gitCheck.version })
-                : t('onboarding.gitMissing')
-              : '—'}
-          </p>
-        </div>
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-bold text-strong-foreground">
-              {t('onboarding.remoteCheck')}
-            </span>
-            <button
-              className="inline-flex h-8 items-center rounded-lg border border-border px-2.5 text-xs font-medium text-foreground hover:bg-surface-hover"
-              disabled={!remote.trim()}
-              onClick={() => void handleCheckRemote()}
-              type="button"
-            >
-              {t('onboarding.checkRemote')}
-            </button>
+          <div className="grid gap-2 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-bold text-strong-foreground">
+                {t('onboarding.remoteCheck')}
+              </span>
+              <Button
+                disabled={!remote.trim()}
+                onClick={() => void handleCheckRemote()}
+                size="sm"
+                variant="secondary"
+              >
+                {t('onboarding.checkRemote')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {remoteCheck
+                ? remoteCheck.ok
+                  ? t('onboarding.remoteOk')
+                  : t('onboarding.remoteFail', { message: remoteCheck.message })
+                : '—'}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {remoteCheck
-              ? remoteCheck.ok
-                ? t('onboarding.remoteOk')
-                : t('onboarding.remoteFail', { message: remoteCheck.message })
-              : '—'}
-          </p>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
-      <button
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground"
-        disabled={saving}
+      <Button
+        className="justify-self-start"
+        loading={saving}
         onClick={() => void handleSave()}
-        type="button"
       >
-        {saving ? t('common.status.loading') : t('onboarding.save')}
-      </button>
-    </section>
+        {t('onboarding.save')}
+      </Button>
+    </div>
   )
 }

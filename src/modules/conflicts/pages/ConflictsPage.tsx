@@ -1,8 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
+import { ListChecks } from 'lucide-react'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
-import { Badge } from '@/shared/ui'
+import {
+  Badge,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Spinner,
+} from '@/shared/ui'
 import { getSyncPlan, useSyncDecisionsStore } from '@/modules/sync'
 
 const shortHash = (hash: string) =>
@@ -22,20 +30,26 @@ export const ConflictsPage = () => {
   const conflicts = plan.data?.conflicts ?? []
 
   return (
-    <section className="grid gap-4">
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-lg font-bold text-strong-foreground">
-          {t('conflicts.title')}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('conflicts.description')}
-        </p>
-      </div>
+    <div className="grid gap-4">
+      <Card>
+        <CardHeader
+          description={t('conflicts.description')}
+          title={t('conflicts.title')}
+        />
+      </Card>
+
+      {plan.isLoading ? (
+        <div className="flex justify-center py-12">
+          <Spinner className="size-6" />
+        </div>
+      ) : null}
 
       {plan.error ? (
-        <p className="rounded-lg border border-destructive-border bg-destructive-muted p-3 text-sm text-destructive">
-          {errorMessage(plan.error)}
-        </p>
+        <Card className="border-destructive-border bg-destructive-muted">
+          <CardBody className="text-sm text-destructive">
+            {errorMessage(plan.error)}
+          </CardBody>
+        </Card>
       ) : null}
 
       <p className="text-xs text-muted-foreground">
@@ -43,9 +57,12 @@ export const ConflictsPage = () => {
       </p>
 
       {conflicts.length === 0 && !plan.isLoading ? (
-        <p className="rounded-lg border border-border bg-surface-muted p-4 text-sm text-muted-foreground">
-          {t('conflicts.empty')}
-        </p>
+        <Card>
+          <EmptyState
+            icon={<ListChecks className="size-10" />}
+            title={t('conflicts.empty')}
+          />
+        </Card>
       ) : null}
 
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
@@ -74,7 +91,7 @@ export const ConflictsPage = () => {
                 {CHOICES.map((choice) => (
                   <button
                     className={[
-                      'h-8 rounded-lg border px-2.5 text-xs font-medium',
+                      'h-8 rounded-lg border px-2.5 text-xs font-medium transition-colors',
                       decision === choice.key
                         ? 'border-primary bg-primary-muted text-primary-muted-foreground'
                         : 'border-border bg-surface text-foreground hover:bg-surface-hover',
@@ -91,6 +108,6 @@ export const ConflictsPage = () => {
           )
         })}
       </div>
-    </section>
+    </div>
   )
 }

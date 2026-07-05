@@ -1,9 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Save } from 'lucide-react'
 import { useState } from 'react'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Spinner,
+} from '@/shared/ui'
 
 import { listBackups, restoreBackup } from '../api/backupsApi'
 
@@ -44,51 +52,58 @@ export const BackupsPage = () => {
   const backups = list.data ?? []
 
   return (
-    <section className="grid gap-4">
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-lg font-bold text-strong-foreground">
-          {t('backups.title')}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('backups.description')}
-        </p>
-      </div>
+    <div className="grid gap-4">
+      <Card>
+        <CardHeader
+          description={t('backups.description')}
+          title={t('backups.title')}
+        />
+      </Card>
 
       {msg ? (
-        <p className="rounded-lg border border-border bg-surface-muted p-3 text-sm text-foreground">
-          {msg}
-        </p>
+        <Card className="border-success-muted bg-success-muted">
+          <CardBody className="flex items-center gap-2 text-sm text-success">
+            <Save className="size-4 shrink-0" />
+            {msg}
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {list.isLoading ? (
+        <div className="flex justify-center py-12">
+          <Spinner className="size-6" />
+        </div>
       ) : null}
 
       {backups.length === 0 && !list.isLoading ? (
-        <p className="rounded-lg border border-border bg-surface-muted p-4 text-sm text-muted-foreground">
-          {t('backups.empty')}
-        </p>
+        <Card>
+          <EmptyState
+            icon={<RotateCcw className="size-10" />}
+            title={t('backups.empty')}
+          />
+        </Card>
       ) : null}
 
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         {backups.map((entry) => (
-          <div
-            className="grid gap-1 rounded-lg border border-border bg-surface p-3 text-sm"
-            key={entry.id}
-          >
+          <Card className="p-3" key={entry.id}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-bold text-strong-foreground">
                 {entry.skill_id}
               </span>
-              <button
-                className="inline-flex h-8 items-center gap-2 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground hover:bg-surface-hover"
+              <Button
                 disabled={restore.isPending}
+                icon={<RotateCcw className="size-3.5" />}
                 onClick={() =>
                   restore.mutate({ id: entry.id, path: entry.original_path })
                 }
-                type="button"
+                size="sm"
+                variant="secondary"
               >
-                <RotateCcw className="size-3.5" />
                 {t('backups.columns.actions')}
-              </button>
+              </Button>
             </div>
-            <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
               <div className="truncate">
                 {t('backups.columns.time')}: {formatTime(entry.created_at)}
               </div>
@@ -99,9 +114,9 @@ export const BackupsPage = () => {
                 {t('backups.columns.path')}: {entry.original_path}
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
-    </section>
+    </div>
   )
 }

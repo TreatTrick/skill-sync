@@ -1,9 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 
 import { errorMessage } from '@/shared/lib'
 import { hostLabel, t } from '@/shared/i18n'
-import { Badge } from '@/shared/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Spinner,
+} from '@/shared/ui'
 
 import { applySyncPlan, getSyncPlan } from '../api/syncApi'
 import type { Conflict, SyncAction } from '../schemas/syncPlan'
@@ -19,11 +28,6 @@ const directionLabel = (direction: string): string =>
       ? t('sync.direction.download')
       : direction
 
-interface GroupProps {
-  title: string
-  items: SyncAction[]
-}
-
 const ActionRow = ({ action }: { action: SyncAction }) => (
   <div className="grid gap-1 rounded-lg border border-border bg-surface p-3 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -35,24 +39,6 @@ const ActionRow = ({ action }: { action: SyncAction }) => (
     </div>
   </div>
 )
-
-const GroupSection = ({ title, items }: GroupProps) => {
-  if (items.length === 0) {
-    return null
-  }
-  return (
-    <div className="grid gap-2">
-      <h3 className="text-sm font-bold text-strong-foreground">
-        {title} ({items.length})
-      </h3>
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        {items.map((action) => (
-          <ActionRow action={action} key={action.skill_id} />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 const CHOICES = [
   { key: 'local', labelKey: 'conflicts.keepLocal' },
@@ -86,7 +72,7 @@ const ConflictCard = ({ conflict }: { conflict: Conflict }) => {
         {CHOICES.map((choice) => (
           <button
             className={[
-              'h-8 rounded-lg border px-2.5 text-xs font-medium',
+              'h-8 rounded-lg border px-2.5 text-xs font-medium transition-colors',
               decision === choice.key
                 ? 'border-primary bg-primary-muted text-primary-muted-foreground'
                 : 'border-border bg-surface text-foreground hover:bg-surface-hover',
@@ -103,14 +89,40 @@ const ConflictCard = ({ conflict }: { conflict: Conflict }) => {
   )
 }
 
+const GroupSection = ({
+  title,
+  items,
+}: {
+  title: string
+  items: SyncAction[]
+}) => {
+  if (items.length === 0) {
+    return null
+  }
+  return (
+    <div className="grid gap-2">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-strong-foreground">
+        {title}
+        <Badge variant="default">{items.length}</Badge>
+      </h3>
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+        {items.map((action) => (
+          <ActionRow action={action} key={action.skill_id} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const ConflictList = ({ conflicts }: { conflicts: Conflict[] }) => {
   if (conflicts.length === 0) {
     return null
   }
   return (
     <div className="grid gap-2">
-      <h3 className="text-sm font-bold text-strong-foreground">
-        {t('sync.groups.conflicts')} ({conflicts.length})
+      <h3 className="flex items-center gap-2 text-sm font-bold text-strong-foreground">
+        {t('sync.groups.conflicts')}
+        <Badge variant="warning">{conflicts.length}</Badge>
       </h3>
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         {conflicts.map((conflict) => (
@@ -160,57 +172,64 @@ export const SyncPreviewPage = () => {
   }
 
   return (
-    <section className="grid gap-4">
-      <div className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-lg font-bold text-strong-foreground">
-            {t('sync.title')}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('sync.description')}
-          </p>
+    <div className="grid gap-4">
+      <Card>
+        <CardHeader
+          action={
+            <div className="flex gap-2">
+              <Button
+                icon={<RefreshCw className="size-4" />}
+                onClick={() => void plan.refetch()}
+                variant="secondary"
+              >
+                {t('sync.recheck')}
+              </Button>
+              <Button
+                disabled={isEmpty}
+                loading={apply.isPending}
+                onClick={handleApply}
+              >
+                {apply.isPending
+                  ? t('sync.applying')
+                  : t('common.actions.apply')}
+              </Button>
+            </div>
+          }
+          description={t('sync.description')}
+          title={t('sync.title')}
+        />
+      </Card>
+
+      {plan.isLoading ? (
+        <div className="flex justify-center py-12">
+          <Spinner className="size-6" />
         </div>
-        <div className="flex gap-2">
-          <button
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-surface-hover"
-            onClick={() => void plan.refetch()}
-            type="button"
-          >
-            {t('sync.recheck')}
-          </button>
-          <button
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground"
-            disabled={apply.isPending || isEmpty}
-            onClick={handleApply}
-            type="button"
-          >
-            {apply.isPending ? t('sync.applying') : t('common.actions.apply')}
-          </button>
-        </div>
-      </div>
+      ) : null}
 
       {plan.error ? (
-        <p className="rounded-lg border border-destructive-border bg-destructive-muted p-3 text-sm text-destructive">
-          {t('sync.loadError', { message: errorMessage(plan.error) })}
-        </p>
+        <Card className="border-destructive-border bg-destructive-muted">
+          <CardBody className="text-sm text-destructive">
+            {t('sync.loadError', { message: errorMessage(plan.error) })}
+          </CardBody>
+        </Card>
       ) : null}
 
       {resultMsg ? (
-        <p className="rounded-lg border border-border bg-surface-muted p-3 text-sm text-foreground">
-          {resultMsg}
-        </p>
-      ) : null}
-
-      {plan.isLoading ? (
-        <p className="text-sm text-muted-foreground">
-          {t('common.status.loading')}
-        </p>
+        <Card className="border-success-muted bg-success-muted">
+          <CardBody className="flex items-center gap-2 text-sm text-success">
+            <CheckCircle2 className="size-4 shrink-0" />
+            {resultMsg}
+          </CardBody>
+        </Card>
       ) : null}
 
       {isEmpty && !plan.isLoading && !plan.error ? (
-        <p className="rounded-lg border border-border bg-surface-muted p-4 text-sm text-muted-foreground">
-          {t('sync.empty')}
-        </p>
+        <Card>
+          <EmptyState
+            icon={<CheckCircle2 className="size-10" />}
+            title={t('sync.empty')}
+          />
+        </Card>
       ) : null}
 
       {planData ? (
@@ -234,6 +253,6 @@ export const SyncPreviewPage = () => {
           <ConflictList conflicts={planData.conflicts} />
         </>
       ) : null}
-    </section>
+    </div>
   )
 }

@@ -1,36 +1,47 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #f5f7fb;
-  --foreground: #18212f;
+  /* Neutral scale — cool, cohesive slate */
+  --background: #f6f7f9;
+  --foreground: #1a1f29;
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
-  --surface-hover: #f1f5f9;
-  --border: #dbe3ee;
-  --border-muted: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --muted-foreground: #64748b;
-  --strong-foreground: #020617;
+  --surface-muted: #f4f5f7;
+  --surface-hover: #eef0f3;
+  --border: #e3e6eb;
+  --border-muted: #eceef1;
+  --border-strong: #d2d7de;
+  --muted-foreground: #5b6471;
+  --strong-foreground: #0e1320;
 
+  /* Primary — teal */
   --primary: #0f766e;
   --primary-foreground: #ffffff;
-  --primary-muted: #f0fdfa;
+  --primary-muted: #ecfdf8;
   --primary-muted-foreground: #115e59;
   --primary-border: #99f6e4;
 
-  --info-muted: #dbeafe;
+  /* Info */
+  --info-muted: #e0ecff;
   --info-muted-foreground: #1d4ed8;
 
+  /* Warning */
   --warning: #b45309;
-  --warning-muted: #fffbeb;
+  --warning-muted: #fff7e6;
   --warning-border: #fde68a;
 
+  /* Destructive */
   --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
   --destructive-muted: #fef2f2;
   --destructive-border: #fecaca;
 
+  /* Success */
   --success: #15803d;
   --success-muted: #f0fdf4;
+
+  /* Focus ring */
+  --ring: #0f766e;
+
   font-family: 'Microsoft YaHei', 'PingFang SC', Inter, Arial, sans-serif;
   color: var(--foreground);
   background: var(--background);
@@ -66,11 +77,23 @@
   --color-warning-border: var(--warning-border);
 
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-muted: var(--destructive-muted);
   --color-destructive-border: var(--destructive-border);
 
   --color-success: var(--success);
   --color-success-muted: var(--success-muted);
+
+  --color-ring: var(--ring);
+
+  --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-sm:
+    0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+  --shadow-md:
+    0 4px 12px -2px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg:
+    0 12px 24px -6px rgba(15, 23, 42, 0.12),
+    0 4px 8px -4px rgba(15, 23, 42, 0.06);
 }
 
 * {
@@ -84,7 +107,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 

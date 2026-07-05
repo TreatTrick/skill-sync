@@ -1,34 +1,53 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpFromLine,
+  Package,
+  Sparkles,
+} from 'lucide-react'
+import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
 import { getSyncPlan } from '@/modules/sync'
 import { scanSkills } from '@/modules/skills'
 import { getAppState } from '@/modules/settings'
+import { Button, Card, CardBody, EmptyState, Spinner } from '@/shared/ui'
 
 interface MetricProps {
   label: string
   value: number | string
-  tone?: 'neutral' | 'warning' | 'destructive'
+  icon: ReactNode
+  tone?: 'neutral' | 'warning'
 }
 
-const MetricCard = ({ label, value, tone = 'neutral' }: MetricProps) => {
-  const valueClass =
-    tone === 'warning'
-      ? 'text-warning'
-      : tone === 'destructive'
-        ? 'text-destructive'
-        : 'text-strong-foreground'
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+const MetricCard = ({ label, value, icon, tone = 'neutral' }: MetricProps) => (
+  <Card className="p-4">
+    <div className="flex items-center justify-between gap-3">
       <div className="text-sm font-medium text-muted-foreground">{label}</div>
-      <div className={`mt-3 text-2xl font-bold ${valueClass}`}>{value}</div>
+      <span
+        className={
+          tone === 'warning' ? 'text-warning' : 'text-muted-foreground'
+        }
+      >
+        {icon}
+      </span>
     </div>
-  )
-}
+    <div
+      className={`mt-3 text-3xl font-bold ${
+        tone === 'warning' ? 'text-warning' : 'text-strong-foreground'
+      }`}
+    >
+      {value}
+    </div>
+  </Card>
+)
 
 export const DashboardPage = () => {
+  const navigate = useNavigate()
   const state = useQuery({ queryKey: ['app-state'], queryFn: getAppState })
   const configured = state.data?.configured ?? false
   const scan = useQuery({
@@ -44,88 +63,106 @@ export const DashboardPage = () => {
 
   if (state.isLoading) {
     return (
-      <p className="text-sm text-muted-foreground">
-        {t('common.status.loading')}
-      </p>
+      <div className="flex justify-center py-12">
+        <Spinner className="size-6" />
+      </div>
     )
   }
 
   if (state.error) {
     return (
-      <p className="rounded-lg border border-destructive-border bg-destructive-muted p-3 text-sm text-destructive">
-        {errorMessage(state.error)}
-      </p>
+      <Card>
+        <CardBody>
+          <p className="text-sm text-destructive">
+            {errorMessage(state.error)}
+          </p>
+        </CardBody>
+      </Card>
     )
   }
 
   if (!configured) {
     return (
-      <div className="grid gap-3 rounded-lg border border-border bg-surface p-4">
-        <p className="text-sm text-muted-foreground">
-          {t('dashboard.notConfigured')}
-        </p>
-        <Link
-          className="inline-flex h-9 w-fit items-center rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground"
-          to="/app/onboarding"
-        >
-          {t('dashboard.goToOnboarding')}
-        </Link>
-      </div>
+      <Card>
+        <EmptyState
+          action={
+            <Button
+              icon={<Sparkles className="size-4" />}
+              onClick={() => navigate('/app/onboarding')}
+            >
+              {t('dashboard.goToOnboarding')}
+            </Button>
+          }
+          icon={<Sparkles className="size-10" />}
+          title={t('dashboard.notConfigured')}
+        />
+      </Card>
     )
   }
 
-  const discovered = scan.data?.skills.length ?? 0
-  const uploads = plan.data?.uploads.length ?? 0
-  const downloads = plan.data?.downloads.length ?? 0
-  const conflicts = plan.data?.conflicts.length ?? 0
+  const conflictCount = plan.data?.conflicts.length ?? 0
 
   return (
-    <section className="grid gap-4">
-      <div className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-lg font-bold text-strong-foreground">
-            {t('dashboard.title')}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('dashboard.description')}
-          </p>
-        </div>
-        <Link
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground"
-          to="/app/sync"
-        >
-          {t('dashboard.preview')}
-        </Link>
-      </div>
+    <div className="grid gap-4">
+      <Card>
+        <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-strong-foreground">
+              {t('dashboard.title')}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('dashboard.description')}
+            </p>
+          </div>
+          <Button
+            icon={<ArrowRight className="size-4" />}
+            onClick={() => navigate('/app/sync')}
+          >
+            {t('dashboard.preview')}
+          </Button>
+        </CardBody>
+      </Card>
 
       {state.data && !state.data.git_available ? (
-        <p className="rounded-lg border border-warning-border bg-warning-muted p-3 text-sm text-warning">
-          {t('dashboard.gitUnavailable')}
-        </p>
+        <Card>
+          <CardBody className="flex items-center gap-2 text-sm text-warning">
+            <AlertTriangle className="size-4 shrink-0" />
+            {t('dashboard.gitUnavailable')}
+          </CardBody>
+        </Card>
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
+          icon={<Package className="size-4" />}
           label={t('dashboard.metrics.discovered')}
-          value={discovered}
+          value={scan.data?.skills.length ?? 0}
         />
-        <MetricCard label={t('dashboard.metrics.toUpload')} value={uploads} />
         <MetricCard
+          icon={<ArrowUpFromLine className="size-4" />}
+          label={t('dashboard.metrics.toUpload')}
+          value={plan.data?.uploads.length ?? 0}
+        />
+        <MetricCard
+          icon={<ArrowDownToLine className="size-4" />}
           label={t('dashboard.metrics.toDownload')}
-          value={downloads}
+          value={plan.data?.downloads.length ?? 0}
         />
         <MetricCard
+          icon={<AlertTriangle className="size-4" />}
           label={t('dashboard.metrics.conflicts')}
-          tone={conflicts > 0 ? 'warning' : 'neutral'}
-          value={conflicts}
+          tone={conflictCount > 0 ? 'warning' : 'neutral'}
+          value={conflictCount}
         />
       </div>
 
       {plan.error ? (
-        <p className="rounded-lg border border-warning-border bg-warning-muted p-3 text-sm text-warning">
-          {t('sync.loadError', { message: errorMessage(plan.error) })}
-        </p>
+        <Card>
+          <CardBody className="text-sm text-warning">
+            {t('sync.loadError', { message: errorMessage(plan.error) })}
+          </CardBody>
+        </Card>
       ) : null}
-    </section>
+    </div>
   )
 }
