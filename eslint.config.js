@@ -121,7 +121,9 @@ const noReverseLayerImportsRule = {
 }
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // src-tauri 是 Rust/Tauri 后端，包含构建产物（target/ 下的生成代码），
+  // 不属于前端 ESLint 检查范围，需整体排除
+  globalIgnores(['dist', 'src-tauri']),
   {
     files: ['**/*.{ts,tsx}'],
     plugins: {
