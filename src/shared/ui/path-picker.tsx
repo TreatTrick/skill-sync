@@ -1,5 +1,6 @@
 import { FolderOpen } from 'lucide-react'
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { chooseDirectory } from '@/shared/lib'
 import { t } from '@/shared/i18n'
@@ -21,6 +22,8 @@ export const PathPicker = ({
   placeholder,
   className,
 }: PathPickerProps) => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const inputId = useId()
   const handlePick = async () => {
     const path = await chooseDirectory()

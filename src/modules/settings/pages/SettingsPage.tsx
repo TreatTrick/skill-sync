@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { cn, errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
@@ -28,6 +29,8 @@ const fromLines = (text: string) =>
     .filter((line) => line.length > 0)
 
 export const SettingsPage = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const queryClient = useQueryClient()
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)

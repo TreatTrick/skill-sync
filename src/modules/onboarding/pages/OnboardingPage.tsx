@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
@@ -18,6 +19,8 @@ import { checkGit, checkRemote, prepareRepo } from '../api/onboardingApi'
 import type { GitCheck, RemoteCheck } from '../schemas/onboarding'
 
 export const OnboardingPage = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const state = useQuery({ queryKey: ['app-state'], queryFn: getAppState })

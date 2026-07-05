@@ -1,6 +1,7 @@
 import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import * as React from 'react'
 import { Slot } from 'radix-ui'
+import { useTranslation } from 'react-i18next'
 
 import { t } from '@/shared/i18n'
 import { cn } from '@/shared/lib/utils'
@@ -88,18 +89,22 @@ const BreadcrumbSeparator = ({
 const BreadcrumbEllipsis = ({
   className,
   ...props
-}: React.ComponentProps<'span'>) => (
-  <span
-    data-slot="breadcrumb-ellipsis"
-    role="presentation"
-    aria-hidden="true"
-    className={cn('flex size-9 items-center justify-center', className)}
-    {...props}
-  >
-    <MoreHorizontal className="size-4" />
-    <span className="sr-only">{t('common.more')}</span>
-  </span>
-)
+}: React.ComponentProps<'span'>) => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
+  return (
+    <span
+      data-slot="breadcrumb-ellipsis"
+      role="presentation"
+      aria-hidden="true"
+      className={cn('flex size-9 items-center justify-center', className)}
+      {...props}
+    >
+      <MoreHorizontal className="size-4" />
+      <span className="sr-only">{t('common.more')}</span>
+    </span>
+  )
+}
 
 export {
   Breadcrumb,

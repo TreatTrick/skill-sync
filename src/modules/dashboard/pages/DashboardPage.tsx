@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
@@ -47,6 +48,8 @@ const MetricCard = ({ label, value, icon, tone = 'neutral' }: MetricProps) => (
 )
 
 export const DashboardPage = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const navigate = useNavigate()
   const state = useQuery({ queryKey: ['app-state'], queryFn: getAppState })
   const configured = state.data?.configured ?? false

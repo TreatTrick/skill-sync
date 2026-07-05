@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { FolderOpen, Package, RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { errorMessage, openPath } from '@/shared/lib'
 import { hostLabel, t } from '@/shared/i18n'
@@ -20,6 +21,8 @@ const shortHash = (hash: string) =>
   hash.length > 12 ? hash.slice(0, 12) : hash
 
 export const SkillsPage = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const scan = useQuery({ queryKey: ['scan-skills'], queryFn: scanSkills })
   const skills = scan.data?.skills ?? []
   const warnings = scan.data?.warnings ?? []

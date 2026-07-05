@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { ListChecks } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
@@ -23,6 +24,8 @@ const CHOICES = [
 ] as const
 
 export const ConflictsPage = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const plan = useQuery({ queryKey: ['sync-plan'], queryFn: getSyncPlan })
   const decisions = useSyncDecisionsStore((state) => state.decisions)
   const setDecision = useSyncDecisionsStore((state) => state.setDecision)

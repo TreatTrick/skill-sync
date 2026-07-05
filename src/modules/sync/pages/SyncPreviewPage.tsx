@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { errorMessage } from '@/shared/lib'
 import { hostLabel, t } from '@/shared/i18n'
@@ -134,6 +135,8 @@ const ConflictList = ({ conflicts }: { conflicts: Conflict[] }) => {
 }
 
 export const SyncPreviewPage = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const queryClient = useQueryClient()
   const plan = useQuery({ queryKey: ['sync-plan'], queryFn: getSyncPlan })
   const decisions = useSyncDecisionsStore((state) => state.decisions)

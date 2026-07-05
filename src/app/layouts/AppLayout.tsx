@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/shared/lib'
 import { t } from '@/shared/i18n'
@@ -24,6 +25,8 @@ const routeGroups = appRoutes.reduce<Record<string, typeof appRoutes>>(
 )
 
 export const AppLayout = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const location = useLocation()
   const collapsed = useUiStore((state) => state.sidebarCollapsed)
   const setSidebarCollapsed = useUiStore((state) => state.setSidebarCollapsed)

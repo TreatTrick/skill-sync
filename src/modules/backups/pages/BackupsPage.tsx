@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RotateCcw, Save } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
@@ -34,6 +35,8 @@ const formatTime = (iso: string) => {
 }
 
 export const BackupsPage = () => {
+  // Re-render on i18n language change (react-router data router isolates parent re-renders).
+  useTranslation()
   const queryClient = useQueryClient()
   const list = useQuery({ queryKey: ['backups'], queryFn: listBackups })
   const [msg, setMsg] = useState('')
