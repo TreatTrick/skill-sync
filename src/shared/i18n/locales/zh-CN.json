@@ -1,52 +1,178 @@
 {
   "common": {
     "actions": {
+      "apply": "执行同步",
+      "back": "返回",
+      "browse": "浏览",
+      "cancel": "取消",
+      "confirm": "确认",
+      "open": "打开",
       "refresh": "刷新",
+      "rescan": "重新扫描",
+      "restore": "恢复",
+      "retry": "重试",
+      "save": "保存",
+      "skip": "跳过",
       "view": "查看"
     },
-    "brandMark": "前",
+    "brandMark": "S",
+    "host": {
+      "claude": "Claude Code",
+      "codex": "Codex"
+    },
     "more": "更多",
+    "status": {
+      "disabled": "已禁用",
+      "empty": "暂无数据",
+      "enabled": "已启用",
+      "error": "出错",
+      "loading": "加载中…",
+      "ready": "就绪"
+    },
     "workspace": "工作台"
   },
   "layout": {
-    "brandSubtitle": "React 工程脚手架",
-    "brandTitle": "前端应用",
-    "environment": "本地演示环境",
+    "brandSubtitle": "Agent Skills 同步",
+    "brandTitle": "Skill Sync",
+    "environment": "本地",
     "navLabel": "应用导航",
-    "userName": "示例用户"
+    "userName": "开发者"
   },
   "routes": {
-    "dashboard": "概览"
+    "backups": "备份",
+    "conflicts": "冲突",
+    "dashboard": "概览",
+    "onboarding": "初始配置",
+    "settings": "设置",
+    "skills": "Skills",
+    "sync": "同步"
   },
   "routeGroups": {
-    "demo": "演示"
+    "main": "工作区"
   },
-  "demoDashboard": {
-    "activity": {
-      "owner": "负责人",
-      "status": "状态",
-      "title": "近期事项",
-      "updatedAt": "更新时间"
-    },
-    "description": "这个页面只用于展示脚手架的路由、Tailwind token、响应式表格、i18n、zod 校验、TanStack Query、Zustand 和 mitt 基础接入。",
-    "filters": {
-      "all": "全部",
-      "done": "已完成",
-      "running": "进行中"
-    },
+  "onboarding": {
+    "branch": "分支",
+    "checkGit": "检测 Git",
+    "checkRemote": "检测远程",
+    "description": "选择一个本地 Git 仓库目录作为 skills 同步源，并填写远程地址（可留空仅做本地备份）。",
+    "gitCheck": "Git 检测",
+    "gitMissing": "未检测到 Git，请先安装。",
+    "gitOk": "Git 可用：{{version}}",
+    "localPath": "本地同步仓库目录",
+    "needGit": "请先确保 Git 可用再保存。",
+    "remote": "远程 Git 地址（可选）",
+    "remoteCheck": "远程检测",
+    "remoteFail": "远程不可访问：{{message}}",
+    "remoteOk": "远程可访问。",
+    "save": "保存并进入",
+    "saved": "配置已保存。",
+    "title": "初始配置"
+  },
+  "dashboard": {
+    "description": "查看本机 agent skills 同步状态。",
+    "goToOnboarding": "前往初始配置",
+    "gitUnavailable": "Git 不可用",
     "metrics": {
-      "health": "工程健康度",
-      "latency": "平均响应",
-      "tasks": "演示任务",
-      "users": "示例用户"
+      "conflicts": "冲突",
+      "discovered": "已发现 skills",
+      "lastSync": "最近同步",
+      "never": "尚未同步",
+      "toDownload": "待下载",
+      "toUpload": "待上传"
     },
-    "status": {
-      "done": "已完成",
-      "running": "进行中"
+    "notConfigured": "尚未配置同步仓库，请先完成初始配置。",
+    "preview": "预览同步",
+    "scanWarnings": "扫描告警",
+    "title": "概览"
+  },
+  "skills": {
+    "columns": {
+      "actions": "操作",
+      "hash": "内容 hash",
+      "host": "来源",
+      "modified": "最近修改",
+      "name": "名称",
+      "path": "本地路径",
+      "status": "状态"
     },
-    "title": "前端工程概览",
-    "toast": {
-      "refreshed": "数据已刷新"
-    }
+    "description": "管理本机已发现的 agent skills。",
+    "empty": "未发现任何 skill。请确认 agent 路径或重新扫描。",
+    "enabled": "已启用",
+    "openFolder": "打开目录",
+    "rescan": "重新扫描",
+    "title": "Skills",
+    "warnings": "扫描告警"
+  },
+  "sync": {
+    "applied": "同步完成：应用 {{count}} 项，备份 {{backups}} 项。",
+    "applyError": "同步失败：{{message}}",
+    "applying": "同步中…",
+    "description": "执行同步前查看所有计划变更。",
+    "direction": {
+      "download": "远程 → 本地",
+      "upload": "本地 → 远程"
+    },
+    "empty": "所有 skills 已是最新，无需同步。",
+    "groups": {
+      "conflicts": "需要处理",
+      "deletes": "将删除",
+      "downloads": "将下载",
+      "updates": "将更新",
+      "uploads": "将上传"
+    },
+    "loadError": "加载同步计划失败：{{message}}",
+    "notConfigured": "尚未配置同步仓库。",
+    "recheck": "重新检查",
+    "skip": "跳过本次",
+    "title": "同步预览"
+  },
+  "conflicts": {
+    "columns": {
+      "local": "本地",
+      "reason": "原因",
+      "remote": "远程",
+      "skill": "Skill"
+    },
+    "description": "逐项决定冲突 skills 的保留方向，随后在同步页执行。",
+    "empty": "没有需要处理的冲突。",
+    "keepLocal": "保留本地",
+    "localHash": "本地 hash",
+    "remoteHash": "远程 hash",
+    "reviewAtSync": "决策将在执行同步时生效。",
+    "skip": "跳过",
+    "title": "冲突处理",
+    "useRemote": "使用远程"
+  },
+  "backups": {
+    "columns": {
+      "actions": "操作",
+      "path": "原路径",
+      "size": "大小",
+      "skill": "Skill",
+      "time": "时间"
+    },
+    "description": "查看并恢复同步写入前的备份。",
+    "empty": "暂无备份。",
+    "restoreError": "恢复失败：{{message}}",
+    "restored": "已恢复。",
+    "title": "备份"
+  },
+  "settings": {
+    "backup": "写入前自动备份",
+    "branch": "分支",
+    "claudeEnabled": "启用 Claude Code",
+    "claudePaths": "Claude Code 路径（每行一个）",
+    "codexEnabled": "启用 Codex",
+    "codexPaths": "Codex 路径（每行一个）",
+    "description": "管理同步仓库与 agent 路径。",
+    "hosts": "Agent 路径",
+    "ignore": "忽略规则（每行一个）",
+    "localPath": "本地同步仓库目录",
+    "remote": "远程 Git 地址（可选）",
+    "repository": "同步仓库",
+    "save": "保存设置",
+    "saveError": "保存失败：{{message}}",
+    "saved": "设置已保存。",
+    "title": "设置"
   }
 }
