@@ -1,87 +1,124 @@
-# Skill Sync
+<p align="center">
+  <img src="src-tauri/icons/icon.png" width="140" alt="Skill Sync logo" />
+</p>
 
-Tauri 2 desktop app for syncing your agent skills (Codex / Claude Code) across machines via your own Git repo. The frontend is built with **Svelte 5 + SvelteKit** (static SPA), migrated from the original React scaffold.
+<h1 align="center">Skill Sync</h1>
 
-## Quick Start
+<p align="center">
+  <strong>Sync your AI agent skills across machines — like dotfiles, with a desktop UI.</strong>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Tauri-2-orange?logo=tauri&logoColor=white" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
+  <a href="https://github.com/TreatTrick/skill-sync/issues"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome" /></a>
+  <img src="https://img.shields.io/github/stars/TreatTrick/skill-sync?style=social" alt="GitHub Stars" />
+</p>
+
+---
+
+## ✨ Why
+
+You've built a great set of Claude Code, Codex, Cursor, or Gemini skills — but moving them between your laptop, desktop, and work machine means remembering paths, copying folders, and hand-merging Git conflicts. **Skill Sync** turns all of that into one click.
+
+Your skills follow you everywhere, through **your own Git repo**. No account. No cloud. No marketplace. No telemetry.
+
+## 🚀 Features
+
+- **🔍 Auto-discover** skills already living on your machine from configured agent paths.
+- **🧩 Multi-agent** support — Claude Code, Codex, Cursor, Gemini CLI, and custom paths.
+- **👀 Sync preview** — see every upload, download, update, delete, and conflict _before_ anything is written.
+- **⚡ One-click sync** — apply the whole plan with a single button.
+- **⚔️ Conflict resolution** — keep local, use remote, or skip, per skill.
+- **💾 Automatic backups** — every local file is backed up before it's touched, with one-click restore.
+- **⚙️ Full settings** — manage agent paths, Git remote, backup directory, and ignore rules.
+- **🛡️ Safe by default** — all destructive writes are previewed first.
+- **🔒 Local-first & private** — sync runs through your own Git repository. Nothing leaves your control.
+
+## 🤝 Supported Agents
+
+| Agent       | Status |
+| ----------- | :----: |
+| Claude Code |   ✅   |
+| Codex       |   ✅   |
+| Cursor      |   ✅   |
+| Gemini CLI  |   ✅   |
+| Custom path |   ✅   |
+
+## 🧭 How it works
+
+1. **Scan** — discovers skills (e.g. `SKILL.md`) from your configured agent directories.
+2. **Diff** — compares local skills against your Git sync repo and computes a change plan.
+3. **Preview** — review planned uploads, downloads, updates, deletions, and conflicts.
+4. **Sync** — apply changes with one click. Local files are backed up first.
+5. **Resolve** — handle conflicts: keep local, use remote, or skip.
+6. **Restore** — roll back any file from the backups page, anytime.
+
+## 📦 Install
+
+### Build from source
+
+**Prerequisites:** [Node.js](https://nodejs.org/) 20+, [Rust](https://www.rust-lang.org/) (stable), [Git](https://git-scm.com/), and the [Tauri v2 system dependencies](https://tauri.app/start/prerequisites/).
 
 ```bash
+git clone https://github.com/TreatTrick/skill-sync.git
+cd skill-sync
 npm install
-npm run dev
+
+npm run tauri dev     # run the app in development
+npm run tauri build   # produce installers in src-tauri/target/release/bundle
 ```
 
-Before committing, run:
+> Prebuilt binaries will ship with the first release — **watch** the repo to be notified ⭐
+
+## 🛠 Tech stack
+
+- **Backend:** Tauri 2 + Rust — skill discovery, `SKILL.md` parsing, Git sync (system `git` CLI), backups, conflict detection.
+- **Frontend:** Svelte 5 + SvelteKit (static SPA), TypeScript (strict), Vite.
+- **Styling:** Tailwind CSS v4 with semantic color tokens, shadcn-svelte (bits-ui) components.
+- **State:** `@tanstack/svelte-query` for server state, Svelte 5 runes for client state.
+- **Extras:** `@lucide/svelte` icons, i18next (EN / 简体中文), zod validation.
+
+## 📁 Project structure
+
+```
+src/
+  routes/    # SvelteKit routing (thin page wrappers)
+  app/       # app shell, layout, navigation
+  modules/   # dashboard · skills · sync · conflicts · backups · settings · onboarding
+  shared/    # shadcn-svelte UI, i18n, tokens, utils
+src-tauri/
+  src/       # Rust: detect · manifest · git_store · sync_engine · backup · config
+```
+
+## 🗺 Roadmap
+
+- [ ] Prebuilt binaries + Tauri auto-update
+- [ ] Cross-platform CI (Windows / macOS / Linux)
+- [ ] More agent integrations
+- [ ] Scheduled / background sync
+
+## 🤝 Contributing
+
+Issues and PRs are welcome! Please read [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) first — they cover the engineering rules, commit conventions, and AI-collaboration guidelines this repo follows.
 
 ```bash
-npm run lint
-npm run build
+npm run lint     # typecheck + ESLint + responsive/colors/i18n lints
+npm run build    # type-check and build
 ```
 
-## Scripts
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, …).
 
-| Command                   | Purpose                                                                 |
-| ------------------------- | ----------------------------------------------------------------------- |
-| `npm run dev`             | Start the Vite / SvelteKit dev server                                   |
-| `npm run build`           | Type-check and build the production bundle to `dist/`                   |
-| `npm run typecheck`       | `svelte-kit sync` + `svelte-check` + `tsc` for node config              |
-| `npm run lint`            | Run typecheck, ESLint, responsive lint, color-token lint, and i18n lint |
-| `npm run lint:responsive` | Detect risky responsive layout patterns                                 |
-| `npm run lint:colors`     | Detect direct Tailwind palette colors and literal colors outside tokens |
-| `npm run lint:i18n`       | Detect hardcoded Chinese UI copy outside locale files                   |
-| `npm run precommit`       | Run lint-staged formatting and then the full lint pipeline              |
-| `npm run format`          | Format the project with Prettier                                        |
-| `npm run format:check`    | Check Prettier formatting without writing files                         |
-| `npm run tauri`           | Run Tauri commands (e.g. `npm run tauri dev` / `tauri build`)           |
+## 📄 License
 
-## Architecture Rules
+[MIT](LICENSE) © 2026 TreatTrick
 
-- Organize product code under `src/routes`, `src/app`, `src/shared`, and `src/modules`.
-- `src/routes` is SvelteKit file routing only — each `+page.svelte` is a thin wrapper rendering a module page; no business logic lives there.
-- Do not deep-import another module's private components, state, API calls, or helpers.
-- Keep layer imports flowing `routes -> app -> modules -> shared`; lower layers must not import higher layers.
-- Avoid circular imports, self imports, and `export *` barrels.
-- Use explicit named exports in barrels and import another module only through its root entry.
-- Put server state in `@tanstack/svelte-query` first; keep Svelte 5 runes (`.svelte.ts`) for small client-only state.
-- Validate external data with zod before rendering or business handling.
-- Use semantic Tailwind color tokens from `src/index.css`; do not use direct palette colors in components.
-- Put user-facing Chinese copy in `src/shared/i18n/locales` and read it with `t(...)`.
-- Give complex tables a local horizontal scroll fallback on narrow screens.
-- Avoid arbitrary Tailwind text sizes and radius classes. Use stable text and radius tokens.
-- Large arbitrary width/height/min/max sizing classes need clear layout meaning, responsive variants, or a local overflow fallback.
+---
 
-## Stack
-
-- Tauri 2 (Rust backend in `src-tauri/`)
-- Svelte 5 + SvelteKit (static SPA via `@sveltejs/adapter-static`)
-- TypeScript (strict) + Vite
-- Tailwind CSS v4 (semantic tokens only)
-- `@tanstack/svelte-query` for server state, Svelte 5 runes for client state
-- shadcn-svelte (Svelte 5 + bits-ui) UI components in `src/shared/ui`, `@lucide/svelte` icons, i18next, zod
-
-## AI Collaboration Rules
-
-AI agents working in this repo must:
-
-- Read `AGENTS.md` first; Claude Code should also read `CLAUDE.md`.
-- Preserve existing comments. If new comments are necessary, write them in Chinese.
-- Never overwrite, revert, or delete user changes.
-- Use `apply_patch` for manual file edits.
-- Prefer `rg` and `rg --files` when searching.
-- Avoid empty abstractions, thin helpers, thin components, and helpers that only forward runes state reads or setters.
-- Run the relevant lint commands after UI, layout, color, or copy changes; run `npm run lint` and `npm run build` before reporting completion.
-
-## Git Commits
-
-Commit messages must follow Conventional Commits. Allowed types:
-
-```text
-build, chore, ci, docs, feat, fix, refactor, revert, test
-```
-
-Examples:
-
-```bash
-git commit -m "feat: add dashboard filter"
-git commit -m "fix: handle empty response"
-```
-
-Husky runs `npm run precommit` in `pre-commit` and `commitlint` in `commit-msg`.
+<sub>Built with Tauri · Svelte 5 · for everyone who keeps losing their skills between machines.</sub>
