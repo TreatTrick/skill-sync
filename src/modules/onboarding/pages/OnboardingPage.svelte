@@ -17,6 +17,7 @@
 
   import { checkGit, checkRemote, prepareRepo } from '../api/onboardingApi'
   import type { GitCheck, RemoteCheck } from '../schemas/onboarding'
+  import SshSetupDialog from '../components/SshSetupDialog.svelte'
 
   const queryClient = useQueryClient()
   const appState = createQuery(() => ({
@@ -30,6 +31,7 @@
   let msg = $state('')
   let saving = $state(false)
   let prefilled = $state(false)
+  let sshDialogOpen = $state(false)
 
   // Prefill from the loaded app state once it arrives.
   $effect(() => {
@@ -75,7 +77,7 @@
   }
 </script>
 
-<div class="grid max-w-2xl gap-4">
+<div class="grid gap-4">
   <Card>
     <CardHeader>
       <CardTitle>{t('onboarding.title')}</CardTitle>
@@ -101,6 +103,22 @@
       </label>
     </CardContent>
   </Card>
+
+  <Card>
+    <CardContent class="flex items-center justify-between gap-2">
+      <span class="text-sm font-bold text-strong-foreground">
+        {t('onboarding.sshHintTitle')}
+      </span>
+      <Button
+        onclick={() => (sshDialogOpen = true)}
+        size="sm"
+        variant="outline"
+      >
+        {t('onboarding.sshHintToggle')}
+      </Button>
+    </CardContent>
+  </Card>
+  <SshSetupDialog bind:open={sshDialogOpen} />
 
   <Card>
     <CardContent class="grid gap-3 sm:grid-cols-2">

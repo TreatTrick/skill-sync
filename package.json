@@ -19,7 +19,6 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.23.0",
     "@tanstack/svelte-query": "^6.1.36",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2",
@@ -34,6 +33,8 @@
     "@commitlint/cli": "19.7.1",
     "@commitlint/config-conventional": "19.7.1",
     "@eslint/js": "^10.0.1",
+    "@internationalized/date": "^3.12.2",
+    "@lucide/svelte": "^1.23.0",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.69.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
