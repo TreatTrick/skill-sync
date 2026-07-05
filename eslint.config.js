@@ -188,7 +188,7 @@ export default defineConfig([
   // Svelte 基础规则与 svelte-eslint-parser 注册
   ...svelte.configs['flat/recommended'],
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.ts'],
     plugins: {
       'import-x': importX,
       ...LOCAL_PLUGIN,
@@ -228,7 +228,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/shared/**/*.{ts,tsx,svelte}'],
+    files: ['src/shared/**/*.{ts,svelte}'],
     rules: {
       'no-restricted-imports': 'off',
     },

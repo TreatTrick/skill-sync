@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '@/shared/i18n'
+  import { SyncPreviewPage } from '@/modules/sync'
 </script>
 
-<div class="text-muted-foreground">{t('routes.sync')} — Svelte migration pending</div>
+<SyncPreviewPage />

@@ -6,7 +6,12 @@
     class?: string
   }
 
-  let { class: className, ...rest }: Props = $props()
+  let { class: className, checked = $bindable(), ...rest }: Props = $props()
 </script>
 
-<input class={cn('size-4 rounded border-border accent-primary', className)} type="checkbox" {...rest} />
+<input
+  bind:checked
+  class={cn('size-4 rounded border-border accent-primary', className)}
+  type="checkbox"
+  {...rest}
+/>

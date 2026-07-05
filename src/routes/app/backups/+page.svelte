@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '@/shared/i18n'
+  import { BackupsPage } from '@/modules/backups'
 </script>
 
-<div class="text-muted-foreground">{t('routes.backups')} — Svelte migration pending</div>
+<BackupsPage />

@@ -1,1 +1,1 @@
-export { ConflictsPage } from './pages/ConflictsPage'
+export { default as ConflictsPage } from './pages/ConflictsPage.svelte'

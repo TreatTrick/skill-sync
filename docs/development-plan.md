@@ -1,5 +1,7 @@
 # Skill Sync 桌面应用开发计划
 
+> **⚠️ 前端实现章节已迁移：** 前端已于 2026-07-05 从 React 迁移至 Svelte 5 / SvelteKit。前端架构、目录结构、组件与页面实现以 [`docs/svelte-ui-refactor.md`](svelte-ui-refactor.md) 为准。本文档保留产品判断、MVP 范围、页面设计、后端 Tauri/Rust、同步引擎、Git 集成、配置模型、安全等仍有效的章节。
+
 > **给 agent 执行者：** 必须使用 `superpowers:subagent-driven-development`（如果环境支持子代理）或 `superpowers:executing-plans` 来执行本计划。所有步骤使用 checkbox（`- [ ]`）语法，便于跟踪进度。
 
 **目标：** 构建一个开源 Tauri 桌面应用，让开发者通过 UI 同步自己在多台电脑上的 agent skills。
@@ -8,7 +10,7 @@
 
 **架构：** 前端负责交互、列表、状态展示和冲突决策；Tauri/Rust 后端负责本地文件扫描、`SKILL.md` 解析、Git 同步、备份、冲突检测和配置持久化。云端不做自建账号系统，MVP 使用用户自己的 GitHub/GitLab/自托管 Git 仓库作为同步源。
 
-**技术栈：** Tauri（当前稳定大版本）、Rust、系统 Git CLI、JSON/YAML 配置、Rust unit tests、GitHub Actions。前端由 `react-frontend-scaffold` skill 主导（已 scaffold），具体为：React 19、TypeScript、Vite、Tailwind CSS v4（仅语义色 token，不用 CSS Modules）、React Router、TanStack Query、Zustand、zod、mitt、shadcn/ui 约定、i18next，以及 ESLint / Prettier / commitlint / husky 护栏。前端架构遵循 `src/app → src/modules → src/shared` 单向依赖，由 ESLint 强制。
+**技术栈：** Tauri（当前稳定大版本）、Rust、系统 Git CLI、JSON/YAML 配置、Rust unit tests、GitHub Actions。前端栈（Svelte 5 / SvelteKit / TypeScript strict / Tailwind v4 / `@tanstack/svelte-query` / `@lucide/svelte` / i18next / zod / Svelte 5 runes）见 [`docs/svelte-ui-refactor.md`](svelte-ui-refactor.md)。
 
 ---
 
@@ -195,90 +197,30 @@ Skill Sync 的第一版不应该做公共 marketplace，也不应该先做 SaaS 
 
 ## 项目目录规划
 
+> 前端目录结构（`src/routes` / `src/app` / `src/modules` / `src/shared`）与依赖方向由 [`docs/svelte-ui-refactor.md`](svelte-ui-refactor.md) 定义，由 ESLint 强制。项目根与后端布局：
+
 ```text
 D:\project\skill-sync
-  index.html
   package.json
   vite.config.ts
+  svelte.config.js
   tsconfig.json
-  tsconfig.app.json
   tsconfig.node.json
   eslint.config.js
   .prettierrc.json
   .prettierignore
-  components.json
   scripts\
     check-color-tokens.mjs
     check-i18n-literals.mjs
     check-responsive-layout.mjs
     setup-husky.mjs
-  src\
-    main.tsx
-    App.tsx
-    index.css                      # Tailwind v4 入口 + 语义色变量与 @theme inline token
-    app\
-      layouts\AppLayout.tsx        # 侧边导航 + 内容区（替代旧 AppShell）
-      providers\AppProviders.tsx   # TanStack Query / i18n 等全局 provider
-      router\
-        AppRouter.tsx
-        routeConfig.tsx            # 路由表，按模块聚合
-    modules\                       # 每个业务页面是一个模块，对外只通过 index.ts 暴露
-      onboarding\
-        pages\OnboardingPage.tsx
-        index.ts
-      dashboard\
-        pages\DashboardPage.tsx
-        index.ts
-      skills\
-        api\getSkills.ts           # 经 src/shared/lib/tauri.ts 调 scan_skills()
-        components\SkillTable.tsx  # 模块专属组件
-        pages\SkillsPage.tsx
-        schemas\skill.ts           # zod 校验后端返回
-        stores\skillsStore.ts      # 仅客户端状态；服务端数据走 TanStack Query
-        types\skill.ts
-        index.ts
-      sync\
-        pages\SyncPreviewPage.tsx
-        schemas\syncPlan.ts
-        types\syncPlan.ts
-        index.ts
-      conflicts\
-        pages\ConflictsPage.tsx
-        components\ConfirmDialog.tsx
-        types\conflict.ts
-        index.ts
-      backups\
-        api\listBackups.ts
-        pages\BackupsPage.tsx
-        types\backup.ts
-        index.ts
-      settings\
-        pages\SettingsPage.tsx
-        schemas\config.ts
-        types\config.ts
-        index.ts
-    shared\                        # 跨模块复用层，modules 不得反向依赖 app
-      ui\
-        index.ts                   # 显式具名导出，禁止 export *
-        badge.tsx
-        breadcrumb.tsx
-        status-badge.tsx
-        path-picker.tsx
-      lib\
-        index.ts
-        utils.ts
-        eventBus.ts                # mitt
-        format.ts                  # 时间/hash 等格式化
-        tauri.ts                   # Tauri invoke 封装，前端唯一入口
-      schemas\
-        apiResponse.ts             # 通用响应/错误结构
-      stores\
-        index.ts
-        uiStore.ts                 # 全局 UI 状态
-      i18n\
-        index.ts
-        i18next.d.ts
-        locales\zh-CN.json         # 所有中文 UI 文案，组件里用 t('...')
+  src\                            # Svelte 前端，详细结构见 svelte-ui-refactor.md
+    app.html                      # SvelteKit HTML 外壳
+    index.css                     # Tailwind v4 入口 + 语义色变量与 @theme inline token
+    routes\                       # SvelteKit 文件路由，仅装配
+    app\                          # 应用层：layouts / providers / router
+    modules\                      # 业务模块，对外只通过 index.ts 暴露
+    shared\                       # 跨模块基础：ui / lib / schemas / state / i18n / theme
   src-tauri\
     src\
       main.rs
@@ -295,6 +237,7 @@ D:\project\skill-sync
     Cargo.toml
   docs\
     development-plan.md
+    svelte-ui-refactor.md
     distributed-execution.md
   tests\
     fixtures\
@@ -309,11 +252,9 @@ D:\project\skill-sync
 
 说明：
 
-- 前端目录由 `react-frontend-scaffold` skill 主导。scaffold 自带的 `src/modules/demo-dashboard` 是占位示例，落地第一个真实模块时应删除或替换。
-- 依赖方向强制为 `app → modules → shared`：`modules` 之间禁止深导入，跨模块复用必须经 `src/shared` 或通过模块根 `index.ts` 显式导出。
-- 所有 UI 文案放 `src/shared/i18n/locales/zh-CN.json`，组件中用 `t('...')`；颜色只用 `src/index.css` 里的语义 token，禁止 `bg-white`、`#fff`、`text-slate-700` 等字面色。
-- `src/components`、`src/routes`、`src/lib`、`src/styles` 旧路径不再使用。`AppShell` → `src/app/layouts/AppLayout.tsx`；`StatusBadge`、`PathPicker` 等通用组件入 `src/shared/ui`；`SkillTable`、`ConfirmDialog` 等模块专属组件留在所属 `modules/<m>/components`。
-- skill 模板未内置前端测试运行器；阶段 6 的 e2e smoke test 需另行引入 Playwright。
+- 前端依赖方向强制为 `routes -> app -> modules -> shared`：`modules` 之间禁止深导入，跨模块复用必须经 `src/shared` 或通过模块根 `index.ts` 显式导出。
+- 所有 UI 文案放 `src/shared/i18n/locales`，组件中用 `t('...')`；颜色只用 `src/index.css` 里的语义 token，禁止 `bg-white`、`#fff`、`text-slate-700` 等字面色。
+- e2e smoke test 需另行引入 Playwright（见阶段 6）。
 
 用户同步仓库结构：
 
@@ -341,37 +282,37 @@ agent-skills-repo
 ```yaml
 version: 1
 repository:
-  local_path: "D:/agent-skills"
-  remote: "git@github.com:example/agent-skills.git"
-  branch: "main"
+  local_path: 'D:/agent-skills'
+  remote: 'git@github.com:example/agent-skills.git'
+  branch: 'main'
 defaults:
   backup: true
-  install_mode: "copy"
+  install_mode: 'copy'
 ui:
   show_advanced_git_logs: false
 hosts:
   codex:
     enabled: true
     paths:
-      - "~/.agents/skills"
-      - "~/.codex/skills"
+      - '~/.agents/skills'
+      - '~/.codex/skills'
   claude:
     enabled: true
     paths:
-      - "~/.claude/skills"
+      - '~/.claude/skills'
   cursor:
     enabled: false
     paths:
-      - "~/.cursor/skills"
+      - '~/.cursor/skills'
   gemini:
     enabled: false
     paths:
-      - "~/.gemini/skills"
+      - '~/.gemini/skills'
 custom_paths: []
 ignore:
-  - "**/.git/**"
-  - "**/node_modules/**"
-  - "**/.env"
+  - '**/.git/**'
+  - '**/node_modules/**'
+  - '**/.env'
 ```
 
 说明：
@@ -491,7 +432,7 @@ Skills 可能包含私有工作流、脚本、内部路径和公司知识。MVP 
 
 **文件：**
 
-- 已由 `react-frontend-scaffold` skill 提供（前端）：`package.json`、`vite.config.ts`、`tsconfig.json`、`src/main.tsx`、`src/App.tsx`、`src/app/layouts/AppLayout.tsx`、`src/app/router/*`、`README.md`
+- 前端骨架由 SvelteKit 工程提供（见 [`docs/svelte-ui-refactor.md`](svelte-ui-refactor.md)）
 - 创建（Tauri/Rust 侧）：`src-tauri/Cargo.toml`
 - 创建：`src-tauri/src/main.rs`
 - 创建：`src-tauri/tauri.conf.json`
@@ -499,19 +440,15 @@ Skills 可能包含私有工作流、脚本、内部路径和公司知识。MVP 
 
 - [ ] **步骤 1：初始化 Tauri Rust 骨架**
 
-前端已由 skill scaffold 完成。用 `npm create tauri-app` 或手动在 `src-tauri/` 初始化 Rust 骨架，并在 `tauri.conf.json` 中把 `build.devUrl` 指向 Vite dev server（默认 `http://localhost:5173`）、`build.frontendDist` 指向 `../dist`。确认 `npm run tauri dev` 能启动桌面窗口。
+在 `src-tauri/` 初始化 Rust 骨架，并在 `tauri.conf.json` 中把 `build.devUrl` 指向 Vite dev server（默认 `http://localhost:5173`）、`build.frontendDist` 指向 `../dist`。确认 `npm run tauri dev` 能启动桌面窗口。
 
-- [ ] **步骤 2：调整 AppLayout**
-
-在 scaffold 提供的 `src/app/layouts/AppLayout.tsx` 基础上，显示固定侧边导航和空状态 Dashboard；导航文案走 `t('...')`，颜色只用语义 token。
-
-- [ ] **步骤 3：验证**
+- [ ] **步骤 2：验证**
 
 运行前端类型检查和 Rust 编译检查。
 
 预期：应用可以启动，窗口显示 Dashboard。
 
-- [ ] **步骤 4：提交**
+- [ ] **步骤 3：提交**
 
 ```bash
 git add .
@@ -526,7 +463,7 @@ git commit -m "chore: initialize tauri desktop app"
 
 - [ ] **步骤 1：添加前端检查**
 
-CI 运行 TypeScript check、前端测试。
+CI 运行 `npm run lint`（含 typecheck / ESLint / 响应式 / 颜色 / i18n）与 `npm run build`。
 
 - [ ] **步骤 2：添加 Rust 检查**
 
@@ -539,59 +476,23 @@ git add .github/workflows/ci.yml
 git commit -m "ci: add desktop app checks"
 ```
 
-## 阶段 2：UI 导航与类型契约
+## 阶段 2：类型契约
 
-### 任务 3：实现页面骨架
-
-**文件：**
-
-- scaffold 已提供：`src/app/layouts/AppLayout.tsx`、`src/app/providers/AppProviders.tsx`、`src/app/router/AppRouter.tsx`、`src/app/router/routeConfig.tsx`、`src/index.css`、`src/shared/i18n/*`、`src/shared/ui/*`
-- 删除：`src/modules/demo-dashboard`（占位示例，替换为真实模块）
-- 创建：`src/modules/onboarding/pages/OnboardingPage.tsx` + `index.ts`
-- 创建：`src/modules/dashboard/pages/DashboardPage.tsx` + `index.ts`
-- 创建：`src/modules/skills/pages/SkillsPage.tsx` + `index.ts`
-- 创建：`src/modules/sync/pages/SyncPreviewPage.tsx` + `index.ts`
-- 创建：`src/modules/conflicts/pages/ConflictsPage.tsx` + `index.ts`
-- 创建：`src/modules/backups/pages/BackupsPage.tsx` + `index.ts`
-- 创建：`src/modules/settings/pages/SettingsPage.tsx` + `index.ts`
-- 修改：`src/app/router/routeConfig.tsx`（注册上述页面路由）
-
-- [ ] **步骤 1：写组件测试或 smoke test**
-
-确认每个页面能渲染标题和主要区域。skill 模板未内置测试运行器，本阶段先以 `npm run lint` + `npm run build` 作为门槛，e2e 留到阶段 6 引入 Playwright。
-
-- [ ] **步骤 2：实现导航**
-
-`AppLayout.tsx` 侧边栏包含 Dashboard、Skills、Sync、Conflicts、Backups、Settings；导航文案走 `t('...')`，颜色只用语义 token。
-
-- [ ] **步骤 3：验证**
-
-应用窗口中可以切换页面，文本不溢出，布局在窄窗口下可用。
-
-- [ ] **步骤 4：提交**
-
-```bash
-git add src
-git commit -m "feat: add desktop navigation shell"
-```
-
-### 任务 4：定义前后端类型
+### 任务 3：定义前后端类型
 
 **文件：**
 
 - 创建：`src/shared/lib/tauri.ts`（前端唯一的 Tauri invoke 封装）
 - 创建：`src/shared/schemas/apiResponse.ts`（`AppError` 与通用响应结构）
-- 创建：`src/modules/skills/schemas/skill.ts` + `src/modules/skills/types/skill.ts`
-- 创建：`src/modules/sync/schemas/syncPlan.ts` + `src/modules/sync/types/syncPlan.ts`
-- 创建：`src/modules/conflicts/types/conflict.ts`
-- 创建：`src/modules/backups/types/backup.ts`
-- 创建：`src/modules/settings/schemas/config.ts` + `src/modules/settings/types/config.ts`
+- 创建：`src/modules/skills/schemas/skill.ts`
+- 创建：`src/modules/sync/schemas/syncPlan.ts`
+- 创建：`src/modules/settings/schemas/config.ts`
 - 创建：`src-tauri/src/commands.rs`
 - 创建：`src-tauri/src/errors.rs`
 
 - [ ] **步骤 1：定义 TypeScript 类型与 zod schema**
 
-包括 `Skill`、`SyncPlan`、`Conflict`、`BackupEntry`、`AppConfig`、`AppError`。每个类型归属对应模块的 `types/`，并在 `schemas/` 提供等价 zod schema；后端返回必须先经 zod 解析再进入 UI。跨模块共享结构放 `src/shared/schemas`。
+包括 `Skill`、`SyncPlan`、`Conflict`、`BackupEntry`、`AppConfig`、`AppError`。每个类型归属对应模块的 `schemas/`，后端返回必须先经 zod 解析再进入 UI。跨模块共享结构放 `src/shared/schemas`。
 
 - [ ] **步骤 2：定义 Rust DTO**
 
@@ -610,7 +511,7 @@ git commit -m "feat: define app api contracts"
 
 ## 阶段 3：后端核心能力
 
-### 任务 5：解析 `SKILL.md`
+### 任务 4：解析 `SKILL.md`
 
 **文件：**
 
@@ -636,7 +537,7 @@ git add src-tauri/src/skill.rs tests/fixtures
 git commit -m "feat: parse skill metadata"
 ```
 
-### 任务 6：发现本地 skills
+### 任务 5：发现本地 skills
 
 **文件：**
 
@@ -662,13 +563,12 @@ git add src-tauri/src/detect.rs src-tauri/src/commands.rs
 git commit -m "feat: discover local skills"
 ```
 
-### 任务 7：配置持久化
+### 任务 6：配置持久化
 
 **文件：**
 
 - 创建：`src-tauri/src/config.rs`
 - 修改：`src-tauri/src/commands.rs`
-- 修改：`src/modules/settings/pages/SettingsPage.tsx`
 
 - [ ] **步骤 1：测试默认配置**
 
@@ -689,7 +589,7 @@ git add src-tauri/src/config.rs src-tauri/src/commands.rs src/modules/settings
 git commit -m "feat: persist app configuration"
 ```
 
-### 任务 8：Manifest 与 hash
+### 任务 7：Manifest 与 hash
 
 **文件：**
 
@@ -712,7 +612,7 @@ git commit -m "feat: generate sync manifest"
 
 ## 阶段 4：Git 与同步引擎
 
-### 任务 9：Git Store
+### 任务 8：Git Store
 
 **文件：**
 
@@ -738,13 +638,12 @@ git add src-tauri/src/git_store.rs src-tauri/src/commands.rs
 git commit -m "feat: add git-backed store"
 ```
 
-### 任务 10：同步计划生成
+### 任务 9：同步计划生成
 
 **文件：**
 
 - 创建：`src-tauri/src/sync_engine.rs`
 - 修改：`src-tauri/src/commands.rs`
-- 修改：`src/modules/sync/pages/SyncPreviewPage.tsx`
 
 - [ ] **步骤 1：先写失败测试**
 
@@ -765,14 +664,13 @@ git add src-tauri/src/sync_engine.rs src-tauri/src/commands.rs src/modules/sync
 git commit -m "feat: preview skill sync plan"
 ```
 
-### 任务 11：应用同步计划与备份
+### 任务 10：应用同步计划与备份
 
 **文件：**
 
 - 创建：`src-tauri/src/backup.rs`
 - 修改：`src-tauri/src/sync_engine.rs`
 - 修改：`src-tauri/src/commands.rs`
-- 修改：`src/modules/backups/pages/BackupsPage.tsx`
 
 - [ ] **步骤 1：先写失败测试**
 
@@ -799,88 +697,18 @@ git commit -m "feat: apply sync with backups"
 
 ## 阶段 5：前端完整体验
 
-### 任务 12：Onboarding
+> 前端页面（Onboarding / Dashboard / Skills / Sync Preview / Conflicts / Backups / Settings）的实现由 Svelte 5 / SvelteKit 迁移覆盖，详见 [`docs/svelte-ui-refactor.md`](svelte-ui-refactor.md)。以下仅保留与后端 command 对接的验收要点。
 
-**文件：**
-
-- 修改：`src/modules/onboarding/pages/OnboardingPage.tsx`
-- 创建：`src/shared/ui/path-picker.tsx`
-
-- [ ] **步骤 1：实现路径选择**
-
-用户选择本地同步仓库目录和备份目录。
-
-- [ ] **步骤 2：实现 remote 检查**
-
-展示 Git 是否可用、remote 是否可访问。
-
-- [ ] **步骤 3：保存配置后进入 Dashboard**
-
-首次配置完成后不再重复显示引导页。
-
-- [ ] **步骤 4：提交**
-
-```bash
-git add src/modules/onboarding src/shared/ui
-git commit -m "feat: add first-run onboarding"
-```
-
-### 任务 13：Skills 管理页面
-
-**文件：**
-
-- 修改：`src/modules/skills/pages/SkillsPage.tsx`
-- 创建：`src/modules/skills/components/SkillTable.tsx`
-- 创建：`src/shared/ui/status-badge.tsx`
-
-- [ ] **步骤 1：展示真实扫描结果**
-
-表格显示名称、host、路径、状态、启用开关。
-
-- [ ] **步骤 2：实现重新扫描**
-
-按钮触发 `scan_skills()`。
-
-- [ ] **步骤 3：实现打开文件夹**
-
-通过 Tauri command 打开路径。
-
-- [ ] **步骤 4：提交**
-
-```bash
-git add src/modules/skills src/shared/ui
-git commit -m "feat: manage discovered skills"
-```
-
-### 任务 14：冲突处理页面
-
-**文件：**
-
-- 修改：`src/modules/conflicts/pages/ConflictsPage.tsx`
-- 创建：`src/modules/conflicts/components/ConfirmDialog.tsx`
-
-- [ ] **步骤 1：展示冲突列表**
-
-每个冲突显示原因、本地路径、远程路径、可选动作。
-
-- [ ] **步骤 2：实现决策**
-
-用户可选择保留本地、使用远程、跳过。
-
-- [ ] **步骤 3：同步前二次确认**
-
-执行会写文件的动作前显示确认对话框。
-
-- [ ] **步骤 4：提交**
-
-```bash
-git add src/modules/conflicts
-git commit -m "feat: resolve sync conflicts in ui"
-```
+- [ ] Onboarding：用户选择本地同步仓库目录、填写 Git remote、检查 Git/remote、保存配置后进入 Dashboard。
+- [ ] Skills：展示真实扫描结果，支持重新扫描、打开文件夹。
+- [ ] Sync Preview：按 uploads/downloads/updates/deletes/conflicts 分组展示真实计划，执行同步后清解决策并 invalidate。
+- [ ] Conflicts：逐项选择保留本地 / 使用远程 / 跳过，决策写入 `syncDecisions`。
+- [ ] Backups：列出备份并支持恢复。
+- [ ] Settings：管理 Git remote、agent 路径、备份目录、ignore 规则；切换主题与语言。
 
 ## 阶段 6：打磨、测试与发布
 
-### 任务 15：端到端 smoke test
+### 任务 11：端到端 smoke test
 
 **文件：**
 
@@ -902,7 +730,7 @@ git add tests package.json
 git commit -m "test: add desktop smoke tests"
 ```
 
-### 任务 16：文档与发布
+### 任务 12：文档与发布
 
 **文件：**
 
@@ -941,7 +769,7 @@ git commit -m "docs: prepare desktop app release"
 - 写入前创建备份。
 - Backups 页面可以恢复备份。
 - Settings 页面可以修改路径和 remote。
-- 前端类型检查通过。
+- 前端类型检查通过（`npm run lint` + `npm run build`）。
 - Rust tests 通过。
 - 桌面 smoke test 通过。
 - README 可以让新用户完成第一次图形化同步。

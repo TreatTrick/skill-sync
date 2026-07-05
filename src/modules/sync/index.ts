@@ -1,4 +1,4 @@
-export { SyncPreviewPage } from './pages/SyncPreviewPage'
+export { default as SyncPreviewPage } from './pages/SyncPreviewPage.svelte'
 export { applySyncPlan, getSyncPlan } from './api/syncApi'
 export {
   type ApplyResult,
@@ -6,4 +6,7 @@ export {
   type SyncAction,
   type SyncPlan,
 } from './schemas/syncPlan'
-export { useSyncDecisionsStore } from './stores/syncDecisionsStore'
+export {
+  syncDecisions,
+  type ConflictChoice,
+} from './state/syncDecisions.svelte'

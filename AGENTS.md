@@ -14,7 +14,7 @@
 - Do not delete user code, comments, or uncommitted changes. If unrelated changes exist, leave them alone.
 - If the user explicitly says not to write tests, do not add tests. Otherwise choose the smallest verification that matches the risk.
 - After UI, layout, color, or copy changes, run the matching lint command. Before committing, run `npm run lint` and `npm run build`.
-- Do not add empty abstractions, thin components, thin helpers, or functions that only forward Zustand calls.
+- Do not add empty abstractions, thin components, thin helpers, or functions that only forward runes state reads or setters.
 - Report changed files and verification commands. Do not claim unverified success.
 
 ## Git Commit Rules
@@ -29,15 +29,15 @@
 
 ## Anti-Thin-Wrapper Rule
 
-- Do not create wrappers that only forward simple Zustand `getState()` reads or setter calls.
-- Add a wrapper only when it contains real semantics such as business rules, defaults, validation, unit conversion, error handling, telemetry, cross-store coordination, or stable reuse from 3+ call sites.
-- If a function only does `return store.xxx` or `store.setXxx(value)`, inline the store call at the use site.
-- When reading state only to apply a fallback, prefer keeping the fallback explicit at the use site, for example `const value = storeValue ?? 0`.
+- Do not create wrappers that only forward simple runes state reads or setter calls.
+- Add a wrapper only when it contains real semantics such as business rules, defaults, validation, unit conversion, error handling, telemetry, cross-state coordination, or stable reuse from 3+ call sites.
+- If a function only does `return state.xxx` or `state.setXxx(value)`, inline the state access at the use site.
+- When reading state only to apply a fallback, prefer keeping the fallback explicit at the use site, for example `const value = stateValue ?? 0`.
 - Before adding any helper, confirm that it adds meaning rather than just another name.
 
-## React Architecture
+## Svelte Architecture
 
-Use `React + TypeScript` with lightweight domain-oriented modules. The goal is practical frontend engineering: routing, components, forms, async requests, dialogs, and state management without copying backend DDD layers into the frontend.
+Use `Svelte 5 + SvelteKit + TypeScript` with lightweight domain-oriented modules. The goal is practical frontend engineering: routing, components, forms, async requests, dialogs, and state management without copying backend DDD layers into the frontend.
 
 ### Principles
 
@@ -49,51 +49,57 @@ Use `React + TypeScript` with lightweight domain-oriented modules. The goal is p
 
 ```text
 src/
+  routes/              # SvelteKit file routing — assembly only, no business logic
+    +layout.svelte
+    app/
+      <module>/+page.svelte
   app/
     router/
     providers/
     layouts/
   shared/
-    api/
     ui/
     lib/
     schemas/
-    stores/
+    state/             # runes state in *.svelte.ts
+    i18n/
+    theme/
   modules/
     <module-name>/
       pages/
       components/
       api/
       schemas/
-      stores/
+      state/           # module-local runes state in *.svelte.ts
       lib/
       types/
 ```
 
 ### Directory Responsibilities
 
-- `src/app`: application assembly only, including routes, global providers, layouts, and error boundaries.
-- `src/shared`: stable cross-module foundations such as UI primitives, request clients, date helpers, base zod helpers, and global state.
-- `src/modules/<module-name>`: private pages, components, API functions, schemas, stores, business helpers, and types for one product module.
+- `src/routes`: SvelteKit file routing only. Each `+page.svelte` is a thin wrapper rendering a module page; routes carry no business logic.
+- `src/app`: application assembly only, including route config, global providers, layouts, and error boundaries.
+- `src/shared`: stable cross-module foundations such as UI primitives, request clients, date helpers, base zod helpers, and global runes state.
+- `src/modules/<module-name>`: private pages, components, API functions, schemas, state, business helpers, and types for one product module.
 
 ### Module Boundaries
 
-- Modules must not deep-import another module's private components, stores, helpers, or API functions.
+- Modules must not deep-import another module's private components, state, helpers, or API functions.
 - When one module needs another capability, prefer page composition, route params, backend APIs, or a stable capability promoted to `shared`.
 - Move code to `shared` only after the concept is stable and reused across modules.
 - Do not let `shared` become a junk drawer.
-- Layer imports must follow `app -> modules -> shared`. Lower layers must not import higher layers, including through relative imports.
+- Layer imports must follow `routes -> app -> modules -> shared`. Lower layers must not import higher layers, including through relative imports.
 - Avoid circular imports and self imports; ESLint checks both.
 - Do not use `export *` or `export * as namespace`; explicitly name each exported member.
 - ESLint uses `eslint-plugin-import-x` with the TypeScript resolver, so architecture violations may appear as import-cycle, self-import, deep-import, or reverse-layer errors.
 
 ## State Management
 
-- Prefer TanStack Query for server data: lists, details, filtered results, audit logs, and similar remote state.
-- Use Zustand only for small client-only state such as current user, global UI state, or temporary cross-page selections.
-- Keep form state in form libraries or local component state by default.
+- Prefer `@tanstack/svelte-query` for server data: lists, details, filtered results, audit logs, and similar remote state. Use `createQuery` / `createMutation` with an accessor function (`() => ({ ... })`) so options stay reactive.
+- Use Svelte 5 runes (`.svelte.ts` modules exporting a state class instance) only for small client-only state such as current theme, language, sidebar collapse, or temporary cross-page selections.
+- Keep form state local to the page with `$state`; do not push it into shared runes state.
 - Prefer URL query or route state for filters, pagination, and tabs that should survive refreshes or be shareable.
-- Follow the anti-thin-wrapper rule for Zustand reads and writes.
+- Follow the anti-thin-wrapper rule for runes state reads and writes.
 
 ## API And Data Validation
 
@@ -104,7 +110,7 @@ src/
 
 ## UI Rules
 
-- Use shadcn/ui conventions, Tailwind CSS, and lucide-react.
+- Use Tailwind CSS with `@lucide/svelte` icons and the hand-built Svelte UI primitives in `src/shared/ui`. Do not introduce shadcn/ui or React component libraries.
 - Dashboard and workspace screens should be dense, scannable, and task-focused, not marketing landing pages.
 - Split components for business readability and real reuse, not for every HTML fragment.
 - Tables, filters, pagination, dialogs, drawers, and confirmations can become clear components, but do not create a generic cross-module table framework before stable reuse exists.
@@ -113,7 +119,7 @@ src/
 
 - Tailwind CSS v4 is configured through `src/index.css` with `@import "tailwindcss";`.
 - Global CSS should contain theme variables, fonts, background, and box model basics. Do not set page-level fixed widths globally.
-- Do not set fixed minimum widths on `body`, `#root`, or app root containers.
+- Do not set fixed minimum widths on `body`, app root containers, or the SvelteKit `src/app.html` shell.
 - Use mobile-first responsive classes: default for small screens, then `sm:`, `md:`, `lg:`, `xl:`, `2xl:`.
 - Grids must define a narrow-screen default, for example `grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`.
 - Tables must have a narrow-screen fallback: wrap with `overflow-x-auto` and set a local `min-w-[...]`.
@@ -135,13 +141,13 @@ src/
 
 - Put user-facing Chinese copy in `src/shared/i18n/locales`.
 - Components must read UI copy with `t('...')`, including buttons, table headers, filter options, status labels, empty states, placeholders, nav titles, and hints.
-- Chinese translations are allowed in `src/shared/i18n`; other source files should add locale keys first.
+- Chinese translations are allowed in `src/shared/i18n`; other source files (`.ts`, `.svelte`) should add locale keys first.
 - After UI copy changes, run `npm run lint:i18n`.
 
 ## Naming
 
 - Business module directories use kebab-case.
-- React component files use PascalCase.
+- Svelte component files use PascalCase (for example `Button.svelte`).
 - Regular TypeScript files use camelCase.
 - Types and interfaces use PascalCase; do not prefix interfaces with `I`.
 - Constants use SCREAMING_SNAKE_CASE.

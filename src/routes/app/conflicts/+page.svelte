@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '@/shared/i18n'
+  import { ConflictsPage } from '@/modules/conflicts'
 </script>
 
-<div class="text-muted-foreground">{t('routes.conflicts')} — Svelte migration pending</div>
+<ConflictsPage />

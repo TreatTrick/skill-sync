@@ -4,7 +4,7 @@ import process from 'node:process'
 
 const RESPONSIVE_VARIANTS = new Set(['sm', 'md', 'lg', 'xl', '2xl'])
 const SOURCE_DIRS = ['src']
-const SOURCE_EXTENSIONS = new Set(['.css', '.ts', '.tsx', '.svelte'])
+const SOURCE_EXTENSIONS = new Set(['.css', '.ts', '.svelte'])
 const STATIC_GRID_COLUMN_MIN = 2
 const LARGE_ARBITRARY_GRID_PX = 240
 const LARGE_WIDTH_PX = 768
@@ -259,7 +259,7 @@ const checkFile = async (filePath) => {
 
   checkTailwindTokens(filePath, content, issues)
 
-  if (filePath.endsWith('.tsx') || filePath.endsWith('.svelte')) {
+  if (filePath.endsWith('.svelte')) {
     checkTables(filePath, content, issues)
   }
 

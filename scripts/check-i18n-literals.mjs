@@ -3,7 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 const SOURCE_DIRS = ['src']
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.svelte'])
+const SOURCE_EXTENSIONS = new Set(['.ts', '.svelte'])
 const ALLOWED_PATH_PREFIXES = [path.normalize('src/shared/i18n')]
 const HAN_CHARACTER_PATTERN = /[\u4e00-\u9fff]/g
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '@/shared/i18n'
+  import { SettingsPage } from '@/modules/settings'
 </script>
 
-<div class="text-muted-foreground">{t('routes.settings')} — Svelte migration pending</div>
+<SettingsPage />

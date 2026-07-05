@@ -3,7 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 const SOURCE_DIRS = ['src']
-const SOURCE_EXTENSIONS = new Set(['.css', '.ts', '.tsx', '.svelte'])
+const SOURCE_EXTENSIONS = new Set(['.css', '.ts', '.svelte'])
 const TOKEN_DEFINITION_FILES = new Set([path.normalize('src/index.css')])
 const PALETTE_NAMES = [
   'slate',
