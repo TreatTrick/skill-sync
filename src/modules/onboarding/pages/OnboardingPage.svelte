@@ -4,7 +4,15 @@
 
   import { errorMessage } from '@/shared/lib'
   import { t } from '@/shared/i18n'
-  import { Button, Card, CardBody, CardHeader, Input } from '@/shared/ui'
+  import {
+    Button,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+    Input,
+  } from '@/shared/ui'
   import { getAppState } from '@/modules/settings'
 
   import { checkGit, checkRemote, prepareRepo } from '../api/onboardingApi'
@@ -69,17 +77,20 @@
 
 <div class="grid max-w-2xl gap-4">
   <Card>
-    <CardHeader description={t('onboarding.description')} title={t('onboarding.title')} />
+    <CardHeader>
+      <CardTitle>{t('onboarding.title')}</CardTitle>
+      <CardDescription>{t('onboarding.description')}</CardDescription>
+    </CardHeader>
   </Card>
 
   {#if msg}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardBody class="text-sm text-destructive">{msg}</CardBody>
+      <CardContent class="text-sm text-destructive">{msg}</CardContent>
     </Card>
   {/if}
 
   <Card>
-    <CardBody class="grid gap-4">
+    <CardContent class="grid gap-4">
       <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
         {t('onboarding.remote')}
         <Input bind:value={remote} />
@@ -88,17 +99,17 @@
         {t('onboarding.branch')}
         <Input bind:value={branch} />
       </label>
-    </CardBody>
+    </CardContent>
   </Card>
 
   <Card>
-    <CardBody class="grid gap-3 sm:grid-cols-2">
+    <CardContent class="grid gap-3 sm:grid-cols-2">
       <div class="grid gap-2 rounded-lg border border-border p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="text-sm font-bold text-strong-foreground">
             {t('onboarding.gitCheck')}
           </span>
-          <Button onclick={() => void handleCheckGit()} size="sm" variant="secondary">
+          <Button onclick={() => void handleCheckGit()} size="sm" variant="outline">
             {t('onboarding.checkGit')}
           </Button>
         </div>
@@ -121,7 +132,7 @@
             disabled={!remote.trim()}
             onclick={() => void handleCheckRemote()}
             size="sm"
-            variant="secondary"
+            variant="outline"
           >
             {t('onboarding.checkRemote')}
           </Button>
@@ -136,7 +147,7 @@
           {/if}
         </p>
       </div>
-    </CardBody>
+    </CardContent>
   </Card>
 
   <Button class="justify-self-start" loading={saving} onclick={() => void handleSave()}>

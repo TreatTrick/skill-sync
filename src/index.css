@@ -42,6 +42,19 @@
   /* Focus ring */
   --ring: #0f766e;
 
+  /* shadcn-svelte token aliases — map shadcn token names to existing values so
+     generated shadcn components resolve against the project's token system. */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-muted);
+  --accent: var(--surface-hover);
+  --accent-foreground: var(--foreground);
+  --input: var(--border);
+
   font-family: 'Microsoft YaHei', 'PingFang SC', Inter, Arial, sans-serif;
   color: var(--foreground);
   background: var(--background);
@@ -92,6 +105,18 @@
 
   /* Focus ring */
   --ring: #2dd4bf;
+
+  /* shadcn-svelte token aliases — reference the dark-mode tokens above. */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-muted);
+  --accent: var(--surface-hover);
+  --accent-foreground: var(--foreground);
+  --input: var(--border);
 }
 
 @theme inline {
@@ -128,6 +153,17 @@
   --color-success-muted: var(--success-muted);
 
   --color-ring: var(--ring);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-input: var(--input);
 
   --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
   --shadow-sm:

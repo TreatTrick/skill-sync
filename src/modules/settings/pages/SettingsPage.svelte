@@ -9,8 +9,10 @@
   import {
     Button,
     Card,
-    CardBody,
+    CardContent,
+    CardDescription,
     CardHeader,
+    CardTitle,
     Checkbox,
     Input,
     Spinner,
@@ -92,23 +94,28 @@
 
 <div class="grid gap-4">
   <Card>
-    <CardHeader description={t('settings.description')} title={t('settings.title')}>
-      {#snippet action()}
-        <Button disabled={!config} loading={save.isPending} onclick={handleSave}>
-          {t('settings.save')}
-        </Button>
-      {/snippet}
+    <CardHeader class="flex-row items-center justify-between space-y-0">
+      <div class="space-y-1.5">
+        <CardTitle>{t('settings.title')}</CardTitle>
+        <CardDescription>{t('settings.description')}</CardDescription>
+      </div>
+      <Button disabled={!config} loading={save.isPending} onclick={handleSave}>
+        {t('settings.save')}
+      </Button>
     </CardHeader>
   </Card>
 
   <Card>
-    <CardHeader description={t('settings.appearanceDesc')} title={t('settings.appearance')} />
-    <CardBody>
+    <CardHeader>
+      <CardTitle>{t('settings.appearance')}</CardTitle>
+      <CardDescription>{t('settings.appearanceDesc')}</CardDescription>
+    </CardHeader>
+    <CardContent>
       <div class="flex gap-2">
         {#each themeOptions as { mode, icon: Icon, label } (mode)}
           <button
             class={cn(
-              'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+              'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
               themeState.theme === mode
                 ? 'border-primary bg-primary-muted text-primary-muted-foreground'
                 : 'border-border bg-surface text-foreground hover:bg-surface-hover',
@@ -121,17 +128,20 @@
           </button>
         {/each}
       </div>
-    </CardBody>
+    </CardContent>
   </Card>
 
   <Card>
-    <CardHeader description={t('settings.languageDesc')} title={t('settings.language')} />
-    <CardBody>
+    <CardHeader>
+      <CardTitle>{t('settings.language')}</CardTitle>
+      <CardDescription>{t('settings.languageDesc')}</CardDescription>
+    </CardHeader>
+    <CardContent>
       <div class="flex gap-2">
         {#each languageOptions as { code, label } (code)}
           <button
             class={cn(
-              'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+              'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
               languageState.language === code
                 ? 'border-primary bg-primary-muted text-primary-muted-foreground'
                 : 'border-border bg-surface text-foreground hover:bg-surface-hover',
@@ -143,20 +153,20 @@
           </button>
         {/each}
       </div>
-    </CardBody>
+    </CardContent>
   </Card>
 
   {#if msg}
     <Card class="border-success-muted bg-success-muted">
-      <CardBody class="text-sm text-success">{msg}</CardBody>
+      <CardContent class="text-sm text-success">{msg}</CardContent>
     </Card>
   {/if}
 
   {#if appState.error}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardBody class="text-sm text-destructive">
+      <CardContent class="text-sm text-destructive">
         {errorMessage(appState.error)}
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 
@@ -166,8 +176,8 @@
     </div>
   {:else}
     <Card>
-      <CardHeader title={t('settings.repository')} />
-      <CardBody class="grid gap-4">
+      <CardHeader><CardTitle>{t('settings.repository')}</CardTitle></CardHeader>
+      <CardContent class="grid gap-4">
         <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
           {t('settings.remote')}
           <Input bind:value={config.repository.remote} />
@@ -176,12 +186,12 @@
           {t('settings.branch')}
           <Input bind:value={config.repository.branch} />
         </label>
-      </CardBody>
+      </CardContent>
     </Card>
 
     <Card>
-      <CardHeader title={t('settings.hosts')} />
-      <CardBody class="grid gap-4">
+      <CardHeader><CardTitle>{t('settings.hosts')}</CardTitle></CardHeader>
+      <CardContent class="grid gap-4">
         <label class="flex items-center gap-2 text-sm text-foreground">
           <Checkbox bind:checked={config.hosts.codex.enabled} />
           {t('settings.codexEnabled')}
@@ -198,11 +208,11 @@
           {t('settings.claudePaths')}
           <Textarea bind:value={claudePaths} />
         </label>
-      </CardBody>
+      </CardContent>
     </Card>
 
     <Card>
-      <CardBody class="grid gap-4">
+      <CardContent class="grid gap-4">
         <label class="flex items-center gap-2 text-sm text-foreground">
           <Checkbox bind:checked={config.defaults.backup} />
           {t('settings.backup')}
@@ -211,7 +221,7 @@
           {t('settings.ignore')}
           <Textarea bind:value={ignore} />
         </label>
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 </div>

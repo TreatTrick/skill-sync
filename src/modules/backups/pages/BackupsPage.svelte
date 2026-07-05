@@ -7,8 +7,10 @@
   import {
     Button,
     Card,
-    CardBody,
+    CardContent,
+    CardDescription,
     CardHeader,
+    CardTitle,
     EmptyState,
     Spinner,
   } from '@/shared/ui'
@@ -57,15 +59,18 @@
 
 <div class="grid gap-4">
   <Card>
-    <CardHeader description={t('backups.description')} title={t('backups.title')} />
+    <CardHeader>
+      <CardTitle>{t('backups.title')}</CardTitle>
+      <CardDescription>{t('backups.description')}</CardDescription>
+    </CardHeader>
   </Card>
 
   {#if msg}
     <Card class="border-success-muted bg-success-muted">
-      <CardBody class="flex items-center gap-2 text-sm text-success">
+      <CardContent class="flex items-center gap-2 text-sm text-success">
         <Save class="size-4 shrink-0" />
         {msg}
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 
@@ -95,7 +100,7 @@
             onclick={() =>
               restore.mutate({ id: entry.id, path: entry.original_path })}
             size="sm"
-            variant="secondary"
+            variant="outline"
           >
             {#snippet icon()}
               <RotateCcw class="size-3.5" />

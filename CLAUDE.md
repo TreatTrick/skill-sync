@@ -12,6 +12,7 @@ Follow the same engineering rules defined in `AGENTS.md`. Key reminders:
 8. Keep imports flowing `routes -> app -> modules -> shared`; do not create circular imports, self imports, or `export *` barrels.
 9. Let Prettier own formatting; use `npm run format` or rely on `lint-staged`, and check with `npm run format:check` before larger handoffs.
 10. After UI or layout changes, run `npm run lint:responsive`, `npm run lint:colors`, and `npm run lint:i18n` as appropriate. Before completion, run `npm run lint` and `npm run build`.
+11. Prefer shadcn-svelte components from `src/shared/ui` for UI; add new ones with `npx shadcn-svelte@latest add <name>`. Hand-build only when no shadcn equivalent exists (Spinner, EmptyState, StatusBadge).
 
 ## AI Collaboration Rules
 

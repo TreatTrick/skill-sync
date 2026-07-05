@@ -110,7 +110,7 @@ src/
 
 ## UI Rules
 
-- Use Tailwind CSS with `@lucide/svelte` icons and the hand-built Svelte UI primitives in `src/shared/ui`. Do not introduce shadcn/ui or React component libraries.
+- Prefer shadcn-svelte components in `src/shared/ui/<component>/` for new UI; add new ones with `npx shadcn-svelte@latest add <name>`. Hand-build only when no shadcn equivalent exists (Spinner, EmptyState, StatusBadge). Use Tailwind CSS with `@lucide/svelte`. Do not introduce React component libraries.
 - Dashboard and workspace screens should be dense, scannable, and task-focused, not marketing landing pages.
 - Split components for business readability and real reuse, not for every HTML fragment.
 - Tables, filters, pagination, dialogs, drawers, and confirmations can become clear components, but do not create a generic cross-module table framework before stable reuse exists.
@@ -147,7 +147,7 @@ src/
 ## Naming
 
 - Business module directories use kebab-case.
-- Svelte component files use PascalCase (for example `Button.svelte`).
+- shadcn-svelte UI components use lowercase per shadcn convention (for example `src/shared/ui/button/button.svelte`); other Svelte component files use PascalCase.
 - Regular TypeScript files use camelCase.
 - Types and interfaces use PascalCase; do not prefix interfaces with `I`.
 - Constants use SCREAMING_SNAKE_CASE.

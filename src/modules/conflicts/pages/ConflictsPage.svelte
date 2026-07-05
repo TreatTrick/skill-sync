@@ -5,12 +5,14 @@
   import { cn, errorMessage } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import {
-    Badge,
     Card,
-    CardBody,
+    CardContent,
+    CardDescription,
     CardHeader,
+    CardTitle,
     EmptyState,
     Spinner,
+    StatusBadge,
   } from '@/shared/ui'
   import { getSyncPlan, syncDecisions } from '@/modules/sync'
 
@@ -32,10 +34,10 @@
 
 <div class="grid gap-4">
   <Card>
-    <CardHeader
-      description={t('conflicts.description')}
-      title={t('conflicts.title')}
-    />
+    <CardHeader>
+      <CardTitle>{t('conflicts.title')}</CardTitle>
+      <CardDescription>{t('conflicts.description')}</CardDescription>
+    </CardHeader>
   </Card>
 
   {#if plan.isLoading}
@@ -46,9 +48,9 @@
 
   {#if plan.error}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardBody class="text-sm text-destructive">
+      <CardContent class="text-sm text-destructive">
         {errorMessage(plan.error)}
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 
@@ -72,7 +74,7 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="font-bold text-strong-foreground">{conflict.name}</span>
-          <Badge variant="warning">{conflict.reason}</Badge>
+          <StatusBadge tone="warning">{conflict.reason}</StatusBadge>
         </div>
         <div
           class="grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2"

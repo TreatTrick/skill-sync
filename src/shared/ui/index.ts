@@ -1,11 +1,16 @@
-export { default as Badge } from './Badge.svelte'
-export { default as Button } from './Button.svelte'
-export { default as Card } from './Card.svelte'
-export { default as CardBody } from './CardBody.svelte'
-export { default as CardHeader } from './CardHeader.svelte'
-export { default as Checkbox } from './Checkbox.svelte'
-export { default as EmptyState } from './EmptyState.svelte'
-export { default as Input } from './Input.svelte'
-export { default as Spinner } from './Spinner.svelte'
-export { default as StatusBadge } from './StatusBadge.svelte'
-export { default as Textarea } from './Textarea.svelte'
+export { Badge, badgeVariants } from './badge'
+export { Button, buttonVariants } from './button'
+export {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from './card'
+export { Checkbox } from './checkbox'
+export { EmptyState } from './empty-state'
+export { Input } from './input'
+export { Spinner } from './spinner'
+export { StatusBadge } from './status-badge'
+export { Textarea } from './textarea'

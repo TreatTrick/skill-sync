@@ -55,7 +55,7 @@ npm run build
 - TypeScript (strict) + Vite
 - Tailwind CSS v4 (semantic tokens only)
 - `@tanstack/svelte-query` for server state, Svelte 5 runes for client state
-- `@lucide/svelte` icons, i18next (no React binding), zod
+- shadcn-svelte (Svelte 5 + bits-ui) UI components in `src/shared/ui`, `@lucide/svelte` icons, i18next, zod
 
 ## AI Collaboration Rules
 

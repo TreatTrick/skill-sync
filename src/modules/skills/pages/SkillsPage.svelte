@@ -8,8 +8,10 @@
     Badge,
     Button,
     Card,
-    CardBody,
+    CardContent,
+    CardDescription,
     CardHeader,
+    CardTitle,
     EmptyState,
     Spinner,
     StatusBadge,
@@ -30,19 +32,21 @@
 
 <div class="grid gap-4">
   <Card>
-    <CardHeader description={t('skills.description')} title={t('skills.title')}>
-      {#snippet action()}
-        <Button
-          loading={scan.isFetching}
-          onclick={() => void scan.refetch()}
-          variant="secondary"
-        >
-          {#snippet icon()}
-            <RefreshCw class="size-4" />
-          {/snippet}
-          {t('skills.rescan')}
-        </Button>
-      {/snippet}
+    <CardHeader class="flex-row items-center justify-between space-y-0">
+      <div class="space-y-1.5">
+        <CardTitle>{t('skills.title')}</CardTitle>
+        <CardDescription>{t('skills.description')}</CardDescription>
+      </div>
+      <Button
+        loading={scan.isFetching}
+        onclick={() => void scan.refetch()}
+        variant="outline"
+      >
+        {#snippet icon()}
+          <RefreshCw class="size-4" />
+        {/snippet}
+        {t('skills.rescan')}
+      </Button>
     </CardHeader>
   </Card>
 
@@ -54,22 +58,22 @@
 
   {#if scan.error}
     <Card>
-      <CardBody class="text-sm text-destructive">
+      <CardContent class="text-sm text-destructive">
         {errorMessage(scan.error)}
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 
   {#if warnings.length > 0}
     <Card class="border-warning-border bg-warning-muted">
-      <CardBody class="text-sm text-warning">
+      <CardContent class="text-sm text-warning">
         <div class="font-bold">{t('skills.warnings')}</div>
         <ul class="mt-1 grid gap-1">
           {#each warnings as warning, index (index)}
             <li>{warning}</li>
           {/each}
         </ul>
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 
@@ -91,7 +95,7 @@
             <div class="text-base font-bold text-strong-foreground">
               {skill.name}
             </div>
-            <Badge variant="default">{hostLabel(skill.host)}</Badge>
+            <Badge variant="secondary">{hostLabel(skill.host)}</Badge>
           </div>
           <StatusBadge tone="success">{t('skills.enabled')}</StatusBadge>
         </div>
@@ -116,7 +120,7 @@
           <Button
             onclick={() => void openPath(skill.source_path)}
             size="sm"
-            variant="secondary"
+            variant="outline"
           >
             {#snippet icon()}
               <FolderOpen class="size-3.5" />

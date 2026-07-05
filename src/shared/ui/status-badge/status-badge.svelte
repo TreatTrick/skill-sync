@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { cn } from '@/shared/lib'
+  import { cn } from '@/shared/lib/utils'
 
   type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'info'
 

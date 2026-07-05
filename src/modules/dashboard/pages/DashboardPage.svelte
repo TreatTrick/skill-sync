@@ -16,7 +16,7 @@
   import { getSyncPlan } from '@/modules/sync'
   import { scanSkills } from '@/modules/skills'
   import { getAppState } from '@/modules/settings'
-  import { Button, Card, CardBody, EmptyState, Spinner } from '@/shared/ui'
+  import { Button, Card, CardContent, EmptyState, Spinner } from '@/shared/ui'
 
   const state = createQuery(() => ({
     queryKey: ['app-state'],
@@ -66,9 +66,9 @@
     </div>
   {:else if state.error}
     <Card>
-      <CardBody>
+      <CardContent>
         <p class="text-sm text-destructive">{errorMessage(state.error)}</p>
-      </CardBody>
+      </CardContent>
     </Card>
   {:else if !configured}
     <Card>
@@ -88,7 +88,7 @@
     </Card>
   {:else}
     <Card>
-      <CardBody
+      <CardContent
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
@@ -105,15 +105,15 @@
           {/snippet}
           {t('dashboard.preview')}
         </Button>
-      </CardBody>
+      </CardContent>
     </Card>
 
     {#if state.data && !state.data.git_available}
       <Card>
-        <CardBody class="flex items-center gap-2 text-sm text-warning">
+        <CardContent class="flex items-center gap-2 text-sm text-warning">
           <AlertTriangle class="size-4 shrink-0" />
           {t('dashboard.gitUnavailable')}
-        </CardBody>
+        </CardContent>
       </Card>
     {/if}
 
@@ -143,9 +143,9 @@
 
     {#if plan.error}
       <Card>
-        <CardBody class="text-sm text-warning">
+        <CardContent class="text-sm text-warning">
           {t('sync.loadError', { message: errorMessage(plan.error) })}
-        </CardBody>
+        </CardContent>
       </Card>
     {/if}
   {/if}

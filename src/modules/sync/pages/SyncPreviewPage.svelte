@@ -8,10 +8,13 @@
     Badge,
     Button,
     Card,
-    CardBody,
+    CardContent,
+    CardDescription,
     CardHeader,
+    CardTitle,
     EmptyState,
     Spinner,
+    StatusBadge,
   } from '@/shared/ui'
 
   import { applySyncPlan, getSyncPlan } from '../api/syncApi'
@@ -78,7 +81,7 @@
   <div class="grid gap-1 rounded-lg border border-border bg-surface p-3 text-sm">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="font-bold text-strong-foreground">{action.name}</span>
-      <Badge variant="default">{hostLabel(action.host)}</Badge>
+      <Badge variant="secondary">{hostLabel(action.host)}</Badge>
     </div>
     <div class="truncate text-xs text-muted-foreground">
       {directionLabel(action.direction)} · {action.repo_path}
@@ -91,7 +94,7 @@
     <div class="grid gap-2">
       <h3 class="flex items-center gap-2 text-sm font-bold text-strong-foreground">
         {title}
-        <Badge variant="default">{items.length}</Badge>
+        <Badge variant="secondary">{items.length}</Badge>
       </h3>
       <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
         {#each items as action (action.skill_id)}
@@ -107,7 +110,7 @@
   <div class="grid gap-2 rounded-lg border border-warning-border bg-warning-muted p-3 text-sm">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="font-bold text-strong-foreground">{conflict.name}</span>
-      <Badge variant="warning">{conflict.reason}</Badge>
+      <StatusBadge tone="warning">{conflict.reason}</StatusBadge>
     </div>
     <div class="grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
       <div class="truncate">
@@ -141,7 +144,7 @@
     <div class="grid gap-2">
       <h3 class="flex items-center gap-2 text-sm font-bold text-strong-foreground">
         {t('sync.groups.conflicts')}
-        <Badge variant="warning">{conflicts.length}</Badge>
+        <StatusBadge tone="warning">{conflicts.length}</StatusBadge>
       </h3>
       <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
         {#each conflicts as conflict (conflict.skill_id)}
@@ -154,20 +157,22 @@
 
 <div class="grid gap-4">
   <Card>
-    <CardHeader description={t('sync.description')} title={t('sync.title')}>
-      {#snippet action()}
-        <div class="flex gap-2">
-          <Button onclick={() => void plan.refetch()} variant="secondary">
-            {#snippet icon()}
-              <RefreshCw class="size-4" />
-            {/snippet}
-            {t('sync.recheck')}
-          </Button>
-          <Button disabled={isEmpty} loading={apply.isPending} onclick={handleApply}>
-            {apply.isPending ? t('sync.applying') : t('common.actions.apply')}
-          </Button>
-        </div>
-      {/snippet}
+    <CardHeader class="flex-row items-center justify-between space-y-0">
+      <div class="space-y-1.5">
+        <CardTitle>{t('sync.title')}</CardTitle>
+        <CardDescription>{t('sync.description')}</CardDescription>
+      </div>
+      <div class="flex gap-2">
+        <Button onclick={() => void plan.refetch()} variant="outline">
+          {#snippet icon()}
+            <RefreshCw class="size-4" />
+          {/snippet}
+          {t('sync.recheck')}
+        </Button>
+        <Button disabled={isEmpty} loading={apply.isPending} onclick={handleApply}>
+          {apply.isPending ? t('sync.applying') : t('common.actions.apply')}
+        </Button>
+      </div>
     </CardHeader>
   </Card>
 
@@ -179,18 +184,18 @@
 
   {#if plan.error}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardBody class="text-sm text-destructive">
+      <CardContent class="text-sm text-destructive">
         {t('sync.loadError', { message: errorMessage(plan.error) })}
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 
   {#if resultMsg}
     <Card class="border-success-muted bg-success-muted">
-      <CardBody class="flex items-center gap-2 text-sm text-success">
+      <CardContent class="flex items-center gap-2 text-sm text-success">
         <CheckCircle2 class="size-4 shrink-0" />
         {resultMsg}
-      </CardBody>
+      </CardContent>
     </Card>
   {/if}
 
