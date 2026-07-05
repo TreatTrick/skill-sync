@@ -1,11 +1,11 @@
 import i18next from 'i18next'
-import { initReactI18next } from 'react-i18next'
 
+import { languageState } from '@/shared/state/language.svelte'
 import enUS from './locales/en-US.json'
 import zhCN from './locales/zh-CN.json'
 import { DEFAULT_LANGUAGE, readStoredLanguage } from './language'
 
-void i18next.use(initReactI18next).init({
+void i18next.init({
   lng: readStoredLanguage(),
   fallbackLng: DEFAULT_LANGUAGE,
   interpolation: {
@@ -17,7 +17,16 @@ void i18next.use(initReactI18next).init({
   },
 })
 
-export const t = i18next.t.bind(i18next)
+// Bound TFunction; the wrapper reads languageState.language so Svelte components
+// that call t(...) re-render on language change. Do not remove that read.
+const translate = i18next.t.bind(i18next)
+
+export const t = (
+  ...args: Parameters<typeof translate>
+): ReturnType<typeof translate> => {
+  void languageState.language
+  return translate(...args)
+}
 
 export { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './language'
 export type { Language } from './language'

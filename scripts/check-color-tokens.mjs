@@ -3,7 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 const SOURCE_DIRS = ['src']
-const SOURCE_EXTENSIONS = new Set(['.css', '.ts', '.tsx'])
+const SOURCE_EXTENSIONS = new Set(['.css', '.ts', '.tsx', '.svelte'])
 const TOKEN_DEFINITION_FILES = new Set([path.normalize('src/index.css')])
 const PALETTE_NAMES = [
   'slate',
@@ -47,7 +47,10 @@ const COLOR_UTILITY_PREFIXES = [
   'to',
   'shadow',
 ]
-const COLOR_FUNCTION_PATTERN = /(?:#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\()/g
+// The negative lookbehind skips Svelte control tags such as {#each}, where the
+// literal "#eac" looks like a 3-digit hex color but is template syntax.
+const COLOR_FUNCTION_PATTERN =
+  /(?:(?<![{\w])#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\()/g
 const PALETTE_UTILITY_PATTERN = new RegExp(
   String.raw`(?:[a-z0-9-]+:)*(?:${COLOR_UTILITY_PREFIXES.join('|')})-(?:${PALETTE_NAMES.join('|')})(?:-\d{2,3})?(?:\/\d+)?\b`,
   'g',

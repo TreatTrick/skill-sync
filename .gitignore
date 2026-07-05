@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# SvelteKit
+.svelte-kit/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

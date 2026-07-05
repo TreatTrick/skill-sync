@@ -1,1 +1,1 @@
-export { ThemeSync } from './ThemeSync'
+export { default as ThemeSync } from './ThemeSync.svelte'

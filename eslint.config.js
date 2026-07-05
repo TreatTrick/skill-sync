@@ -3,9 +3,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript'
 import importX from 'eslint-plugin-import-x'
+import svelte from 'eslint-plugin-svelte'
+import svelteParser from 'svelte-eslint-parser'
 import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
@@ -16,6 +16,7 @@ const LAYER_ORDER = {
   shared: 0,
   modules: 1,
   app: 2,
+  routes: 3,
 }
 
 const getLayerFromPath = (filePath) => {
@@ -66,7 +67,7 @@ const noReverseLayerImportsRule = {
     schema: [],
     messages: {
       reverseLayerImport:
-        'Reverse layer import is not allowed: {{fromLayer}} cannot import {{toLayer}}. Allowed direction is app -> modules -> shared.',
+        'Reverse layer import is not allowed: {{fromLayer}} cannot import {{toLayer}}. Allowed direction is routes -> app -> modules -> shared.',
     },
   },
   create(context) {
@@ -120,83 +121,114 @@ const noReverseLayerImportsRule = {
   },
 }
 
+// Shared rules reused across .ts/.tsx and .svelte blocks.
+const IMPORT_RULES = {
+  'import-x/no-cycle': [
+    'error',
+    {
+      allowUnsafeDynamicCyclicDependency: false,
+      ignoreExternal: true,
+      maxDepth: Infinity,
+    },
+  ],
+  'import-x/no-self-import': 'error',
+  'local/no-reverse-layer-imports': 'error',
+  'no-restricted-imports': [
+    'error',
+    {
+      patterns: [
+        {
+          regex: '^@/modules/[^/]+/.+',
+          message:
+            'Cross-module imports must use the module root entry, for example "@/modules/demo-dashboard". Use relative imports inside a module.',
+        },
+        {
+          regex: '^@/shared/[^/]+/.+',
+          message:
+            'Shared imports must use stable subpath entries, for example "@/shared/ui". Do not deep import shared internals.',
+        },
+      ],
+    },
+  ],
+  'no-restricted-syntax': [
+    'error',
+    {
+      selector: 'ExportAllDeclaration',
+      message: 'Do not use export *; explicitly name every exported member.',
+    },
+    {
+      selector: 'ExportNamedDeclaration > ExportNamespaceSpecifier',
+      message:
+        'Do not use export * as namespace; explicitly name every exported member.',
+    },
+  ],
+}
+
+const IMPORT_SETTINGS = {
+  'import-x/resolver-next': [
+    createTypeScriptImportResolver({
+      project: './tsconfig.json',
+    }),
+    importX.createNodeResolver(),
+  ],
+}
+
+const LOCAL_PLUGIN = {
+  local: {
+    rules: {
+      'no-reverse-layer-imports': noReverseLayerImportsRule,
+    },
+  },
+}
+
 export default defineConfig([
   // src-tauri 是 Rust/Tauri 后端，包含构建产物（target/ 下的生成代码），
   // 不属于前端 ESLint 检查范围，需整体排除
-  globalIgnores(['dist', 'src-tauri']),
+  globalIgnores(['dist', 'src-tauri', '.svelte-kit']),
+  // Svelte 基础规则与 svelte-eslint-parser 注册
+  ...svelte.configs['flat/recommended'],
   {
     files: ['**/*.{ts,tsx}'],
     plugins: {
       'import-x': importX,
-      local: {
-        rules: {
-          'no-reverse-layer-imports': noReverseLayerImportsRule,
-        },
-      },
+      ...LOCAL_PLUGIN,
     },
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
       importX.flatConfigs.typescript,
     ],
     languageOptions: {
       globals: globals.browser,
     },
-    settings: {
-      'import-x/resolver-next': [
-        createTypeScriptImportResolver({
-          project: './tsconfig.app.json',
-        }),
-        importX.createNodeResolver(),
-      ],
+    settings: IMPORT_SETTINGS,
+    rules: IMPORT_RULES,
+  },
+  {
+    files: ['**/*.svelte'],
+    languageOptions: {
+      parser: svelteParser,
+      parserOptions: {
+        parser: tseslint.parser,
+        extraFileExtensions: ['.svelte'],
+        sourceType: 'module',
+      },
+      globals: globals.browser,
     },
+    plugins: {
+      'import-x': importX,
+      ...LOCAL_PLUGIN,
+    },
+    settings: IMPORT_SETTINGS,
     rules: {
-      'import-x/no-cycle': [
-        'error',
-        {
-          allowUnsafeDynamicCyclicDependency: false,
-          ignoreExternal: true,
-          maxDepth: Infinity,
-        },
-      ],
-      'import-x/no-self-import': 'error',
-      'local/no-reverse-layer-imports': 'error',
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              regex: '^@/modules/[^/]+/.+',
-              message:
-                'Cross-module imports must use the module root entry, for example "@/modules/demo-dashboard". Use relative imports inside a module.',
-            },
-            {
-              regex: '^@/shared/[^/]+/.+',
-              message:
-                'Shared imports must use stable subpath entries, for example "@/shared/ui". Do not deep import shared internals.',
-            },
-          ],
-        },
-      ],
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'ExportAllDeclaration',
-          message:
-            'Do not use export *; explicitly name every exported member.',
-        },
-        {
-          selector: 'ExportNamedDeclaration > ExportNamespaceSpecifier',
-          message:
-            'Do not use export * as namespace; explicitly name every exported member.',
-        },
-      ],
+      ...IMPORT_RULES,
+      // Tauri serves the SPA from root; there is no base path to resolve
+      // against, so requiring resolve() adds noise without value here.
+      'svelte/no-navigation-without-resolve': 'off',
     },
   },
   {
-    files: ['src/shared/**/*.{ts,tsx}'],
+    files: ['src/shared/**/*.{ts,tsx,svelte}'],
     rules: {
       'no-restricted-imports': 'off',
     },
