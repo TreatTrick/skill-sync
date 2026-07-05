@@ -138,6 +138,23 @@ impl AppConfig {
 
     pub fn is_configured(&self) -> bool {
         !self.repository.local_path.trim().is_empty()
+            || !self.repository.remote.trim().is_empty()
+    }
+
+    /// Default managed repo path used when the user does not supply a local_path.
+    pub fn default_repo_path() -> Result<PathBuf> {
+        let dir = Self::config_dir()
+            .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
+        Ok(dir.join("sync-repo"))
+    }
+
+    /// Resolve the sync repo path: use the configured local_path, or fall back
+    /// to the managed default under the config dir.
+    pub fn resolve_repo_path(&self) -> Result<PathBuf> {
+        if !self.repository.local_path.trim().is_empty() {
+            return expand_path(&self.repository.local_path);
+        }
+        Self::default_repo_path()
     }
 
     /// Returns `(host_name, host_config)` for each enabled host (codex + claude only).

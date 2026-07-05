@@ -13,7 +13,6 @@ import {
   CardHeader,
   Checkbox,
   Input,
-  PathPicker,
   Spinner,
   Textarea,
 } from '@/shared/ui'
@@ -222,11 +221,6 @@ export const SettingsPage = () => {
           <Card>
             <CardHeader title={t('settings.repository')} />
             <CardBody className="grid gap-4">
-              <PathPicker
-                onChange={(path) => updateRepo({ local_path: path })}
-                placeholder={t('settings.localPath')}
-                value={config.repository.local_path}
-              />
               <label className="grid gap-1.5 text-sm font-medium text-muted-foreground">
                 {t('settings.remote')}
                 <Input

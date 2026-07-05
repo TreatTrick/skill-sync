@@ -5,7 +5,7 @@ use std::process::Command;
 use serde::Serialize;
 
 use crate::backup::{list_backups as list_backups_impl, restore_backup as restore_backup_impl, BackupEntry};
-use crate::config::AppConfig;
+use crate::config::{expand_path, AppConfig};
 use crate::detect::scan_local_skills;
 use crate::errors::{AppError, Result};
 use crate::git_store::GitStore;
@@ -84,16 +84,21 @@ pub fn check_remote(remote: String) -> Result<RemoteCheck> {
 }
 
 /// Initialize (or open) the sync repo, attach the remote, and persist the
-/// repository settings. Called from onboarding.
+/// repository settings. Called from onboarding. An empty `local_path` means
+/// "manage automatically" — the repo lives under the config dir.
 #[tauri::command]
 pub fn prepare_repo(local_path: String, remote: String, branch: String) -> Result<()> {
-    let path = PathBuf::from(&local_path);
-    let git = GitStore::new(&path);
+    let mut config = AppConfig::load()?;
+    let repo_path = if local_path.trim().is_empty() {
+        AppConfig::default_repo_path()?
+    } else {
+        expand_path(&local_path)?
+    };
+    let git = GitStore::new(&repo_path);
     git.init()?;
     if !remote.trim().is_empty() {
         git.set_remote(&remote)?;
     }
-    let mut config = AppConfig::load()?;
     config.repository.local_path = local_path;
     config.repository.remote = remote;
     config.repository.branch = if branch.trim().is_empty() {

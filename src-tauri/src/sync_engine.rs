@@ -65,7 +65,7 @@ const SKILLS_DIR: &str = "skills";
 /// Read-only: writes nothing. Uses the lock file to distinguish update from
 /// conflict when both sides changed.
 pub fn build_plan(config: &AppConfig, local_skills: &[Skill]) -> Result<SyncPlan> {
-    let repo_path = expand_path(&config.repository.local_path)?;
+    let repo_path = config.resolve_repo_path()?;
     let git = GitStore::new(&repo_path);
     if !git.is_repo() {
         return Err(AppError::NotConfigured(
@@ -230,7 +230,7 @@ pub fn apply_plan(
     plan: &SyncPlan,
     decisions: &HashMap<String, String>,
 ) -> Result<ApplyResult> {
-    let repo_path = expand_path(&config.repository.local_path)?;
+    let repo_path = config.resolve_repo_path()?;
     let git = GitStore::new(&repo_path);
     let mut applied = Vec::new();
     let mut backups = Vec::new();

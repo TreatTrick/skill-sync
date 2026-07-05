@@ -5,14 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Input,
-  PathPicker,
-} from '@/shared/ui'
+import { Button, Card, CardBody, CardHeader, Input } from '@/shared/ui'
 import { getAppState } from '@/modules/settings'
 
 import { checkGit, checkRemote, prepareRepo } from '../api/onboardingApi'
@@ -24,7 +17,6 @@ export const OnboardingPage = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const state = useQuery({ queryKey: ['app-state'], queryFn: getAppState })
-  const [localPath, setLocalPath] = useState('')
   const [remote, setRemote] = useState('')
   const [branch, setBranch] = useState('main')
   const [gitCheck, setGitCheck] = useState<GitCheck | null>(null)
@@ -35,7 +27,6 @@ export const OnboardingPage = () => {
 
   if (!prefilled && state.data) {
     setPrefilled(true)
-    setLocalPath(state.data.config.repository.local_path)
     setRemote(state.data.config.repository.remote)
     setBranch(state.data.config.repository.branch || 'main')
   }
@@ -61,14 +52,10 @@ export const OnboardingPage = () => {
       setMsg(t('onboarding.needGit'))
       return
     }
-    if (!localPath.trim()) {
-      setMsg(t('onboarding.needGit'))
-      return
-    }
     setSaving(true)
     setMsg('')
     try {
-      await prepareRepo(localPath, remote, branch)
+      await prepareRepo('', remote, branch)
       await queryClient.invalidateQueries({ queryKey: ['app-state'] })
       navigate('/app/dashboard')
     } catch (error) {
@@ -95,11 +82,6 @@ export const OnboardingPage = () => {
 
       <Card>
         <CardBody className="grid gap-4">
-          <PathPicker
-            onChange={setLocalPath}
-            placeholder={t('onboarding.localPath')}
-            value={localPath}
-          />
           <label className="grid gap-1.5 text-sm font-medium text-muted-foreground">
             {t('onboarding.remote')}
             <Input
