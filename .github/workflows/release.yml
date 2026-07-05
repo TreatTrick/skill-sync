@@ -10,7 +10,17 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - platform: windows-latest
+            args: ''
+            targets: ''
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,7 +28,7 @@ jobs:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.targets }}
       - run: npm ci
       - uses: tauri-apps/tauri-action@v0
         with:
@@ -26,4 +36,4 @@ jobs:
           releaseName: 'Skill Sync v__VERSION__'
           releaseDraft: false
           prerelease: false
-          args: --target universal-apple-darwin
+          args: ${{ matrix.args }}
