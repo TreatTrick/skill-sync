@@ -158,6 +158,8 @@
     "title": "备份"
   },
   "settings": {
+    "appearance": "外观",
+    "appearanceDesc": "选择应用的颜色主题。",
     "backup": "写入前自动备份",
     "branch": "分支",
     "claudeEnabled": "启用 Claude Code",
@@ -173,6 +175,9 @@
     "save": "保存设置",
     "saveError": "保存失败：{{message}}",
     "saved": "设置已保存。",
+    "themeDark": "暗色",
+    "themeLight": "亮色",
+    "themeSystem": "跟随系统",
     "title": "设置"
   }
 }

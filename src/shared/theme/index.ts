@@ -1,0 +1,1 @@
+export { ThemeSync } from './ThemeSync'

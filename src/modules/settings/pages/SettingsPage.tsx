@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Monitor, Moon, Sun } from 'lucide-react'
 import { useState } from 'react'
 
-import { errorMessage } from '@/shared/lib'
+import { cn, errorMessage } from '@/shared/lib'
 import { t } from '@/shared/i18n'
+import { useThemeStore } from '@/shared/stores'
 import {
   Button,
   Card,
@@ -27,6 +29,8 @@ const fromLines = (text: string) =>
 
 export const SettingsPage = () => {
   const queryClient = useQueryClient()
+  const theme = useThemeStore((s) => s.theme)
+  const setTheme = useThemeStore((s) => s.setTheme)
   const state = useQuery({ queryKey: ['app-state'], queryFn: getAppState })
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [codexPaths, setCodexPaths] = useState('')
@@ -98,6 +102,16 @@ export const SettingsPage = () => {
     })
   }
 
+  const themeOptions = [
+    { mode: 'light' as const, icon: Sun, label: t('settings.themeLight') },
+    { mode: 'dark' as const, icon: Moon, label: t('settings.themeDark') },
+    {
+      mode: 'system' as const,
+      icon: Monitor,
+      label: t('settings.themeSystem'),
+    },
+  ]
+
   return (
     <div className="grid gap-4">
       <Card>
@@ -114,6 +128,36 @@ export const SettingsPage = () => {
           description={t('settings.description')}
           title={t('settings.title')}
         />
+      </Card>
+
+      <Card>
+        <CardHeader
+          description={t('settings.appearanceDesc')}
+          title={t('settings.appearance')}
+        />
+        <CardBody>
+          <div className="flex gap-2">
+            {themeOptions.map(({ mode, icon: Icon, label }) => {
+              const active = theme === mode
+              return (
+                <button
+                  className={cn(
+                    'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                    active
+                      ? 'border-primary bg-primary-muted text-primary-muted-foreground'
+                      : 'border-border bg-surface text-foreground hover:bg-surface-hover',
+                  )}
+                  key={mode}
+                  onClick={() => setTheme(mode)}
+                  type="button"
+                >
+                  <Icon className="size-4" />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </CardBody>
       </Card>
 
       {msg ? (

@@ -51,6 +51,49 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dark {
+  /* Neutral scale — dark */
+  --background: #0d1117;
+  --foreground: #e6edf3;
+  --surface: #161b22;
+  --surface-muted: #1c2128;
+  --surface-hover: #22272e;
+  --border: #2d333b;
+  --border-muted: #252a31;
+  --border-strong: #3d444d;
+  --muted-foreground: #8b949e;
+  --strong-foreground: #f0f6fc;
+
+  /* Primary — teal，暗色下提亮 */
+  --primary: #2dd4bf;
+  --primary-foreground: #04201c;
+  --primary-muted: #0d2e2a;
+  --primary-muted-foreground: #5eead4;
+  --primary-border: #134e4a;
+
+  /* Info */
+  --info-muted: #0d2138;
+  --info-muted-foreground: #93b4ff;
+
+  /* Warning */
+  --warning: #f59e0b;
+  --warning-muted: #2a1f0a;
+  --warning-border: #7a5230;
+
+  /* Destructive */
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --destructive-muted: #2a1515;
+  --destructive-border: #5c2424;
+
+  /* Success */
+  --success: #4ade80;
+  --success-muted: #0f2818;
+
+  /* Focus ring */
+  --ring: #2dd4bf;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

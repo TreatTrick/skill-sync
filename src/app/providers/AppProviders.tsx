@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
+import { ThemeSync } from '@/shared/theme'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -16,5 +18,8 @@ interface AppProvidersProps {
 }
 
 export const AppProviders = ({ children }: AppProvidersProps) => (
-  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <ThemeSync />
+    {children}
+  </QueryClientProvider>
 )
