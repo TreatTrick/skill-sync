@@ -58,7 +58,7 @@
 
   {#if scan.error}
     <Card>
-      <CardContent class="text-sm text-destructive">
+      <CardContent class="pt-6 text-sm text-destructive">
         {errorMessage(scan.error)}
       </CardContent>
     </Card>
@@ -66,7 +66,7 @@
 
   {#if warnings.length > 0}
     <Card class="border-warning-border bg-warning-muted">
-      <CardContent class="text-sm text-warning">
+      <CardContent class="pt-6 text-sm text-warning">
         <div class="font-bold">{t('skills.warnings')}</div>
         <ul class="mt-1 grid gap-1">
           {#each warnings as warning, index (index)}
@@ -116,7 +116,7 @@
             {shortHash(skill.hash)}
           </div>
         </div>
-        <div class="mt-3 flex justify-start">
+        <div class="mt-3 flex justify-end">
           <Button
             onclick={() => void openPath(skill.source_path)}
             size="sm"

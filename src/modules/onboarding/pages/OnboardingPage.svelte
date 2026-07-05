@@ -79,20 +79,25 @@
 
 <div class="grid gap-4">
   <Card>
-    <CardHeader>
-      <CardTitle>{t('onboarding.title')}</CardTitle>
-      <CardDescription>{t('onboarding.description')}</CardDescription>
+    <CardHeader class="flex-row items-center justify-between space-y-0">
+      <div class="space-y-1.5">
+        <CardTitle>{t('onboarding.title')}</CardTitle>
+        <CardDescription>{t('onboarding.description')}</CardDescription>
+      </div>
+      <Button loading={saving} onclick={() => void handleSave()}>
+        {t('onboarding.save')}
+      </Button>
     </CardHeader>
   </Card>
 
   {#if msg}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardContent class="text-sm text-destructive">{msg}</CardContent>
+      <CardContent class="text-sm text-destructive pt-6">{msg}</CardContent>
     </Card>
   {/if}
 
   <Card>
-    <CardContent class="grid gap-4">
+    <CardContent class="grid gap-4 pt-6">
       <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
         {t('onboarding.remote')}
         <Input bind:value={remote} />
@@ -105,7 +110,7 @@
   </Card>
 
   <Card>
-    <CardContent class="flex items-center justify-between gap-2">
+    <CardContent class="flex items-center justify-between gap-2 pt-6">
       <span class="text-sm font-bold text-strong-foreground">
         {t('onboarding.sshHintTitle')}
       </span>
@@ -121,7 +126,7 @@
   <SshSetupDialog bind:open={sshDialogOpen} />
 
   <Card>
-    <CardContent class="grid gap-3 sm:grid-cols-2">
+    <CardContent class="grid gap-3 pt-6 sm:grid-cols-2">
       <div class="grid gap-2 rounded-lg border border-border p-3">
         <div class="flex items-center justify-between gap-2">
           <span class="text-sm font-bold text-strong-foreground">
@@ -167,8 +172,4 @@
       </div>
     </CardContent>
   </Card>
-
-  <Button class="justify-self-start" loading={saving} onclick={() => void handleSave()}>
-    {t('onboarding.save')}
-  </Button>
 </div>

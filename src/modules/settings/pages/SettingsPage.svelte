@@ -158,13 +158,13 @@
 
   {#if msg}
     <Card class="border-success-muted bg-success-muted">
-      <CardContent class="text-sm text-success">{msg}</CardContent>
+      <CardContent class="pt-6 text-sm text-success">{msg}</CardContent>
     </Card>
   {/if}
 
   {#if appState.error}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardContent class="text-sm text-destructive">
+      <CardContent class="pt-6 text-sm text-destructive">
         {errorMessage(appState.error)}
       </CardContent>
     </Card>
@@ -212,7 +212,7 @@
     </Card>
 
     <Card>
-      <CardContent class="grid gap-4">
+      <CardContent class="grid gap-4 pt-6">
         <label class="flex items-center gap-2 text-sm text-foreground">
           <Checkbox bind:checked={config.defaults.backup} />
           {t('settings.backup')}

@@ -16,7 +16,16 @@
   import { getSyncPlan } from '@/modules/sync'
   import { scanSkills } from '@/modules/skills'
   import { getAppState } from '@/modules/settings'
-  import { Button, Card, CardContent, EmptyState, Spinner } from '@/shared/ui'
+  import {
+    Button,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+    EmptyState,
+    Spinner,
+  } from '@/shared/ui'
 
   const state = createQuery(() => ({
     queryKey: ['app-state'],
@@ -66,7 +75,7 @@
     </div>
   {:else if state.error}
     <Card>
-      <CardContent>
+      <CardContent class="pt-6">
         <p class="text-sm text-destructive">{errorMessage(state.error)}</p>
       </CardContent>
     </Card>
@@ -88,16 +97,10 @@
     </Card>
   {:else}
     <Card>
-      <CardContent
-        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div>
-          <h2 class="text-lg font-bold text-strong-foreground">
-            {t('dashboard.title')}
-          </h2>
-          <p class="mt-1 text-sm text-muted-foreground">
-            {t('dashboard.description')}
-          </p>
+      <CardHeader class="flex-row items-center justify-between space-y-0">
+        <div class="space-y-1.5">
+          <CardTitle>{t('dashboard.title')}</CardTitle>
+          <CardDescription>{t('dashboard.description')}</CardDescription>
         </div>
         <Button onclick={() => void goto('/app/sync')}>
           {#snippet icon()}
@@ -105,12 +108,12 @@
           {/snippet}
           {t('dashboard.preview')}
         </Button>
-      </CardContent>
+      </CardHeader>
     </Card>
 
     {#if state.data && !state.data.git_available}
       <Card>
-        <CardContent class="flex items-center gap-2 text-sm text-warning">
+        <CardContent class="flex items-center gap-2 pt-6 text-sm text-warning">
           <AlertTriangle class="size-4 shrink-0" />
           {t('dashboard.gitUnavailable')}
         </CardContent>
@@ -143,7 +146,7 @@
 
     {#if plan.error}
       <Card>
-        <CardContent class="text-sm text-warning">
+        <CardContent class="pt-6 text-sm text-warning">
           {t('sync.loadError', { message: errorMessage(plan.error) })}
         </CardContent>
       </Card>

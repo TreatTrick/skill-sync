@@ -67,7 +67,7 @@
 
   {#if msg}
     <Card class="border-success-muted bg-success-muted">
-      <CardContent class="flex items-center gap-2 text-sm text-success">
+      <CardContent class="flex items-center gap-2 pt-6 text-sm text-success">
         <Save class="size-4 shrink-0" />
         {msg}
       </CardContent>

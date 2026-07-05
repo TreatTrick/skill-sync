@@ -48,7 +48,7 @@
 
   {#if plan.error}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardContent class="text-sm text-destructive">
+      <CardContent class="pt-6 text-sm text-destructive">
         {errorMessage(plan.error)}
       </CardContent>
     </Card>

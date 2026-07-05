@@ -184,7 +184,7 @@
 
   {#if plan.error}
     <Card class="border-destructive-border bg-destructive-muted">
-      <CardContent class="text-sm text-destructive">
+      <CardContent class="pt-6 text-sm text-destructive">
         {t('sync.loadError', { message: errorMessage(plan.error) })}
       </CardContent>
     </Card>
@@ -192,7 +192,7 @@
 
   {#if resultMsg}
     <Card class="border-success-muted bg-success-muted">
-      <CardContent class="flex items-center gap-2 text-sm text-success">
+      <CardContent class="flex items-center gap-2 pt-6 text-sm text-success">
         <CheckCircle2 class="size-4 shrink-0" />
         {resultMsg}
       </CardContent>

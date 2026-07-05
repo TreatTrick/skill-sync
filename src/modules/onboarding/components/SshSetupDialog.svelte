@@ -85,7 +85,7 @@
         <Button
           onclick={() => void handleCopyPrompt()}
           size="sm"
-          class="justify-self-start"
+          class="justify-self-end"
         >
           {promptCopied
             ? t('onboarding.sshPromptCopied')
