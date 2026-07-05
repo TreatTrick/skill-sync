@@ -1,0 +1,52 @@
+{
+  "common": {
+    "actions": {
+      "refresh": "刷新",
+      "view": "查看"
+    },
+    "brandMark": "前",
+    "more": "更多",
+    "workspace": "工作台"
+  },
+  "layout": {
+    "brandSubtitle": "React 工程脚手架",
+    "brandTitle": "前端应用",
+    "environment": "本地演示环境",
+    "navLabel": "应用导航",
+    "userName": "示例用户"
+  },
+  "routes": {
+    "dashboard": "概览"
+  },
+  "routeGroups": {
+    "demo": "演示"
+  },
+  "demoDashboard": {
+    "activity": {
+      "owner": "负责人",
+      "status": "状态",
+      "title": "近期事项",
+      "updatedAt": "更新时间"
+    },
+    "description": "这个页面只用于展示脚手架的路由、Tailwind token、响应式表格、i18n、zod 校验、TanStack Query、Zustand 和 mitt 基础接入。",
+    "filters": {
+      "all": "全部",
+      "done": "已完成",
+      "running": "进行中"
+    },
+    "metrics": {
+      "health": "工程健康度",
+      "latency": "平均响应",
+      "tasks": "演示任务",
+      "users": "示例用户"
+    },
+    "status": {
+      "done": "已完成",
+      "running": "进行中"
+    },
+    "title": "前端工程概览",
+    "toast": {
+      "refreshed": "数据已刷新"
+    }
+  }
+}

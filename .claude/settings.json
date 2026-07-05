@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/11541/AppData/Local/Temp/rfss-skill/**)",
+      "Read(//c/Users/11541/AppData/Local/Temp/rfss-skill/scripts/**)",
+      "Read(//c/Users/11541/AppData/Local/Temp/rfss-skill/assets/template/**)",
+      "Bash(mkdir -p 'C:\\\\Users\\\\11541/.claude/skills')",
+      "Bash(rm -rf 'C:\\\\Users\\\\11541/.claude/skills/react-frontend-scaffold')",
+      "Bash(cp -r /c/Users/11541/AppData/Local/Temp/rfss-skill 'C:\\\\Users\\\\11541/.claude/skills/react-frontend-scaffold')",
+      "Bash(rm -rf 'C:\\\\Users\\\\11541/.claude/skills/react-frontend-scaffold/.git')",
+      "Bash(npm --version)"
+    ]
+  }
+}
