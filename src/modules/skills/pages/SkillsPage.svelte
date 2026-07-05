@@ -90,7 +90,7 @@
   <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
     {#each skills as skill (skill.id)}
       <Card class="p-4">
-        <div class="flex flex-wrap items-start justify-between gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="grid gap-1">
             <div class="text-base font-bold text-strong-foreground">
               {skill.name}
@@ -116,7 +116,7 @@
             {shortHash(skill.hash)}
           </div>
         </div>
-        <div class="mt-3 flex justify-end">
+        <div class="mt-3 flex justify-start">
           <Button
             onclick={() => void openPath(skill.source_path)}
             size="sm"
