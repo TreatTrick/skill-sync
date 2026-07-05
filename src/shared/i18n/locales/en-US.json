@@ -34,7 +34,9 @@
   "layout": {
     "brandSubtitle": "Agent Skills Sync",
     "brandTitle": "Skill Sync",
+    "collapse": "Collapse sidebar",
     "environment": "Local",
+    "expand": "Expand sidebar",
     "navLabel": "App navigation",
     "userName": "Developer"
   },

@@ -34,7 +34,9 @@
   "layout": {
     "brandSubtitle": "Agent Skills 同步",
     "brandTitle": "Skill Sync",
+    "collapse": "折叠侧边栏",
     "environment": "本地",
+    "expand": "展开侧边栏",
     "navLabel": "应用导航",
     "userName": "开发者"
   },
