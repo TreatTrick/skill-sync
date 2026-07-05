@@ -107,10 +107,12 @@ main
 
 **输出：**
 
-- `src/components/AppShell.tsx`
-- `src/routes/*.tsx`
-- `src/lib/types.ts`
-- `src/lib/api.ts`
+- `src/app/layouts/AppLayout.tsx`（scaffold 已提供，本包调整）
+- `src/app/router/routeConfig.tsx`（注册各模块路由）
+- `src/modules/<module>/pages/*.tsx`（各页面骨架）
+- `src/shared/lib/tauri.ts`（invoke 封装）
+- `src/shared/schemas/apiResponse.ts`
+- 各模块 `types/` 与 `schemas/`
 - `src-tauri/src/commands.rs`
 - `src-tauri/src/errors.rs`
 
@@ -246,7 +248,7 @@ main
 
 - `src-tauri/src/sync_engine.rs`
 - `get_sync_plan()` command。
-- `src/routes/SyncPreview.tsx` 真实数据接入。
+- `src/modules/sync/pages/SyncPreviewPage.tsx` 真实数据接入。
 
 **完成标准：**
 
@@ -310,11 +312,11 @@ main
 
 **输出：**
 
-- `src/routes/Onboarding.tsx`
-- `src/routes/Skills.tsx`
-- `src/components/PathPicker.tsx`
-- `src/components/SkillTable.tsx`
-- `src/components/StatusBadge.tsx`
+- `src/modules/onboarding/pages/OnboardingPage.tsx`
+- `src/modules/skills/pages/SkillsPage.tsx`
+- `src/shared/ui/path-picker.tsx`
+- `src/modules/skills/components/SkillTable.tsx`
+- `src/shared/ui/status-badge.tsx`
 
 **完成标准：**
 
@@ -344,9 +346,9 @@ main
 
 **输出：**
 
-- `src/routes/Conflicts.tsx`
-- `src/routes/Backups.tsx`
-- `src/components/ConfirmDialog.tsx`
+- `src/modules/conflicts/pages/ConflictsPage.tsx`
+- `src/modules/backups/pages/BackupsPage.tsx`
+- `src/modules/conflicts/components/ConfirmDialog.tsx`
 
 **完成标准：**
 
