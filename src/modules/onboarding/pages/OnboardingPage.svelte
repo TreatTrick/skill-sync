@@ -68,7 +68,7 @@
     try {
       await prepareRepo('', remote, branch)
       await queryClient.invalidateQueries({ queryKey: ['app-state'] })
-      void goto('/app/dashboard')
+      void goto('/app/sync')
     } catch (error) {
       msg = errorMessage(error)
     } finally {

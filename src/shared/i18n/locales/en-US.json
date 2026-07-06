@@ -43,10 +43,8 @@
   "routes": {
     "backups": "Backups",
     "conflicts": "Conflicts",
-    "dashboard": "Dashboard",
     "onboarding": "Setup",
     "settings": "Settings",
-    "skills": "Skills",
     "sync": "Sync"
   },
   "routeGroups": {

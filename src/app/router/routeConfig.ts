@@ -1,8 +1,6 @@
 import {
   FolderSync,
-  LayoutDashboard,
   ListChecks,
-  Package,
   RotateCcw,
   Settings as SettingsIcon,
   Sparkles,
@@ -12,10 +10,8 @@ import type { Component } from 'svelte'
 export type RouteTitleKey =
   | 'routes.backups'
   | 'routes.conflicts'
-  | 'routes.dashboard'
   | 'routes.onboarding'
   | 'routes.settings'
-  | 'routes.skills'
   | 'routes.sync'
 
 export type RouteGroupKey = 'routeGroups.main'
@@ -29,18 +25,6 @@ export interface AppRouteConfig {
 }
 
 export const appRoutes: AppRouteConfig[] = [
-  {
-    path: '/app/dashboard',
-    title: 'routes.dashboard',
-    group: 'routeGroups.main',
-    icon: LayoutDashboard,
-  },
-  {
-    path: '/app/skills',
-    title: 'routes.skills',
-    group: 'routeGroups.main',
-    icon: Package,
-  },
   {
     path: '/app/sync',
     title: 'routes.sync',
@@ -73,4 +57,4 @@ export const appRoutes: AppRouteConfig[] = [
   },
 ]
 
-export const DEFAULT_ROUTE_PATH = '/app/dashboard'
+export const DEFAULT_ROUTE_PATH = '/app/sync'

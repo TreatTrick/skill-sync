@@ -43,10 +43,8 @@
   "routes": {
     "backups": "备份",
     "conflicts": "冲突",
-    "dashboard": "概览",
     "onboarding": "初始配置",
     "settings": "设置",
-    "skills": "Skills",
     "sync": "同步"
   },
   "routeGroups": {
