@@ -183,7 +183,7 @@
         </label>
         <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
           {t('settings.codexPaths')}
-          <Textarea bind:value={codexPaths} />
+          <Textarea bind:value={codexPaths} class="min-h-[180px]" />
         </label>
         <label class="flex items-center gap-2 text-sm text-foreground">
           <Checkbox bind:checked={config.hosts.claude.enabled} />
@@ -191,7 +191,7 @@
         </label>
         <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
           {t('settings.claudePaths')}
-          <Textarea bind:value={claudePaths} />
+          <Textarea bind:value={claudePaths} class="min-h-[180px]" />
         </label>
       </CardContent>
     </Card>
