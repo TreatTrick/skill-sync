@@ -187,7 +187,7 @@
     "codexEnabled": "启用 Codex",
     "codexPaths": "Codex 路径（每行一个）",
     "hosts": "Skills 路径",
-    "ignore": "忽略规则（每行一个）",
+    "ignore": "忽略规则（每行一个，匹配的文件不参与变更比对）",
     "language": "语言",
     "languageDesc": "选择应用界面语言。",
     "languageEn": "English",

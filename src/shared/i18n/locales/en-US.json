@@ -187,7 +187,7 @@
     "codexEnabled": "Enable Codex",
     "codexPaths": "Codex paths (one per line)",
     "hosts": "Skills paths",
-    "ignore": "Ignore rules (one per line)",
+    "ignore": "Ignore rules (one per line; matched files are excluded from change comparison)",
     "language": "Language",
     "languageDesc": "Choose the interface language.",
     "languageEn": "English",

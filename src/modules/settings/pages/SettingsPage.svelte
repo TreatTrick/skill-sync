@@ -206,7 +206,7 @@
         </label>
         <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
           {t('settings.ignore')}
-          <Textarea bind:value={ignore} />
+          <Textarea bind:value={ignore}  class="min-h-[180px]"/>
         </label>
       </CardContent>
     </Card>
