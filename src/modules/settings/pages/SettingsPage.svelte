@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query'
+  import { createQuery, useQueryClient } from '@tanstack/svelte-query'
   import { Monitor, Moon, Sun } from '@lucide/svelte'
   import type { Component } from 'svelte'
 
@@ -7,7 +7,6 @@
   import { t } from '@/shared/i18n'
   import { languageState, themeState, type ThemeMode } from '@/shared/state'
   import {
-    Button,
     Card,
     CardContent,
     CardDescription,
@@ -37,8 +36,10 @@
   let codexPaths = $state('')
   let claudePaths = $state('')
   let ignore = $state('')
-  let msg = $state('')
   let prefilled = $state(false)
+  let saveError = $state('')
+  let lastSaved: string | null = null
+  let saveTimer: ReturnType<typeof setTimeout> | undefined
 
   // Prefill the form once the loaded app state arrives.
   $effect(() => {
@@ -51,31 +52,44 @@
     }
   })
 
-  const save = createMutation(() => ({
-    mutationFn: (cfg: AppConfig) => saveConfig(cfg),
-    onSuccess: () => {
-      msg = t('settings.saved')
-      void queryClient.invalidateQueries({ queryKey: ['app-state'] })
-    },
-    onError: (error) => {
-      msg = t('settings.saveError', { message: errorMessage(error) })
-    },
-  }))
+  // Live config assembled from the form state; persisted on every change.
+  const effectiveConfig = $derived(
+    config
+      ? {
+          ...config,
+          hosts: {
+            codex: { ...config.hosts.codex, paths: fromLines(codexPaths) },
+            claude: { ...config.hosts.claude, paths: fromLines(claudePaths) },
+          },
+          ignore: fromLines(ignore),
+        }
+      : null,
+  )
 
-  const handleSave = () => {
-    if (!config) {
+  // Debounced autosave: write the config whenever it changes, skipping the
+  // baseline captured right after load so an unchanged file isn't rewritten.
+  $effect(() => {
+    const cfg = effectiveConfig
+    if (!cfg) return
+    const snapshot = JSON.stringify(cfg)
+    if (snapshot === lastSaved) return
+    if (lastSaved === null) {
+      lastSaved = snapshot
       return
     }
-    msg = ''
-    save.mutate({
-      ...config,
-      hosts: {
-        codex: { ...config.hosts.codex, paths: fromLines(codexPaths) },
-        claude: { ...config.hosts.claude, paths: fromLines(claudePaths) },
-      },
-      ignore: fromLines(ignore),
-    })
-  }
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      void saveConfig(cfg)
+        .then(() => {
+          lastSaved = snapshot
+          saveError = ''
+          void queryClient.invalidateQueries({ queryKey: ['app-state'] })
+        })
+        .catch((error) => {
+          saveError = errorMessage(error)
+        })
+    }, 400)
+  })
 
   const themeOptions = $derived<
     { mode: ThemeMode; icon: Component<{ class?: string }>; label: string }[]
@@ -92,18 +106,6 @@
 </script>
 
 <div class="grid gap-4">
-  <Card>
-    <CardHeader class="flex-row items-center justify-between space-y-0">
-      <div class="space-y-1.5">
-        <CardTitle>{t('settings.title')}</CardTitle>
-        <CardDescription>{t('settings.description')}</CardDescription>
-      </div>
-      <Button disabled={!config} loading={save.isPending} onclick={handleSave}>
-        {t('settings.save')}
-      </Button>
-    </CardHeader>
-  </Card>
-
   <Card>
     <CardHeader>
       <CardTitle>{t('settings.appearance')}</CardTitle>
@@ -155,9 +157,9 @@
     </CardContent>
   </Card>
 
-  {#if msg}
-    <Card class="border-success-muted bg-success-muted">
-      <CardContent class="pt-6 text-sm text-success">{msg}</CardContent>
+  {#if saveError}
+    <Card class="border-destructive-border bg-destructive-muted">
+      <CardContent class="pt-6 text-sm text-destructive">{saveError}</CardContent>
     </Card>
   {/if}
 

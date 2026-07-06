@@ -186,19 +186,14 @@
     "claudePaths": "Claude Code paths (one per line)",
     "codexEnabled": "Enable Codex",
     "codexPaths": "Codex paths (one per line)",
-    "description": "Manage skills paths and sync preferences.",
     "hosts": "Skills paths",
     "ignore": "Ignore rules (one per line)",
     "language": "Language",
     "languageDesc": "Choose the interface language.",
     "languageEn": "English",
     "languageZh": "简体中文",
-    "save": "Save settings",
-    "saveError": "Save failed: {{message}}",
-    "saved": "Settings saved.",
     "themeDark": "Dark",
     "themeLight": "Light",
-    "themeSystem": "System",
-    "title": "Settings"
+    "themeSystem": "System"
   }
 }
