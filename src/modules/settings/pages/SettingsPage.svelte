@@ -14,7 +14,6 @@
     CardHeader,
     CardTitle,
     Checkbox,
-    Input,
     Spinner,
     Textarea,
   } from '@/shared/ui'
@@ -175,20 +174,6 @@
       <Spinner class="size-6" />
     </div>
   {:else}
-    <Card>
-      <CardHeader><CardTitle>{t('settings.repository')}</CardTitle></CardHeader>
-      <CardContent class="grid gap-4">
-        <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
-          {t('settings.remote')}
-          <Input bind:value={config.repository.remote} />
-        </label>
-        <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
-          {t('settings.branch')}
-          <Input bind:value={config.repository.branch} />
-        </label>
-      </CardContent>
-    </Card>
-
     <Card>
       <CardHeader><CardTitle>{t('settings.hosts')}</CardTitle></CardHeader>
       <CardContent class="grid gap-4">
