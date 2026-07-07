@@ -5,7 +5,7 @@
     AlertTriangle,
     ArrowDownToLine,
     ArrowUpFromLine,
-    CheckCircle2,
+    CircleCheck,
     FolderOpen,
     Package,
     RefreshCw,
@@ -63,7 +63,6 @@
     enabled: configured,
   }))
   const skills = $derived(scan.data?.skills ?? [])
-  const warnings = $derived(scan.data?.warnings ?? [])
 
   const plan = createQuery(() => ({
     queryKey: ['sync-plan'],
@@ -98,10 +97,16 @@
   )
   const conflictCount = $derived(planData?.conflicts.length ?? 0)
   const isEmpty = $derived(totalActions === 0 && conflictCount === 0)
+  const recheckLoading = $derived(plan.isFetching || scan.isFetching)
 
   const handleApply = () => {
     resultMsg = ''
     apply.mutate(syncDecisions.decisions)
+  }
+
+  const handleRecheck = () => {
+    void plan.refetch()
+    void scan.refetch()
   }
 </script>
 
@@ -241,7 +246,7 @@
           <CardDescription>{t('sync.description')}</CardDescription>
         </div>
         <div class="flex gap-2">
-          <Button onclick={() => void plan.refetch()} variant="outline">
+          <Button loading={recheckLoading} onclick={handleRecheck} variant="outline">
             {#snippet icon()}
               <RefreshCw class="size-4" />
             {/snippet}
@@ -278,25 +283,6 @@
       )}
     </div>
 
-    <Card>
-      <CardHeader class="flex-row items-center justify-between space-y-0">
-        <div class="space-y-1.5">
-          <CardTitle>{t('skills.title')}</CardTitle>
-          <CardDescription>{t('skills.description')}</CardDescription>
-        </div>
-        <Button
-          loading={scan.isFetching}
-          onclick={() => void scan.refetch()}
-          variant="outline"
-        >
-          {#snippet icon()}
-            <RefreshCw class="size-4" />
-          {/snippet}
-          {t('skills.rescan')}
-        </Button>
-      </CardHeader>
-    </Card>
-
     {#if scan.isLoading}
       <div class="flex justify-center py-12">
         <Spinner class="size-6" />
@@ -308,29 +294,6 @@
         <CardContent class="pt-6 text-sm text-destructive">
           {errorMessage(scan.error)}
         </CardContent>
-      </Card>
-    {/if}
-
-    {#if warnings.length > 0}
-      <Card class="border-warning-border bg-warning-muted">
-        <CardContent class="pt-6 text-sm text-warning">
-          <div class="font-bold">{t('skills.warnings')}</div>
-          <ul class="mt-1 grid gap-1">
-            {#each warnings as warning, index (index)}
-              <li>{warning}</li>
-            {/each}
-          </ul>
-        </CardContent>
-      </Card>
-    {/if}
-
-    {#if skills.length === 0 && !scan.isLoading}
-      <Card>
-        <EmptyState title={t('skills.empty')}>
-          {#snippet icon()}
-            <Package class="size-10" />
-          {/snippet}
-        </EmptyState>
       </Card>
     {/if}
 
@@ -396,19 +359,9 @@
     {#if resultMsg}
       <Card class="border-success-muted bg-success-muted">
         <CardContent class="flex items-center gap-2 pt-6 text-sm text-success">
-          <CheckCircle2 class="size-4 shrink-0" />
+          <CircleCheck class="size-4 shrink-0" />
           {resultMsg}
         </CardContent>
-      </Card>
-    {/if}
-
-    {#if isEmpty && !plan.isLoading && !plan.error}
-      <Card>
-        <EmptyState title={t('sync.empty')}>
-          {#snippet icon()}
-            <CheckCircle2 class="size-10" />
-          {/snippet}
-        </EmptyState>
       </Card>
     {/if}
 

@@ -101,7 +101,6 @@
     },
     "notConfigured": "尚未配置同步仓库，请先完成初始配置。",
     "preview": "预览同步",
-    "scanWarnings": "扫描告警",
     "title": "概览"
   },
   "skills": {
@@ -114,13 +113,8 @@
       "path": "本地路径",
       "status": "状态"
     },
-    "description": "管理本机已发现的 agent skills。",
-    "empty": "未发现任何 skill。请确认 agent 路径或重新扫描。",
     "enabled": "已启用",
-    "openFolder": "打开目录",
-    "rescan": "重新扫描",
-    "title": "Skills",
-    "warnings": "扫描告警"
+    "openFolder": "打开目录"
   },
   "sync": {
     "applied": "同步完成：应用 {{count}} 项，备份 {{backups}} 项。",
@@ -131,7 +125,6 @@
       "download": "远程 → 本地",
       "upload": "本地 → 远程"
     },
-    "empty": "所有 skills 已是最新，无需同步。",
     "groups": {
       "conflicts": "需要处理",
       "deletes": "将删除",

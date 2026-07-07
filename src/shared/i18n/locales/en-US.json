@@ -101,7 +101,6 @@
     },
     "notConfigured": "No sync repository configured. Please complete setup first.",
     "preview": "Preview sync",
-    "scanWarnings": "Scan warnings",
     "title": "Dashboard"
   },
   "skills": {
@@ -114,13 +113,8 @@
       "path": "Local path",
       "status": "Status"
     },
-    "description": "Manage discovered agent skills on this machine.",
-    "empty": "No skills found. Check the agent paths or rescan.",
     "enabled": "Enabled",
-    "openFolder": "Open folder",
-    "rescan": "Rescan",
-    "title": "Skills",
-    "warnings": "Scan warnings"
+    "openFolder": "Open folder"
   },
   "sync": {
     "applied": "Sync complete: applied {{count}} item(s), backed up {{backups}} item(s).",
@@ -131,7 +125,6 @@
       "download": "Remote → Local",
       "upload": "Local → Remote"
     },
-    "empty": "All skills are up to date. Nothing to sync.",
     "groups": {
       "conflicts": "Needs review",
       "deletes": "Will delete",
