@@ -15,6 +15,7 @@
 + manifest + content-addressed zip blob
 + 本地 sync_state 做 base/hash/remote_commit 记录
 + 双向同步、批量上传、批量下载、冲突决策
++ 基于 base 的 advisory 删除传播（含护栏，不做 tombstone）
 ```
 
 如果从零开始，只会重新付一次 Svelte/Tauri/i18n/路由/设置/扫描的成本，最后仍然要实现同一套复杂同步语义。除非产品方向改成 CLI-only、SaaS 后端或完全不同的 UI，否则没有必要重写整个项目。
@@ -40,19 +41,32 @@ local  = 当前本地 skill 的内容 hash
 remote = 当前 GitHub manifest 中该 skill 的内容 hash
 ```
 
-规则：
+规则（`b`=base、`l`=local、`r`=remote 的内容 hash，`∅`=该侧缺失；穷举所有有意义组合）：
 
-| 条件                                     | 结果                       |
-| ---------------------------------------- | -------------------------- |
-| `local == remote`                        | 已同步，跳过               |
-| `local == base && remote != base`        | 云端更新，本地下载覆盖     |
-| `remote == base && local != base`        | 本地更新，上传覆盖云端     |
-| `local != base && remote != base` 且不同 | 双方都改，进入冲突         |
-| `base` 不存在且本地/云端同名不同内容     | 首次遇到同名冲突，用户选择 |
-| 本地有、云端无                           | 上传                       |
-| 云端有、本地无                           | 下载                       |
+| #   | base | local | remote         | 状态                         | 动作                        | commit |
+| --- | ---- | ----- | -------------- | ---------------------------- | --------------------------- | ------ |
+| 1   | `∅`  | 有    | `∅`            | 本地新增（local_update）     | 上传                        | 1      |
+| 2   | `∅`  | `∅`   | 有             | 云端新增（remote_update）    | 下载                        | 0      |
+| 3   | `∅`  | 有    | 有，`l==r`     | 已同步（记 base）            | 跳过                        | 0      |
+| 4   | `∅`  | 有    | 有，`l!=r`     | 冲突：首次同名               | 用户选择                    | 视选择 |
+| 5   | 有   | 有    | 有，`l==r`     | 已同步                       | 跳过                        | 0      |
+| 6   | 有   | 有    | 有，`r==b`     | 本地更新                     | 上传                        | 1      |
+| 7   | 有   | 有    | 有，`l==b`     | 云端更新                     | 下载                        | 0      |
+| 8   | 有   | 有    | 有，三者互不等 | 冲突：双方都改               | 用户选择                    | 视选择 |
+| 9   | 有   | `∅`   | 有，`r==b`     | 本地已删除（local_deleted）  | 删云端（manifest 移除条目） | 1      |
+| 10  | 有   | `∅`   | 有，`r!=b`     | 冲突：本地删、云端改         | 删云端 / 拉回本地 / 跳过    | 视选择 |
+| 11  | 有   | 有    | `∅`，`l==b`    | 云端已删除（remote_deleted） | 删本地（移入 trash）        | 0      |
+| 12  | 有   | 有    | `∅`，`l!=b`    | 冲突：云端删、本地改         | 保留本地 / 接受删除 / 跳过  | 视选择 |
+| 13  | 有   | `∅`   | `∅`            | 双方已删除（both_deleted）   | 清 base 条目（静默）        | 0      |
 
-删除同步 V1 不自动做。新电脑本地空目录不能被误判为“用户删除了所有 skill”。删除需要 tombstone 单独设计。
+第 9–13 行为删除相关新增行。新增状态 `local_deleted` / `remote_deleted`；`both_deleted` 作静默 base 清理。新增冲突原因 `local_deleted_remote_changed`、`remote_deleted_local_changed`，与既有 `both_changed`、`same_name_first_seen` 并列。
+
+删除传播基于 base 三方比较，V1 即做，但只做 advisory 语义，不做 tombstone：
+
+- 全新电脑 `base` 为空，云端 skill 一律判为下载，不会被误判为“用户删除了所有 skill”。删除检测需要正向证据（base 有、某侧缺失），全新机器没有此证据。
+- 真正的风险不是“新电脑”，而是“空扫描”（本地 root 临时不可读导致扫描为空）。这靠“删除安全护栏”解决，而非 tombstone。
+- 删除后该 skill 从本地 `sync_state` 移除（base 清空），重新导入即重新上传，天然实现“反悔/同步回来”，无需专门机制。
+- tombstone（权威/粘性删除）延后为未来增强，见文末“删除语义”。
 
 ## 当前项目现状
 
@@ -311,6 +325,9 @@ commit 规则：
 | 没有变化                   | 0             |
 | 本地新增/修改上传          | 1             |
 | 批量 skill 上传            | 1             |
+| 本地删除，删除云端条目     | 1             |
+| 云端删除，删除本地         | 0             |
+| 双方都删除，清理 base      | 0             |
 | 冲突选择保留本地           | 1             |
 | 冲突选择使用云端           | 0             |
 | manifest metadata 发生变化 | 1             |
@@ -354,12 +371,13 @@ Device Flow 的产品优势：
 ```text
 1. 读取 AppConfig 与 SyncState
 2. RemoteStore.fetch_manifest()
-3. 扫描本地 Codex / Claude Code skill roots
+3. 扫描本地 Codex / Claude Code skill roots（记录每个 root 的可读性）
 4. SkillPacker 为每个本地 skill 生成 hash 与 zip metadata
-5. 以 skill_id 合并 local / remote / base
-6. 生成 SyncPlan
-7. 清理预览阶段临时 zip 目录
-8. 返回 UI 展示，不写文件、不上传、不下载
+5. 以 skill_id 合并 local / remote / base，按三方表判定状态（含本地删除 / 云端删除 / 双方删除）
+6. 应用删除护栏：root 不可读则不推断删除；删除数超阈则置 delete_guard_tripped
+7. 生成 SyncPlan
+8. 清理预览阶段临时 zip 目录
+9. 返回 UI 展示，不写文件、不上传、不下载、不删除
 ```
 
 ### 扫描与 hash 性能策略
@@ -380,7 +398,7 @@ Device Flow 的产品优势：
 
 ```text
 1. 重新 fetch remote manifest，拿到最新 commit_sha
-2. 重新扫描本地、重新 pack/hash，并重建计划
+2. 重新扫描本地、重新 pack/hash，并重建计划（含删除判定与护栏复核）
 3. 合并用户 conflict decisions
 4. 对 download 动作：
    - 拉取 blob
@@ -391,14 +409,17 @@ Device Flow 的产品优势：
 5. 对 upload 动作：
    - 收集本次执行阶段重新生成的 canonical zip blob
    - 更新 next_manifest
-6. 如果需要改云端：
-   - commit_changes(base_commit_sha, blobs, next_manifest)
+6. 对 delete_remote 动作：从 next_manifest 移除该 skill 条目（blob 暂不 GC）
+7. 对 delete_local 动作：把本地 skill 目录移入 trash，不产生 commit
+8. 如果需要改云端：
+   - commit_changes(base_commit_sha, blobs, next_manifest)  // 上传与删云端条目合并为 1 个 commit
    - 若 base_commit_sha 过期，重新生成计划并要求 UI 确认
-7. 写入 sync_state：
+9. 写入 sync_state：
    - 更新 remote commit_sha
    - 更新成功同步项的 base_hash
-8. 清理执行阶段临时 zip 目录
-9. 返回 applied/warnings/remote_commit
+   - 删除项从 sync_state 移除（base 清空）
+10. 清理执行阶段临时 zip 目录
+11. 返回 applied/warnings/remote_commit
 ```
 
 ### 批量上传
@@ -451,6 +472,16 @@ download_skills(targets)
 
 备份/恢复可以作为后续增强，但不进入 GitHub vault 第一阶段。
 
+### 删除安全护栏
+
+删除是破坏性操作，且第一阶段不做 Backups，必须有护栏。真正要防的不是“新电脑空目录”（base 为空不会误判），而是“空扫描”——本地 root 临时不可读导致扫描为空，被误判成“删光了”。
+
+- 删除永不静默：删除只作为 Sync 预览里的显式条目出现，不 apply 就不删；删除条目默认不勾选，需用户显式确认。
+- root 可读性闸门：把 `local == ∅` 判成删除前，校验该 skill 的配置 root 存在、可读且扫描无错误。root 缺失/不可读时，其下 skill 标记为 `unknown`（跳过并 warning），不推断为 `remote_deleted` 或删本地。
+- 批量删除熔断：单个计划的删除数超过 `max_auto_delete`（默认 5）或超过被跟踪 skill 的 50% 时，置 `delete_guard_tripped`，UI 醒目警告、不预选删除、要求额外确认。
+- 删本地进 trash：删本地把目录移到 `<config-dir>/skill-sync/trash/<task-id>/<skill_id>/` 而不是硬删（删云端有 Git 历史兜底）。
+- blob 不做 GC：删云端只移除 `manifest.json` 条目，orphan blob 保留（内容寻址、可 dedup、可恢复），GC 延后。
+
 ## Tauri command 设计
 
 保留现有 command 名称的同时新增 GitHub/vault 能力。
@@ -498,6 +529,7 @@ download_skills(targets)
 - 当前 remote commit。
 - 本机 device name。
 - skill size limit：默认 `20 MiB`，按 canonical zip 后大小计算，超过则拒绝上传。
+- delete guard：`max_auto_delete` 删除熔断阈值，默认 `5`，超过则要求额外确认。
 - ignore rules：复用现有 textarea，全局生效，每行一个 glob。
 - Codex / Claude Code roots。
 
@@ -526,18 +558,20 @@ Sync 页面包含：
 已同步
 本地更新
 云端更新
+删除
 冲突
 ```
 
 状态语义：
 
-| 筛选项   | 含义                                               | 默认动作                 |
-| -------- | -------------------------------------------------- | ------------------------ |
-| 全部     | 展示所有已发现或远端存在的 skill                   | 无                       |
-| 已同步   | `local_hash == remote_hash`                        | 跳过                     |
-| 本地更新 | 本地新增，或 `remote_hash == base_hash` 后本地变更 | 上传到云端               |
-| 云端更新 | 云端新增，或 `local_hash == base_hash` 后云端变更  | 下载到本地               |
-| 冲突     | 本地和云端都相对 base 变化，且 hash 不同           | 用户选择保留哪一边或跳过 |
+| 筛选项   | 含义                                                            | 默认动作                        |
+| -------- | --------------------------------------------------------------- | ------------------------------- |
+| 全部     | 展示所有已发现或远端存在的 skill                                | 无                              |
+| 已同步   | `local_hash == remote_hash`                                     | 跳过                            |
+| 本地更新 | 本地新增，或 `remote_hash == base_hash` 后本地变更              | 上传到云端                      |
+| 云端更新 | 云端新增，或 `local_hash == base_hash` 后云端变更               | 下载到本地                      |
+| 删除     | 一侧相对 base 消失：local_deleted 删云端，remote_deleted 删本地 | 卡片 badge 区分方向，需显式确认 |
+| 冲突     | 本地和云端都相对 base 变化，且 hash 不同                        | 用户选择保留哪一边或跳过        |
 
 搜索框按 skill 名称过滤卡片；状态筛选与搜索可以叠加。
 
@@ -547,10 +581,13 @@ Sync 页面包含：
 uploads
 downloads
 updates
+delete_remote
+delete_local
 conflicts
 skips
 blocked
 warnings
+delete_guard_tripped
 remote_changed
 expected_remote_commit
 will_create_commit
@@ -563,6 +600,8 @@ UI 上应该明确：
 - 下载动作不会改云端。
 - 冲突未决不会自动覆盖。
 - 每个写入本地的目标路径。
+- 每个删除动作的方向与目标（删云端条目 / 删本地路径，删本地进 trash），默认不勾选、需显式确认。
+- delete_guard_tripped 时给出醒目警告，说明删除数量超阈的原因（可能是 root 不可读或批量误删）。
 - 超过大小限制的 skill 被标记为无法上传，并显示实际 zip 大小、上限和处理建议。
 - 冲突详情第一阶段只展示摘要，不做文件级 diff。
 
@@ -574,6 +613,19 @@ UI 上应该明确：
 跳过 -> 不处理
 ```
 
+删改冲突（一侧删除、另一侧改动）的决策语义：
+
+```text
+本地删除、云端又改动：
+  删云端   -> 移除云端条目，产生 commit
+  拉回本地 -> 下载云端新版本，不产生 commit
+  跳过     -> 不处理
+云端删除、本地又改动：
+  保留本地 -> 重新上传本地版本，产生 commit
+  接受删除 -> 本地移入 trash，不产生 commit
+  跳过     -> 不处理
+```
+
 “另存为副本”可以作为后续增强，不放入第一轮重构。
 
 ## Rust 模块改造建议
@@ -583,7 +635,7 @@ UI 上应该明确：
 ```text
 src-tauri/src/
   commands.rs            # 调整 DTO 与新增 command
-  config.rs              # provider-aware 配置
+  config.rs              # provider-aware 配置（含 limits.max_auto_delete）
   detect.rs              # 保留，补充平台命名
   errors.rs              # 新增 RemoteChanged / Auth / Vault 错误类型
   skill.rs               # 保留 metadata parser，补充 normalized id
@@ -593,7 +645,7 @@ src-tauri/src/
   remote_store.rs        # 新增 trait 与 DTO
   github_store.rs        # 新增 GitHub vault adapter
   local_vault_store.rs   # 新增测试/开发 adapter
-  sync_engine.rs         # 重写三方比较与 apply flow
+  sync_engine.rs         # 重写三方比较与 apply flow（含删除传播与删除护栏）
 ```
 
 删除 `git_store.rs` 及其调用方，不保留旧适配器。测试和离线调试只使用不依赖 Git 的 `LocalVaultStore`。
@@ -619,6 +671,8 @@ src-tauri/src/
 - 用本地目录模拟 `manifest.json` 与 `blobs/sha256`。
 - 重写 `sync_engine` 的三方比较，先不接 GitHub。
 - 覆盖 upload/download/update/conflict/base missing/download-only 0 commit 等规则。
+- 覆盖删除规则：local_deleted 删云端、remote_deleted 删本地、删改冲突、双方删除清 base。
+- 实现删除护栏：root 可读性闸门、`max_auto_delete` 熔断、删本地进 trash、blob 不 GC。
 
 ### 阶段 4：接入 GitHubVaultStore
 
@@ -635,10 +689,11 @@ src-tauri/src/
 - 删除独立 `Conflicts` 路由、侧边栏入口和模块。
 - 删除 `Backups` 路由、侧边栏入口和模块；第一阶段不做备份/恢复 UI。
 - Sync 页面新增搜索框和状态筛选。
-- 状态筛选只保留：全部、已同步、本地更新、云端更新、冲突。
-- skills 卡片显示同步状态、方向、hash、路径和 warning。
+- 状态筛选只保留：全部、已同步、本地更新、云端更新、删除、冲突。
+- skills 卡片显示同步状态、方向、hash、路径和 warning；删除卡片用 badge 区分删云端/删本地，需显式确认。
+- delete_guard_tripped 时展示醒目警告且不预选删除。
 - 冲突卡片点击打开详情弹窗或抽屉。
-- 冲突详情只展示摘要与决策按钮，不做文件级 diff。
+- 冲突详情只展示摘要与决策按钮，不做文件级 diff；删改冲突展示删除感知决策。
 
 ### 阶段 6：更新 Onboarding/Settings
 
@@ -674,6 +729,11 @@ Rust 优先测试：
 - manifest round trip。
 - sync_state round trip。
 - 三方比较规则。
+- 本地删除（base 有、local 缺、remote==base）判为 local_deleted，删云端产生 1 commit。
+- 云端删除（base 有、remote 缺、local==base）判为 remote_deleted，删本地移入 trash，0 commit。
+- 删改并发（本地删/云端改、云端删/本地改）进入冲突，不自动删除。
+- 双方都删除清理 base 条目，删除后重新导入判为 local_new 并重新上传。
+- root 不可读导致的空扫描不产生任何删除；删除数超阈时置 delete_guard_tripped。
 - canonical zip 超过 `max_skill_zip_bytes` 时进入 blocked，不上传 blob，不更新 manifest。
 - download-only 不创建 remote commit。
 - upload/update 只创建一次 remote commit。
@@ -683,9 +743,11 @@ Rust 优先测试：
 
 前端验证：
 
-- Zod schema 能解析新 `SyncPlan`。
+- Zod schema 能解析新 `SyncPlan`（含 delete_remote/delete_local/delete_guard_tripped）。
 - Sync 页面正确显示 commit 语义。
 - Sync 页面搜索和状态筛选能叠加过滤 skill 卡片。
+- “删除”筛选能列出 local_deleted / remote_deleted，卡片 badge 区分删云端与删本地。
+- 删改冲突详情能写入删除感知决策。
 - 冲突详情摘要能写入 `syncDecisions` 的三项决策。
 - 独立 `Conflicts` 路由、侧边栏入口和模块已移除。
 - 独立 `Backups` 路由、侧边栏入口和模块已移除。
@@ -740,7 +802,9 @@ V1 用 `platform:name` 避免跨平台误合并。同平台同名不同内容且
 
 ### 删除语义
 
-V1 不自动同步删除。后续如果要做删除，需要 tombstone：
+V1 做基于 base 三方比较的 advisory 删除传播（见前面的三方规则表与“删除安全护栏”）。一侧相对 base 消失即传播到另一侧：本地删除则移除云端条目，云端删除则把本地移入 trash；删改并发进冲突。全新电脑 base 为空不会误判，空扫描由 root 可读性闸门与熔断护栏兜底。删除后从 sync_state 移除，重新导入即重新上传，天然支持反悔。
+
+tombstone 留作未来的“权威/粘性删除”增强——只用于处理“某台从未同步、却独立持有该 skill 的机器会把它重新上传复活”这一跨设备边缘场景。它与“重新导入即找回”相冲突，且对个人/少设备工具非必需，因此不进入 V1：
 
 ```text
 tombstones/<skill_id>.json
@@ -749,7 +813,7 @@ deleted_by
 previous_hash
 ```
 
-否则新电脑空目录会被误判。
+引入时保持 manifest schema 版本化，可预留空的 deleted 段以便非破坏性升级。
 
 ## 是否重写项目
 
