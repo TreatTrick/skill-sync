@@ -12,7 +12,7 @@
     "lint:colors": "node scripts/check-color-tokens.mjs",
     "lint:i18n": "node scripts/check-i18n-literals.mjs",
     "lint:responsive": "node scripts/check-responsive-layout.mjs",
-    "precommit": "lint-staged && npm run lint",
+    "precommit": "lint-staged",
     "preview": "vite preview",
     "prepare": "node scripts/setup-husky.mjs",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.node.json --noEmit",
@@ -89,6 +89,16 @@
     }
   },
   "lint-staged": {
-    "*": "prettier --ignore-unknown --write"
+    "*": "prettier --ignore-unknown --write",
+    "src/**/*.{ts,svelte}": [
+      "eslint --fix",
+      "node scripts/check-responsive-layout.mjs",
+      "node scripts/check-color-tokens.mjs",
+      "node scripts/check-i18n-literals.mjs"
+    ],
+    "src/**/*.css": [
+      "node scripts/check-responsive-layout.mjs",
+      "node scripts/check-color-tokens.mjs"
+    ]
   }
 }

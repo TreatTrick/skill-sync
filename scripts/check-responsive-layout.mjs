@@ -1,6 +1,7 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
+import { resolveSourceLintTargets } from './resolveSourceLintTargets.mjs'
 
 const RESPONSIVE_VARIANTS = new Set(['sm', 'md', 'lg', 'xl', '2xl'])
 const SOURCE_DIRS = ['src']
@@ -14,26 +15,6 @@ const LARGE_MIN_HEIGHT_PX = 480
 const LARGE_MAX_WIDTH_PX = 1536
 const LARGE_MAX_HEIGHT_PX = 640
 const LARGE_CSS_WIDTH_PX = 1024
-
-const collectSourceFiles = async (dir) => {
-  const entries = await readdir(dir, { withFileTypes: true })
-  const files = []
-
-  for (const entry of entries) {
-    const entryPath = path.join(dir, entry.name)
-
-    if (entry.isDirectory()) {
-      files.push(...(await collectSourceFiles(entryPath)))
-      continue
-    }
-
-    if (SOURCE_EXTENSIONS.has(path.extname(entry.name))) {
-      files.push(entryPath)
-    }
-  }
-
-  return files
-}
 
 const getLocation = (content, index) => {
   const before = content.slice(0, index)
@@ -268,13 +249,11 @@ const checkFile = async (filePath) => {
 
 const run = async () => {
   const rootDir = process.cwd()
-  const files = (
-    await Promise.all(
-      SOURCE_DIRS.map((sourceDir) =>
-        collectSourceFiles(path.join(rootDir, sourceDir)),
-      ),
-    )
-  ).flat()
+  const files = await resolveSourceLintTargets({
+    rootDir,
+    sourceDirs: SOURCE_DIRS,
+    sourceExtensions: SOURCE_EXTENSIONS,
+  })
 
   const issues = (
     await Promise.all(files.map((filePath) => checkFile(filePath)))

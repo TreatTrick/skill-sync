@@ -24,8 +24,8 @@
 - Commit subjects must not use Start Case, PascalCase, or all caps.
 - The project uses a `husky` `commit-msg` hook that runs `commitlint`.
 - The project uses a `husky` `pre-commit` hook that runs `npm run precommit` before each commit.
-- `npm run precommit` runs `lint-staged` first, then the full `npm run lint`.
-- `lint-staged` formats staged files with `prettier --ignore-unknown --write`; do not hand-format around the configured Prettier rules.
+- `npm run precommit` runs `lint-staged` and checks only staged files.
+- `lint-staged` formats staged files with `prettier --ignore-unknown --write`, and runs staged source lint checks for matching `src` files; do not hand-format around the configured Prettier rules.
 
 ## Anti-Thin-Wrapper Rule
 
