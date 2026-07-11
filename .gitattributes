@@ -1,0 +1,24 @@
+# 默认：文本文件按内容自动判定，统一使用 LF 行尾。
+# 覆盖 Windows 上 core.autocrlf=true 导致的 CRLF，避免与 Prettier endOfLine=lf 冲突。
+* text=auto eol=lf
+
+# 明确标记二进制资源，防止 git 误判并禁止 EOL 转换。
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.wasm binary

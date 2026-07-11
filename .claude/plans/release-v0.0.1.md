@@ -1,9 +1,11 @@
 # 发布 v0.0.1 到 GitHub(含 macOS Universal 安装包)
 
 ## 目标
+
 将当前代码作为 `v0.0.1` 打 tag 发布到 `TreatTrick/skill-sync`,并通过 GitHub Actions 自动构建 macOS Universal Binary(`.dmg`)上传到 Release。
 
 ## 已确认的决策
+
 - 发布方式:GitHub Actions(`tauri-apps/tauri-action`),推 tag 后自动构建+发布
 - macOS 架构:Universal Binary(Intel + Apple Silicon)
 - 版本号:`tauri.conf.json` 与 `package.json` 同步为 `0.0.1`
@@ -12,10 +14,12 @@
 ## 改动清单
 
 ### 1. 版本号同步
+
 - `src-tauri/tauri.conf.json`:`"version": "0.1.0"` → `"0.0.1"`
 - `package.json`:`"version": "0.0.0"` → `"0.0.1"`
 
 ### 2. 新增发布工作流 `.github/workflows/release.yml`
+
 ```yaml
 name: release
 on:
@@ -44,7 +48,9 @@ jobs:
           prerelease: false
           args: --target universal-apple-darwin
 ```
+
 要点:
+
 - `permissions: contents: write` — 允许 action 创建 Release、上传 assets
 - `dtolnay/rust-toolchain` 一次性装好 arm64 + x64 两个 target,Universal 构建必需
 - `args: --target universal-apple-darwin` — 产出单个同时支持两种架构的 `.dmg`
@@ -74,12 +80,14 @@ jobs:
    - 成功后 Releases 页会出现 `Skill Sync v0.0.1`,含 `Skill Sync_0.0.1_universal.dmg`
 
 ## 验证方式
+
 - `git tag -l` 显示 `v0.0.1`
 - GitHub Actions 里 `release` run 显示绿色通过
 - Releases 页面存在 `v0.0.1`,assets 包含 `.dmg`
 - 下载 `.dmg` 能在 Intel + Apple Silicon Mac 上打开(未签名,首次需右键→打开)
 
 ## 风险与说明
+
 - **未签名**:v0.0.1 不配置 Apple 开发者证书,Gatekeeper 会拦截。用户首次打开需「系统设置 → 隐私与安全性 → 仍要打开」或右键打开。Release notes 会注明。后续版本可加 `APPLE_CERTIFICATE` 等 secret 做签名公证。
 - **CI 耗时**:macOS runner 构建 Universal 首次约 15–25 分钟(含 Rust 编译两个架构)。
 - **CI 失败回滚**:若 workflow 失败,删除远程 tag `git push origin :refs/tags/v0.0.1`、修 bug 后重新打 tag。tag 未关联成功 Release 前,公开页面不会显示半成品。
