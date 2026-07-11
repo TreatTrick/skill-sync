@@ -1096,7 +1096,7 @@ git commit -m "feat: add local vault store"
 - Create: `src-tauri/src/sync_engine/vault.rs`
 - Modify: `src-tauri/src/sync_engine.rs`（只添加 `pub mod vault;`）
 
-- [ ] **Step 1: 定义 Rust status 和 conflict reason**
+- [x] **Step 1: 定义 Rust status 和 conflict reason**
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1123,7 +1123,7 @@ pub enum ConflictReason {
 }
 ```
 
-- [ ] **Step 2: 定义 plan entry 和 plan**
+- [x] **Step 2: 定义 plan entry 和 plan**
 
 ```rust
 pub struct SyncSkillEntry {
@@ -1171,7 +1171,7 @@ pub struct SyncPlan {
 
 `CommitSummary` 增加 `local_state_updates`，值为去重后的 adoption/removal 数量。`base_adoptions` 按 skill_id 唯一，`base_removals` 与 adoption 不得包含同一个 skill_id。
 
-- [ ] **Step 3: 定义 Apply 请求和响应**
+- [x] **Step 3: 定义 Apply 请求和响应**
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1233,11 +1233,11 @@ decision 白名单：
 
 未提供 decision 表示该冲突不执行并返回 warning；不存在于当前冲突集合的 skill_id 或不在白名单内的 decision 返回 `Blocked`，整次 Apply 不得部分执行。
 
-- [ ] **Step 4: 保留旧 command adapter 的编译边界**
+- [x] **Step 4: 保留旧 command adapter 的编译边界**
 
 Task 7-9 的全部新类型和函数放在独立 `crate::sync_engine::vault` 子模块，测试和新调用方使用限定名；旧 `sync_engine.rs` 的同名 `SyncPlan/build_plan/apply_plan` 保持不动，因此不存在符号冲突。Task 13 重接 commands 的同一提交中删除 legacy 实现并从 boundary module re-export vault API。前端 sync schema/decision/apply adapter 全部延后到 Task 16 原子迁移。
 
-- [ ] **Step 5: 验证**
+- [x] **Step 5: 验证**
 
 Run:
 
@@ -1247,7 +1247,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --no-run
 
 Expected: schema compiles；Rust 可在 Task 8 完成实现后全绿。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src-tauri/src/sync_engine.rs src-tauri/src/sync_engine/vault.rs

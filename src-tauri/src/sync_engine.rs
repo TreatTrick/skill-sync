@@ -10,6 +10,10 @@ use crate::git_store::GitStore;
 use crate::manifest::hash_dir;
 use crate::skill::{parse_skill_md, Skill};
 
+// 新 vault sync API 子模块；legacy SyncPlan/build_plan/apply_plan 保持不动，
+// Task 13 重接 commands 时删除 legacy 并 re-export vault API。
+pub(crate) mod vault;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(crate) struct SyncPlan {
     pub uploads: Vec<SyncAction>,
