@@ -153,7 +153,7 @@ Delete:
 - Create: `src-tauri/src/github_repository.rs`
 - Create: `src-tauri/src/github_store.rs`
 
-- [ ] **Step 1: 添加 Rust 依赖**
+- [x] **Step 1: 添加 Rust 依赖**
 
 ```toml
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
@@ -174,7 +174,7 @@ wiremock = "0.6"
 
 提交 dependency resolution 后的 `src-tauri/Cargo.lock`。canonical ZIP 的 golden bytes 测试必须在 zip/Deflate 依赖升级时继续通过；若升级改变 bytes，不能在 schema 1 下直接更新 golden，必须把它作为 canonical format/schema 迁移处理。
 
-- [ ] **Step 2: 注册新模块**
+- [x] **Step 2: 注册新模块**
 
 在 `src-tauri/src/lib.rs` 加：
 
@@ -196,7 +196,7 @@ mod vault_manifest;
 
 旧 `backup`、`git_store`、`manifest` 暂时保留，等 Task 18 删除。
 
-- [ ] **Step 3: 创建可编译模块文件**
+- [x] **Step 3: 创建可编译模块文件**
 
 每个新文件先放最小占位内容：
 
@@ -204,7 +204,7 @@ mod vault_manifest;
 // GitHub vault implementation lands in later tasks.
 ```
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run:
 
@@ -214,7 +214,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --no-run
 
 Expected: dependency resolution succeeds；若失败，只应是后续未实现引用。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src
