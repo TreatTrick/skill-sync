@@ -135,8 +135,8 @@ Rust backend
       "folder_name": "ponytail",
       "description": "Minimal implementation guidance",
       "namespace": "agents",
-      "hash": "sha256:abc123",
-      "blob": "blobs/sha256/abc123.skill.zip",
+      "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "blob": "blobs/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.skill.zip",
       "size": 12345,
       "updated_at": "2026-07-07T13:00:00Z",
       "updated_by": "device-laptop"
@@ -144,6 +144,18 @@ Rust backend
   }
 }
 ```
+
+Manifest 是不可信输入，所有来源（GitHub、LocalVaultStore、测试 fixture）必须经过同一个 validated parser。V1 校验规则：
+
+- 顶层 `schema` 必须精确等于支持的版本 `1`；未知版本返回 `unsupported_schema`，不能按 V1 猜测解析。
+- JSON parser 必须拒绝重复的 skill map key，不能接受 serde/map 默认的“后值覆盖前值”。
+- `skills` 的 map key 必须逐字节等于 entry `id`；`id` 必须是 canonical `<namespace>:<normalized-name>`，且 id namespace 等于 entry namespace。
+- `hash` 必须精确匹配 `sha256:[0-9a-f]{64}`，只接受小写十六进制。
+- `blob` 不接受任意路径，必须由 hash 唯一推导：若 hash 为 `sha256:<hex>`，blob 必须严格等于 `blobs/sha256/<hex>.skill.zip`。
+- `size` 必须大于 0；当前设备的 `max_skill_zip_bytes` 是本地 policy，超限 entry 在 plan 中 blocked，而不是把跨设备共享的 manifest 判为结构无效。下载后实际 blob bytes 长度必须等于 size，实际 SHA-256 必须等于 hash。
+- `folder_name` 必须是可移植的安全单目录名；manifest 内 normalized id、folded folder target 的任何碰撞都使整份 manifest invalid。
+
+任何一项失败都使整个 manifest 进入 `invalid_manifest`，不能跳过坏 entry 后继续，也不能用初始化流程覆盖。
 
 V1 的同步 key 使用固定 root namespace 限定 ID：
 
@@ -161,7 +173,7 @@ V1 固定三个 namespace，不允许用户添加或修改 root 路径：
 
 `agents:ponytail`、`codex:ponytail`、`claude-code:ponytail` 是三个独立同步对象，不自动合并或复制。这里的 namespace 表示本机安装 root，不表示某个工具是否能够消费该 skill；例如 Codex、Copilot、Gemini 都可能读取 `agents` namespace。
 
-`folder_name` 是下载目标的单个安全目录名，必须拒绝空值、`.`、`..`、路径分隔符和绝对路径。同一 namespace 内 normalized ID 或经 Unicode NFC + lowercase 折叠后的 folder name 发生碰撞时，整组标为 `blocked`，不能选择扫描顺序中的第一个。碰撞检测同时覆盖本地扫描结果、远端 manifest 内部，以及 local/remote 合并后会写向同一固定目标的条目；两个 remote-new skill 也不能解析到同一个目录。跨 namespace 的同名仍是独立对象。
+`folder_name` 是下载目标的单个安全目录名，必须拒绝空值、`.`、`..`、路径分隔符和绝对路径。远端 manifest 内同一 namespace 的 normalized ID 或经 Unicode NFC + lowercase 折叠后的 folder name 碰撞由 validated parser 拒绝，使整份 manifest invalid；本地扫描结果或 local/remote 合并后才出现的目标碰撞，则把涉及条目整组标为 `blocked`，不能选择扫描顺序中的第一个。两个 remote-new skill 也不能解析到同一个目录。跨 namespace 的同名仍是独立对象。
 
 V1 只管理上述三个用户级 root，不扫描仓库中的项目级 `.agents/skills`、`.claude/skills` 或其他动态路径。`~/.codex/skills/.system` 明确排除；其他直接子目录只有存在合法 `SKILL.md` 时才作为 skill，`.system` 或不含 `SKILL.md` 的运行时聚合目录不会递归扫描。
 
@@ -200,8 +212,8 @@ V1 只管理上述三个用户级 root，不扫描仓库中的项目级 `.agents
   "device_id": "device-laptop",
   "skills": {
     "codex:ponytail": {
-      "base_hash": "sha256:abc123",
-      "last_remote_hash": "sha256:abc123",
+      "base_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "last_remote_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "last_synced_at": "2026-07-07T13:00:00Z",
       "namespace": "codex",
       "relative_dir": "ponytail"
@@ -224,13 +236,29 @@ V1 只管理上述三个用户级 root，不扫描仓库中的项目级 `.agents
 
 要求：
 
-- 文件按规范化相对路径排序。
-- 路径分隔符统一为 `/`。
+- 路径转换为 UTF-8、Unicode NFC、`/` 分隔的相对路径，并按规范化 UTF-8 bytes 排序；无法表示为 UTF-8 的路径 blocked。
+- ZIP 只写 regular file entry，不写显式 directory entry；空目录不属于 skill 内容。
+- 每个 entry 的 timestamp 固定为 ZIP epoch `1980-01-01 00:00:00`；creator system 固定为 Unix，external attributes 精确编码为 regular file + `0o644`，其余 DOS/平台属性位清零；comment 和 extra fields 为空。
+- 压缩方法固定为 Deflate，level 固定为 `6`；不得因操作系统、zip crate 或压缩后端默认值改变压缩参数。依赖升级必须继续通过同一 golden bytes 测试，否则属于 canonical format 变更，必须升级 manifest schema。
 - 排除内置默认 ignore、用户全局 ignore 规则和常见缓存目录。
-- zip 内不得包含绝对路径、`..` 路径或平台相关临时文件。
-- hash 对 canonical zip bytes 计算，格式为 `sha256:<hex>`。
+- 每个 path component 都必须通过 portable path 校验：拒绝空值、`.`、`..`、绝对路径、NUL、路径分隔符、Windows 保留字符/设备名以及末尾空格或 `.`。
+- 对所有相对路径计算 `Unicode NFC + lowercase + /` 的 portable collision key；精确重复或大小写折叠碰撞均 blocked，不能保留第一个。
+- 源目录遍历使用 `symlink_metadata` 且读取前复核；拒绝 symlink。Windows 下任何 `FILE_ATTRIBUTE_REPARSE_POINT`（含 junction）都 blocked，不跟随到 root 外。
+- hash 对上述 canonical zip bytes 计算，格式固定为 `sha256:<64 lowercase hex>`。
 - 上传前做大小限制与 secret warning。
-- 下载解包前校验 hash，解包时防止 zip-slip 路径穿越。
+- 下载先验证 compressed size/hash，再验证 archive 仍满足相同 canonical entry 元数据、路径、碰撞和 regular-file-only 契约，最后在资源预算内流式解包。
+
+这些字段都属于 canonical format 的一部分。只要 timestamp、mode、compression level、directory entry 策略或路径规范化任一不同，生成的 bytes 就不同，不允许依赖 zip crate/平台默认值。
+
+### 链接、路径与解包安全
+
+zip-slip 校验只解决 `../`/绝对路径，不能替代文件类型和资源限制。pack 与 unpack 必须共同执行：
+
+- pack 不跟随 symlink、junction 或其他 reparse point；检测到后整个 skill blocked，并报告相对路径。
+- unpack 只接受 regular file entry；根据 ZIP Unix mode/external attributes 判定为 symlink、device、FIFO 或其他特殊类型时拒绝。显式 directory entry 也因不符合 canonical format 而拒绝，父目录只由安全文件路径按需创建。
+- 每个输出路径在 join 前逐 component 校验，join 后确认仍位于任务临时目录内；不能直接使用 archive 提供的路径创建文件。
+- archive 内不允许精确重复路径或 portable collision key 重复；`Docs/README.md` 与 `docs/readme.md` 这类包在所有平台都 blocked。
+- 所有内容先解到 RAII task temp；完整校验成功后才进入现有覆盖保护/原子目录替换。失败时清理 temp，正式 skill root 不发生变化。
 
 ### Ignore 规则
 
@@ -275,7 +303,16 @@ ignore 语义：
 
 第一阶段不做 per-skill `.skill-syncignore`。如果后续用户需要更细粒度控制，再单独设计 skill 内局部 ignore。
 
-MVP 使用单个硬限制：按 canonical zip 后大小计算，单个 skill zip 超过 `max_skill_zip_bytes` 就拒绝上传。默认值建议先设为 `20 MiB`。
+V1 使用四个独立硬限制，不能用 compressed size 代替 unpack 资源预算：
+
+```text
+max_skill_zip_bytes             = 20 MiB   # compressed blob bytes
+max_skill_files                 = 2,000    # regular file entries
+max_single_file_unpacked_bytes  = 50 MiB
+max_skill_unpacked_bytes        = 100 MiB  # all extracted file bytes
+```
+
+所有值进入 `LimitsConfig`，必须为正数，且 single-file unpack limit 不得大于 total unpack limit。上传 pack 和下载 unpack 使用同一组 limits。
 
 ```text
 canonical_zip_size <= max_skill_zip_bytes
@@ -284,6 +321,8 @@ canonical_zip_size <= max_skill_zip_bytes
 canonical_zip_size > max_skill_zip_bytes
   -> 标记为 blocked，Sync Preview 显示警告，不上传 blob，不更新 manifest
 ```
+
+打包时统计 included file count、每个文件实际读取 bytes 和累计 unpacked bytes，任一超限即 blocked。下载时先检查 ZIP headers 声明的 entry count/单文件/累计 uncompressed size，再在流式写入时重新计数实际 bytes；不能信任 header。实际写入超过任一限制立即终止并清理 temp。这同时防止高压缩比 zip bomb 和海量零字节 entry 耗尽磁盘/inode。
 
 拒绝上传时，UI 应提示用户检查并清理大文件、依赖目录、缓存文件、截图或压缩包，也可以通过 ignore 规则排除不需要同步的内容。
 
@@ -713,6 +752,7 @@ Tauri 错误边界使用结构化 payload：`kind/message/retry_after?/latest_ch
 - 当前 remote commit。
 - 本机 device name。
 - skill size limit：默认 `20 MiB`，按 canonical zip 后大小计算，超过则拒绝上传。
+- unpack safety limits：默认最多 2,000 files、单文件解压 50 MiB、累计解压 100 MiB；同时作用于本地 pack 与远端 download。
 - delete guard：`max_auto_delete` 删除熔断阈值，默认 `5`，超过则要求额外确认。
 - ignore rules：复用现有 textarea，全局生效，每行一个 glob。
 - 三个固定 namespace root：`agents`、`codex`、`claude-code`。Settings 只读显示 namespace、解析后的绝对路径、存在/可读/扫描状态，不提供路径输入、启用开关或新增 root。
@@ -834,6 +874,7 @@ src-tauri/src/
   errors.rs              # 新增 RemoteChanged / Auth / Vault 错误类型
   skill.rs               # 保留 metadata parser，补充 normalized id
   pack.rs                # 新增 canonical zip / hash / unpack
+  portable_path.rs       # 新增共享 portable component/path 与 collision 校验
   vault_manifest.rs      # 新增 manifest schema 与校验
   sync_state.rs          # 新增本地 base_hash/commit_sha 状态
   remote_store.rs        # 新增 trait 与 DTO
@@ -854,17 +895,18 @@ src-tauri/src/
 
 ### 阶段 1：先落数据契约
 
-- 新增 `vault_manifest.rs`、`sync_state.rs`、`pack.rs` 的类型与测试。
+- 新增 `vault_manifest.rs`、`sync_state.rs`、`portable_path.rs`、`pack.rs` 的类型与测试。
 - 前端新增/扩展 `syncPlan.ts` schema。
 - 定义 `agents` / `codex` / `claude-code` 固定 namespace registry，manifest、state、plan 统一改用 namespace/folder_name。
 - 不改 UI 行为，只保证类型边界成型。
 
 ### 阶段 2：实现 canonical pack/hash
 
-- 用测试 fixture 验证同内容不同文件遍历顺序 hash 一致。
-- 验证 ignore、生效路径、zip-slip 防护、大小限制。
+- 用测试 fixture 验证不同遍历顺序、mtime、Unix mode 和宿主平台产生完全相同 zip bytes/hash；golden fixture 锁定 entry timestamp、Unix creator system、regular-file external attributes + `0o644`、Deflate level 6、无目录项/extra/comment。
+- 验证 portable path、精确重复与 NFC+lowercase 大小写碰撞；拒绝 symlink、Windows junction/reparse point 和 ZIP 特殊文件 entry。
+- 验证 zip-slip、entry count、单文件/累计 unpacked bytes 限制，以及 headers 伪报时按实际流式 bytes 二次熔断。
 - 扩展内置默认 ignore，并保留 Settings 全局 ignore 配置入口。
-- 实现 `max_skill_zip_bytes` 硬限制，超过上限的 skill 只进入 blocked plan，不上传。
+- 实现 compressed/file-count/single-unpacked/total-unpacked 四项硬限制，超过上限只进入 blocked plan，不上传或安装。
 - 第一阶段采用全量扫描和朴素 canonical zip/hash，不做 fingerprint cache。
 
 ### 阶段 3：实现 LocalVaultStore
@@ -932,11 +974,14 @@ Rust 优先测试：
 - 只扫描固定用户 root 的直接子目录；项目级目录、`~/.codex/skills/.system` 和无合法 `SKILL.md` 的聚合目录不会进入计划。
 - 同 namespace normalized ID 或大小写不敏感 folder name 碰撞时全部 blocked，不保留扫描到的第一个；测试同时覆盖纯本地、纯远端和 local/remote 合并后的目标碰撞。
 - 云端新增按 namespace/folder_name 落到唯一 root；更新按 sync_state namespace/relative_dir 写回，非法或不一致目标 blocked。
-- canonical zip hash 稳定性。
+- canonical zip golden bytes/hash 对遍历顺序、mtime、权限和平台稳定；metadata 固定为 ZIP epoch、Unix creator system、regular-file external attributes + 0644、Deflate level 6，无显式目录项、comment 或 extra fields。
+- pack 拒绝 symlink、junction/reparse point、非 UTF-8/非 portable path，以及包内 exact/NFC+lowercase collision。
+- unpack 拒绝 zip-slip、symlink/device/FIFO/显式目录等非 canonical entry，并在临时目录中执行 file count、单文件和累计实际 bytes 限制。
 - 全量扫描后能为所有有效本地 skill 生成 canonical hash 和 zip size。
 - 预览和执行阶段的临时 zip 目录会被清理，执行阶段不复用预览阶段 zip。
 - 内置默认 ignore 和 Settings 全局 ignore 都会影响 zip/hash/size/status。
-- manifest round trip。
+- manifest round trip 使用合法 64 位 lowercase hash；parser 拒绝 unsupported schema、重复 map key、key/id 或 namespace 不一致、非法 hash、非 hash-derived blob path、非法 size/folder/collision。
+- 下载验证 manifest size == actual compressed bytes、manifest hash == actual bytes hash，再执行 canonical archive/resource validation。
 - sync_state round trip。
 - release build 缺少 GitHub App client id 或 slug 时在打包前失败；测试构造函数可注入公开配置，运行时不读取环境变量。
 - Device Flow 不发送 OAuth `scope`，正确处理 pending/slow_down/expired/denied；成功响应把 access/refresh token 与过期时间一次写入 credential store。
@@ -968,7 +1013,7 @@ Rust 优先测试：
 - 删改并发（本地删/云端改、云端删/本地改）进入冲突，不自动删除。
 - 双方都删除清理 base 条目，删除后重新导入判为 local_new 并重新上传。
 - root 不可读导致的空扫描不产生任何删除；删除数超阈时置 delete_guard_tripped。
-- canonical zip 超过 `max_skill_zip_bytes` 时进入 blocked，不上传 blob，不更新 manifest。
+- canonical zip 超过 compressed/file-count/single-unpacked/total-unpacked 任一 limit 时进入 blocked，不上传 blob、不更新 manifest；下载超限不触碰正式目标。
 - download-only 不创建 remote commit。
 - upload/update 只创建一次 remote commit。
 - 预览后、Apply 预检前 GitHub commit SHA 变化时返回 `PlanChanged(remote_changed, latest_plan)`；预检通过后的 update-ref 竞态先由 store 返回 `RemoteChanged`，再转换成带最新计划的 `PlanChanged` 响应。
@@ -976,7 +1021,7 @@ Rust 优先测试：
 - Apply 的 expected_remote_commit 或 plan_fingerprint 过期时，在任何持久化副作用前返回包含 latest_plan 的 `PlanChanged`。
 - 未出现在 selected_action_ids 的普通删除不得执行；delete guard 已触发但未确认时，任何删除不得执行。
 - 旧计划的 conflict decision 不得应用到 reason 已变化的新冲突。
-- 解包防 zip-slip。
+- 解包防 zip-slip、特殊文件/链接逃逸、portable path collision 和 zip bomb；header 声明与实际流式 bytes 都必须受限。
 - 目标路径存在但无 base 或 hash 与 base 不一致时，不自动覆盖，进入冲突或 blocked。
 
 前端验证：
@@ -1045,7 +1090,7 @@ reqwest 网络请求运行在 Tauri/Tokio async runtime，目录扫描、zip、h
 
 ### 大文件与仓库膨胀
 
-GitHub repo 不适合大 blob。默认排除缓存、临时文件、日志和依赖目录，并设置单个 skill zip 硬限制。比如 `skills/skillA/cache/` 里有 100 MiB 缓存时，应通过默认 `**/cache/**` 或用户规则 `**/skillA/cache/**` 排除；被排除内容不进入 zip、不参与 hash、不触发本地更新。超过大小限制时在 Sync 页面标记为 blocked，拒绝上传，不写入 manifest；用户需要清理大文件或添加 ignore 规则后再重新同步。
+GitHub repo 不适合大 blob，远端 zip 也可能是高压缩比 zip bomb。默认排除缓存、临时文件、日志和依赖目录，并同时限制 compressed bytes、file count、single unpacked bytes 与 total unpacked bytes。比如 `skills/skillA/cache/` 里有 100 MiB 缓存时，应通过 ignore 排除；被排除内容不进入 zip/hash。上传超限时 blocked 且不写 manifest；下载超限时只清理 task temp，不触碰正式 skill。用户需要清理大文件或调整在安全范围内的 limits。
 
 ### 同名 skill
 
