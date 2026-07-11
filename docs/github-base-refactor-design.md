@@ -11,7 +11,8 @@
 ```text
 当前项目继续演进
 + Rust 同步核心局部重写
-+ GitHub vault 远端适配器
++ GitHub App Device Flow 单一授权路径
++ GitHub API vault 远端适配器
 + manifest + content-addressed zip blob
 + 本地 sync_state 做 base/hash/remote_commit 记录
 + 双向同步、批量上传、批量下载、冲突决策
@@ -22,7 +23,7 @@
 
 ## 聊天方案的核心判断
 
-本项目不应该自己承担云端存储账单。开源 MVP 应该让用户自带远端，默认使用 GitHub private repo。GitHub 不直接存“展开后的 skills 目录树”，而是存一个稳定的 vault 格式。
+本项目不应该自己承担云端存储账单。开源 MVP 让用户自带 GitHub private repo，并通过 Skill Sync 的 GitHub App 授权。V1 不实现 OAuth App、PAT、Git URL、HTTPS 或 SSH provider；这些路径会扩大授权、配置和测试矩阵，而且无法提供 GitHub App installation 级别的权限边界。GitHub 不直接存“展开后的 skills 目录树”，而是存一个稳定的 vault 格式。
 
 云端 vault 结构：
 
@@ -90,11 +91,11 @@ remote = 当前 GitHub manifest 中该 skill 的内容 hash
 - `src-tauri/src/sync_engine.rs`：当前围绕 `skills/<host>/<name>` 展开目录做比较，需要改成基于 remote manifest、local state 和 canonical zip hash 的三方比较。
 - `src-tauri/src/manifest.rs`：当前只做目录 hash，需要演进为 canonical package/hash 与 vault manifest 模型。
 - `src-tauri/src/git_store.rs`：当前是本地 Git working tree + CLI 操作。目标方案应抽象为 `RemoteStore`，默认实现 GitHub repo vault，并完全删除 Git CLI 同步路径。
-- `src-tauri/src/config.rs`：当前 repository 配置是 `local_path/remote/branch`，且 `hosts.paths/custom_paths` 允许任意扫描目录；目标配置改成 GitHub owner/repo/branch、limits 和 ignore，删除可编辑 root 配置。三个 root 由 Rust 固定 registry 提供。
+- `src-tauri/src/config.rs`：当前 repository 配置是 `local_path/remote/branch`，且 `hosts.paths/custom_paths` 允许任意扫描目录；目标配置改成 GitHub App installation/repository identity、owner/repo/branch、limits 和 ignore，删除可编辑 root 配置。三个 root 由 Rust 固定 registry 提供。
 - 前端 `SyncPlan` schema：需要表达 upload/download/skip/conflict 之外的 commit 语义、远端版本信息、冲突原因、批量上传/下载动作。
 - `src/modules/conflicts`：独立冲突页面需要删除，冲突处理合并进 Sync 页面。
 - `src/modules/backups` 与 `src-tauri/src/backup.rs`：第一阶段不做完整备份/恢复，相关页面、路由和 command 从产品路径删除。
-- Onboarding/Settings：需要从“配置 Git remote”改成“通过 GitHub Device Flow 连接 vault”，同时支持检测授权状态、repo 和 branch。
+- Onboarding/Settings：需要从“配置 Git remote”改成“通过 GitHub App Device Flow 授权、安装 App、选择唯一 vault repo、检测或初始化 manifest”。
 
 ## 目标架构
 
@@ -164,6 +165,22 @@ V1 固定三个 namespace，不允许用户添加或修改 root 路径：
 
 V1 只管理上述三个用户级 root，不扫描仓库中的项目级 `.agents/skills`、`.claude/skills` 或其他动态路径。`~/.codex/skills/.system` 明确排除；其他直接子目录只有存在合法 `SKILL.md` 时才作为 skill，`.system` 或不含 `SKILL.md` 的运行时聚合目录不会递归扫描。
 
+### 本地远端配置
+
+`AppConfig.remote` 不保存 token 或 provider 选择；V1 provider 恒为 GitHub App。它保存用户确认后的稳定远端 identity：
+
+```json
+{
+  "installation_id": 123456,
+  "repository_id": 987654,
+  "owner": "example",
+  "repo": "agent-skills",
+  "branch": "main"
+}
+```
+
+`installation_id` 和 `repository_id` 是安全校验与 rename 跟踪的事实来源；owner/repo 是可读定位信息。加载旧配置时不迁移 OAuth token、Git URL、SSH、hosts 或 custom paths。没有完成 GitHub App installation/repository 校验前，不保存半成品 remote config。
+
 ### 本地 sync_state
 
 本地状态不应该继续放在远端 repo 里，也不应该随 GitHub 同步。它是“这台机器上次同步到哪个远端版本”的记录，应该放在 app data/config 目录。
@@ -173,6 +190,8 @@ V1 只管理上述三个用户级 root，不扫描仓库中的项目级 `.agents
   "schema": 1,
   "remote": {
     "provider": "github",
+    "installation_id": 123456,
+    "repository_id": 987654,
     "owner": "example",
     "repo": "agent-skills",
     "branch": "main",
@@ -196,6 +215,8 @@ V1 只管理上述三个用户级 root，不扫描仓库中的项目级 `.agents
 `sync_state` 只能在 Apply 成功路径更新。预览发现 local 与 remote 已相同但 base 缺失或落后时，通过 `base_adoptions` 请求写入/推进 base；发现 `both_deleted` 时通过 `base_removals` 清理条目。两类操作都只修改本机状态，不产生 GitHub commit，也不能由 `get_sync_plan()` 隐式落盘。
 
 固定 namespace 本身就是稳定的 `root_id`。`SkillSyncState.namespace + relative_dir` 记录该 skill 上次同步的准确本机位置；更新下载写回该位置，云端新增则使用 manifest 的 namespace/folder_name 解析唯一目标。状态与 skill_id namespace 不一致时标为 `blocked`，不能猜测或跨 root 移动。
+
+`sync_state.remote.installation_id + repository_id + branch` 是本机 base 所属远端的稳定 identity。普通 preview/apply 只读加载 state 并校验它与 `AppConfig.remote` 及 GitHub 实际 repository id 一致；任一 ID 或 branch 变化都在网络/文件副作用前 blocked，不能由普通加载隐式归档或重置。只有用户在 Onboarding 明确确认切换 vault 时调用 rebind：将旧 sync state 归档到按旧 repository id 命名的本机历史文件并创建空 state，不能把旧 base 原子迁移到新 repo。同名仓库删除后重建会得到新 repository id，因此也按新 vault 处理。
 
 ## 打包与 hash
 
@@ -333,7 +354,7 @@ async Tauri command
 - 使用 `async-trait` 保证 `RemoteStore` future 为 `Send`，trait 本身要求 `Send + Sync`。
 - 使用当前 Tauri async runtime；阻塞工作通过 `tauri::async_runtime::spawn_blocking` 提交，JoinError 统一映射为 `AppError`。
 - 不允许在 command 或 adapter 内创建新的 Tokio runtime，不允许调用 `block_on`，也不启用 `reqwest::blocking`。
-- `GitHubVaultStore` 直接 await reqwest；`LocalVaultStore` 保持同一异步 port，但其文件系统实现放入 `spawn_blocking`。
+- `GithubAuthenticatedClient` 直接 await reqwest 并独占 API base URL、token generation、401 refresh/replay；`GitHubVaultStore` / `GithubRepositoryService` 只能经共享 client 发请求。`LocalVaultStore` 保持同一异步 port，但文件系统实现放入 `spawn_blocking`。
 - `build_plan`、`prepare_plan`、`apply_plan`、`upload_skills`、`download_skills` 都定义为 async；canonical pack 等纯文件/CPU 阶段在 blocking closure 内完成，不能阻塞 Tauri 事件循环。
 - AppConfig 与 SyncState 的 load/save、系统 keyring 的 load/save/clear 同样是阻塞 I/O：对外 command/API 为 async，内部用 `spawn_blocking` 包住一次完整读写事务并映射 join error。
 - Tauri application state 管理一个 `SyncOperationGate(tokio::sync::RwLock<()>)`：`get_app_state`、`scan_skills`、`get_sync_plan` 获取读锁；`save_config`、`apply_sync_plan`、`upload_skills`、`download_skills` 获取写锁，并从 config/state 读取一直持有到本地变更和最终 state 保存完成。engine 内部不重复获取该锁，避免死锁。
@@ -341,16 +362,34 @@ async Tauri command
 
 ### GitHubVaultStore
 
-GitHub 作为默认远端适配器。实现语义：
+GitHub 是 V1 唯一产品远端。`GitHubVaultStore` 与 `GithubRepositoryService` 共享 Tauri managed `Arc<GithubAuthenticatedClient>`，不各自缓存静态 token。该 client 通过同一个 `GithubCredentialManager` 发送请求：正常路径取得有效 credential；首次 401 后按 credential generation 强制单飞刷新并重放一次；若锁内发现其他 caller 已完成新 generation，则直接使用新 token重放而不重复刷新；第二次 401 清除 credential 并返回 `reauthorization_required`。非 401 不自动重放写请求。实现语义：
 
+- 验证 configured `installation_id`、`repository_id`、owner/repo 与 GitHub 当前结果一致；仓库 rename 可更新展示名称，但 repository id 不得静默变化。
 - 读取指定 branch 的 HEAD commit。
-- 读取 `manifest.json`，不存在时视为空 vault。
+- branch 已存在时读取 `manifest.json`；只有该文件的 Contents API 请求返回 404 才是 `missing_manifest`。
 - 上传缺失的 `blobs/sha256/<hash>.skill.zip`。
 - 更新 `manifest.json`。
 - 基于读取时的 `base_commit_sha` 创建一次 commit。
 - 移动 branch ref 前做乐观锁校验。
 - 如果远端 HEAD 已变化，返回 `RemoteChanged`，上层重新 fetch manifest 并重新生成 sync plan。
-- GitHub API base URL 由 store 构造函数注入：生产固定官方 endpoint，测试使用 `wiremock` 本地 async server；方法内部不硬编码 host，默认测试不访问真实网络。
+- GitHub API base URL 只由 `GithubAuthenticatedClient` 构造函数注入：生产固定官方 endpoint，测试使用 wiremock；store/service 不持 base URL 或 raw reqwest client，默认测试不访问真实网络。
+
+repo、branch 和 manifest 必须分层探测，不能把所有 404 折叠为空 vault：
+
+```text
+unauthorized          token 无效、过期且刷新失败，或用户撤销授权
+app_not_installed     token 有效，但没有可用 installation
+repository_forbidden  installation 不覆盖目标 repo，或用户无权访问
+repository_missing    owner/repo 或 repository_id 不存在
+repository_unavailable GitHub 用 404 隐藏私有资源且现有 installation 证据不足
+empty_repository      repo 可访问，但没有任何 branch/HEAD
+branch_missing        repo 非空，但配置 branch 不存在
+missing_manifest      branch 存在，仅 manifest.json 不存在
+invalid_manifest      manifest.json 存在，但 JSON/schema/path/hash 校验失败
+ready                 branch 与合法 manifest 都存在
+```
+
+401 一律进入凭据刷新/重新授权路径。403 先检查 `Retry-After`、`X-RateLimit-Remaining`、`X-RateLimit-Reset` 和 GitHub error code：primary/secondary rate limit 返回带可重试时间的 `rate_limited`，其他 403 才映射权限错误。GitHub 会用 404 隐藏无权访问的 private repo，因此先以已穷尽分页的 installation/repository 列表为证据：列表明确包含 configured repository id 后，后续 repo 404 是资源竞态/删除；列表明确不含且完整时是 `repository_forbidden`；列表本身因权限/网络不能完整证明时 fail closed 为 `repository_unavailable`，不猜测 missing。branch 404 只有在 repo identity 已验证后才是 `branch_missing`；只有 branch 已验证且精确 `manifest.json` path 404 才是 `missing_manifest`。HTTP 200 的 manifest 必须经过 validated parser，失败返回 `invalid_manifest`，绝不退化为空 vault。空仓库通过列举 branches 后得到空集合判定，不能仅依赖 repository `size == 0`。
 
 commit 规则：
 
@@ -370,31 +409,70 @@ commit 规则：
 
 这比当前 `apply_plan` 更清晰：只有云端状态变化才产生 commit。
 
-### GitHub 授权：Device Flow
+### GitHub App 注册与构建配置
 
-第一阶段采用 GitHub OAuth Device Flow，而不是让用户手动创建 PAT，也不依赖 SSH key 或本机 `git config`。
+V1 使用一个由项目维护者注册、可供普通用户安装的 GitHub App。必须按以下固定配置发布：
 
-Device Flow 适合桌面应用：
+- 开启 Device Flow。
+- Repository permissions 只有 `Contents: Read and write`；`Metadata: Read-only` 使用 GitHub 自动要求的权限。
+- 不申请 account/organization permissions，不订阅 events，不要求 webhook，不启用 OAuth App `repo` scope。
+- 开启 user-to-server token expiration。Device Flow token 默认 access token 8 小时、refresh token 6 个月；桌面端负责轮换。
+- 安装页面引导用户选择 `Only select repositories`，且 V1 只接受授权结果中总计一个可访问 repository。
+
+GitHub App client id 和 app slug 是公开标识，不是 secret。它们通过 release build 环境变量 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` 与 `SKILL_SYNC_GITHUB_APP_SLUG` 注入编译产物；Rust 使用 `option_env!`/build script 生成只读 `GithubAppPublicConfig`，运行时不读取环境变量。测试注入独立配置。release workflow 在打包前校验两项非空，缺失即失败；App private key、client secret 永远不进入源码、CI artifact 或桌面包。V1 只支持 `github.com`，不增加 GitHub Enterprise Server endpoint 配置。
+
+### GitHub App Device Flow 与 token 轮换
+
+GitHub App Device Flow 是 V1 唯一授权路径：
 
 ```text
-1. 应用向 GitHub 申请 device/user code。
-2. UI 展示 user code，并提供打开 GitHub 授权页面的按钮。
-3. 用户在浏览器登录 GitHub，输入 code 并确认授权。
-4. 应用轮询 GitHub token endpoint。
-5. 授权成功后拿到 access token。
-6. token 保存到系统密钥链或 Tauri 安全存储，不写入 YAML 配置、不写入日志。
-7. 后续 GitHubVaultStore 使用该 token 调用 GitHub API。
+1. 应用用编译时 client id 请求 device/user code；GitHub App 不发送 OAuth scope。
+2. UI 展示 user code，并打开 GitHub verification URI。
+3. 用户在浏览器确认授权，应用遵守 interval 轮询 token endpoint。
+4. 返回 authorization_pending 时继续；slow_down 时在当前 interval 上增加 5 秒。
+5. 成功响应后先用 access token 调用 `/user` 取得 login，再把 access_token、refresh_token、expires_in、refresh_token_expires_in 和 login 一次写入系统 keyring；任一步失败都不保存半成品。
+6. 后续请求通过 GithubCredentialManager 获取有效 access token。
+7. access token 临近过期时，用 client_id + refresh_token 刷新；Device Flow 生成的 token 刷新不需要 client secret。
+8. 刷新响应会轮换 refresh token，必须原子替换整份 credential；失败时保留旧 credential，不能只写一半。
 ```
 
-Device Flow 的产品优势：
+`GithubCredential` 至少包含 generation UUID、access token、refresh token、两个绝对过期时间、GitHub login 和授权时的 app client id。它作为单个 versioned JSON value 存在 keyring，不写 YAML/JSON config、不进入前端长期状态、不出现在日志或错误正文。`GithubCredentialManager` 为同一 credential 使用 async mutex 合并到期刷新与 401 强制刷新；刷新前后都重新读取 keyring，generation 用于判断另一个 caller 是否已经轮换，避免多个同步 command 使用同一旧 refresh token。GitHub refresh 请求失败时保留仍可用的旧 credential；GitHub 已返回轮换结果但 keyring 原子覆盖失败时，旧 refresh token 可能已失效，必须 best-effort 清除并返回 `credential_persistence_failed`，要求重新授权，不能继续假装刷新成功。若 refresh token 过期/撤销、GitHub 返回 `bad_refresh_token`，或强制刷新后重放仍 401，则清除 credential 并返回 `reauthorization_required`。
 
-- 不要求用户安装 Git。
-- 不要求用户配置 SSH。
-- 不要求用户复制粘贴长期 PAT。
-- 不需要注册 `skill-sync://` deep link。
-- 授权失败、取消、过期都可以在 Onboarding 内展示明确状态。
+### Installation 与单仓库边界
 
-授权范围第一阶段只申请访问目标同步仓库所需的内容读写能力。长期更安全的路线是 GitHub App：让用户只把应用安装到指定 vault 仓库，并授予 Contents read/write 权限；但 GitHub App 的实现和分发成本更高，不作为第一阶段目标。
+授权成功不等于 App 已安装。Onboarding 必须调用 user installations API；没有 installation 时打开 `https://github.com/apps/<slug>/installations/new`，用户返回后重新检查。随后穷尽分页列出每个 installation 对当前用户可见的 repositories；任何 installation/repository page 失败都 fail closed，不能用部分列表证明单仓库边界。
+
+GitHub App user token 的实际权限是“App permissions、用户权限、所有可访问 installations”的交集，Device Flow 不能再给 token 添加单 repo scope。为兑现 V1 的单仓库最小权限承诺，Onboarding 对所有可访问 installations 汇总 repository ids：只有总计一个 repository 时允许继续；`repository_selection=all` 或总数大于 1 时阻止保存，并引导用户把 App 安装范围调整为唯一 vault repo。配置保存稳定的 `installation_id`、`repository_id` 以及展示/定位用 owner、repo、branch；所有 vault 请求仍只构造到该 configured repository。
+
+### Vault 初始化
+
+repo 检测返回 `empty_repository` 或 `missing_manifest` 时，Onboarding 展示将创建首个/新的 `manifest.json` commit，并要求用户显式确认。初始化不是普通 sync apply：
+
+```text
+initialize_github_vault(config, expected_state)
+  -> 重新验证 token、installation、repository id 与单仓库边界
+  -> 重新探测 repo/branch/manifest 状态
+  -> empty_repository:
+       Contents API PUT manifest.json，使用 canonical empty manifest 创建首个 commit 和配置 branch
+  -> missing_manifest:
+       Contents API PUT manifest.json，在已存在 branch 上创建一个 commit
+  -> ready:
+       幂等返回当前 manifest/commit，不再提交
+  -> invalid_manifest:
+       blocked；展示校验错误，不覆盖现有文件
+  -> branch_missing 且 repo 非空:
+       blocked；要求用户选择已有 branch，不猜测、不自动建 branch
+```
+
+`expected_state` 包含 installation id、repository id、branch 和探测时的状态。初始化前若 identity 或状态变化，返回最新 `GithubVaultCheck` 要求 UI 重新确认。Contents API 返回 409/422、rate limit 或网络结果不明时不盲目重试写入，先重新读取：若目标 branch 上已存在 schema 合法且 `skills` 为空的 manifest，则按成功处理（允许另一设备的 updated_by/updated_at 不同）；若存在非空/非法 manifest，则 blocked，不能覆盖。首个 HEAD 建立后，所有 steady-state upload/delete/manifest 更新回到 Git Database API 和 `base_commit_sha` 乐观锁路径。
+
+### Ready vault 绑定与 rebind 事务
+
+`initialize_github_vault` 只改变远端并返回 Ready check，不直接写 AppConfig/SyncState。无论 repo 原本 ready 还是初始化后 ready，Onboarding 都调用独立 `bind_github_vault(request)`：request 携带完整 remote identity、expected HEAD/manifest SHA、当前完整 binding key（installation_id + repository_id + branch，若有）和 `confirm_rebind`。
+
+command 获取 SyncOperationGate write lock，再次验证 credential、全量单 repo installation scope、repository id、branch 和 Ready manifest。首次绑定创建空 state；绑定相同 installation/repository/branch 只更新 owner/repo rename 与 commit SHA；绑定不同 identity 只有 `confirm_rebind=true` 且 expected previous binding key 与锁内当前值完整匹配时才归档旧 state。同 repo branch 已被另一窗口切换也返回 stale binding，不能只按 repository id 覆盖。普通 preview/apply 永远不调用 bind/rebind。
+
+AppConfig 与 SyncState 是两个文件，跨文件 rename 不是天然原子。`VaultBindingStore` 使用 `<config-dir>/skill-sync/bind-transaction.json` journal：先写并 fsync 新 config/state temp 与 journal，再依次 replace 两个目标，最后清 journal；启动/任何 config load 前检测 journal，根据其中 previous/new hashes 完成未完成的 replace 或恢复 previous bytes。任一步失败不得留下“新 config + 旧 base”可被正常同步读取的状态。测试覆盖每个故障注入点和恢复后的唯一一致结果。
 
 ### LocalVaultStore
 
@@ -585,8 +663,16 @@ open_path(path)
 
 新增：
 async start_github_device_flow()
-async poll_github_device_flow(device_code)
+async poll_github_device_flow(device_code, interval)
+async get_github_app_info()
+async list_github_installations()
+async list_installation_repositories(installation_id)
+async discover_single_github_repository()
+async list_github_repository_branches(config)
 async check_github_vault(config)
+async initialize_github_vault(request)
+async bind_github_vault(request)
+async disconnect_github(expected_repository_id)
 async list_remote_skills()
 async upload_skills(skill_ids)
 async download_skills(skill_ids)
@@ -594,26 +680,35 @@ async download_skills(skill_ids)
 
 删除 `check_git()`、`check_remote()`、`prepare_repo()` 这类 Git CLI / Git remote command。GitHub vault 模式不要求用户安装 Git，也不保留旧 Git 同步路径。
 
+Tauri 错误边界使用结构化 payload：`kind/message/retry_after?/latest_check?`。`RateLimited` 携带 retry_after，`VaultStateChanged` 携带最新 `GithubVaultCheck`；共享前端 invoke wrapper 必须保留并校验这些字段，不能只抛出 kind/message。所有错误字段经过 token redaction。
+
 ## 前端改造范围
 
 ### Onboarding
 
 从“填写 Git remote URL”改成“连接 GitHub vault”：
 
-- 通过 GitHub Device Flow 完成授权。
+- 显示当前构建绑定的 GitHub App，并通过 GitHub App Device Flow 完成授权。
 - 显示 GitHub user code、授权页面入口、轮询中、已授权、过期、取消、失败等状态。
-- GitHub owner/repo/branch。
-- 授权账号与 token 可用状态。
-- 检测 repo 是否可访问。
-- 检测 `manifest.json` 是否存在，不存在时提示创建空 vault。
+- 授权后检测 App installation；没有 installation 时打开 App 安装页并支持返回后重新检查。
+- 汇总 installation repositories；不是唯一 repo 时阻止继续并提示调整为 `Only select repositories` 的单个 vault repo。
+- 显示并保存 installation id、repository id、GitHub owner/repo 和已有 branch。
+- 展示 token 有效、自动刷新中、需要重新授权等状态，但不把 token 传给前端。
+- 用区分明确的状态检测 repo、branch 和 `manifest.json`。
+- `empty_repository` / `missing_manifest` 显示初始化将创建 commit 的确认；用户确认后调用 `initialize_github_vault`。
+- ready check（包括初始化后的 ready）再调用 `bind_github_vault`；切换 stable identity 时单独确认归档旧 base，bind 成功后才进入 Sync。
+- `invalid_manifest` 显示校验错误和打开仓库入口，禁止初始化覆盖。
+- `rate_limited` 显示可重试时间；`repository_unavailable` 要求重新检查授权/installation，不显示“仓库不存在”。
+- 非空 repo 的 branch 缺失时要求选择已有 branch，不自动创建或猜测。
 - 删除 SSH/Git 教程入口，避免用户误以为同步依赖本机 Git 配置。
 
 ### Settings
 
 新增：
 
-- Remote provider：GitHub。
-- GitHub repo 信息。
+- Remote provider：固定为 GitHub App，不提供 provider selector。
+- GitHub App slug、授权账号和 installation 状态。
+- GitHub repo 信息（含稳定 repository id）。
 - 当前 branch。
 - 当前 remote commit。
 - 本机 device name。
@@ -622,7 +717,7 @@ async download_skills(skill_ids)
 - ignore rules：复用现有 textarea，全局生效，每行一个 glob。
 - 三个固定 namespace root：`agents`、`codex`、`claude-code`。Settings 只读显示 namespace、解析后的绝对路径、存在/可读/扫描状态，不提供路径输入、启用开关或新增 root。
 
-GitHub access token 不写入 YAML 配置。应进入系统密钥链或 Tauri 安全存储能力；如果短期做不到，至少要明确标记为临时开发实现，不能把 token 明文放进仓库或日志。
+GitHub access/refresh token 和过期时间只写系统 keyring。前端只接收 credential status，不接收 token；YAML/JSON config、日志、错误信息和 crash context 都不得包含 token。用户点击 Disconnect 时清除 keyring credential 和本机 remote config/sync state 前必须二次确认；它不修改 GitHub App installation，也不删除远端 vault。
 
 旧配置中的 `hosts`、`hosts.*.paths` 和 `custom_paths` 在配置版本迁移时删除/忽略，不映射成新的扫描目录。用户仍可以在固定 root 内自由新增、编辑、移动和删除 skill；只是不允许通过应用改变工具约定的 root 路径。
 
@@ -734,7 +829,7 @@ UI 上应该明确：
 ```text
 src-tauri/src/
   commands.rs            # 调整 DTO 与新增 command
-  config.rs              # provider-aware 配置（含 limits.max_auto_delete）
+  config.rs              # GitHub App repo identity 配置（含 limits.max_auto_delete）
   detect.rs              # 保留，改为三个固定 namespace root registry、状态与碰撞检测
   errors.rs              # 新增 RemoteChanged / Auth / Vault 错误类型
   skill.rs               # 保留 metadata parser，补充 normalized id
@@ -742,9 +837,15 @@ src-tauri/src/
   vault_manifest.rs      # 新增 manifest schema 与校验
   sync_state.rs          # 新增本地 base_hash/commit_sha 状态
   remote_store.rs        # 新增 trait 与 DTO
-  github_store.rs        # 新增 GitHub vault adapter
+  github_app_config.rs   # 编译时 client id / app slug 公共配置
+  github_auth.rs         # Device Flow 请求与响应，不负责 repo API
+  github_credentials.rs  # keyring、过期判断、单飞刷新与清除
+  github_repository.rs   # installation/repo 枚举、状态探测与显式初始化
+  github_store.rs        # steady-state GitHub vault adapter
+  vault_binding.rs       # ready vault 的 config/state journaled bind/rebind
   local_vault_store.rs   # 新增测试/开发 adapter
-  sync_engine.rs         # 重写三方比较与 apply flow（含删除传播与删除护栏）
+  sync_engine.rs         # command-facing boundary；迁移期与 legacy 隔离
+  sync_engine/vault.rs   # 新三方比较与 apply flow（含删除传播与删除护栏）
 ```
 
 删除 `git_store.rs` 及其调用方，不保留旧适配器。测试和离线调试只使用不依赖 Git 的 `LocalVaultStore`。
@@ -777,9 +878,12 @@ src-tauri/src/
 
 ### 阶段 4：接入 GitHubVaultStore
 
-- 实现 GitHub Device Flow 授权命令。
-- 授权 token 保存到系统密钥链或安全存储。
-- 增加 GitHub repo 检测。
+- 注册并记录 GitHub App 的固定权限、Device Flow、token expiration 与安装说明。
+- release build 注入公开 client id/app slug，缺失时阻止正式打包；不打包 private key/client secret。
+- 实现 GitHub App Device Flow、access/refresh credential keyring 存储和无 client secret 自动刷新。
+- 实现 installation/repository 枚举并强制 V1 单仓库边界。
+- 增加区分 unauthorized/installation/repo/empty/branch/manifest 的状态探测。
+- 实现空 repo 首 commit 与已有 branch 缺 manifest 的显式、幂等初始化。
 - 增加 manifest fetch。
 - 增加 blob 上传与 manifest commit。
 - 增加 commit SHA 乐观锁。
@@ -798,8 +902,8 @@ src-tauri/src/
 
 ### 阶段 6：更新 Onboarding/Settings
 
-- 主路径切到 GitHub vault 配置。
-- Onboarding 用 Device Flow 作为第一阶段授权方式。
+- 主路径切到 GitHub App vault 配置，不保留 OAuth/PAT/Git/SSH provider selector。
+- Onboarding 串联 Device Flow、App installation、唯一 repo、branch 检测和显式初始化。
 - 删除旧 Git remote 相关 UI。
 - Settings 删除可编辑 roots，改成三个固定 namespace 的只读状态列表。
 - i18n 文案同步更新。
@@ -834,6 +938,21 @@ Rust 优先测试：
 - 内置默认 ignore 和 Settings 全局 ignore 都会影响 zip/hash/size/status。
 - manifest round trip。
 - sync_state round trip。
+- release build 缺少 GitHub App client id 或 slug 时在打包前失败；测试构造函数可注入公开配置，运行时不读取环境变量。
+- Device Flow 不发送 OAuth `scope`，正确处理 pending/slow_down/expired/denied；成功响应把 access/refresh token 与过期时间一次写入 credential store。
+- access token 临近过期时自动刷新；Device Flow refresh 请求只发送 client id/refresh token，不发送 client secret；并发调用只发生一次刷新并原子保存轮换后的 refresh token。
+- 未过期 token 收到 401 时按 generation 强制单飞刷新并只重放一次；并发 401 只轮换一次，第二次 401 清 credential。manifest/blob/commit 路径分别覆盖该行为。
+- refresh token 过期、授权撤销或 bad refresh 会清除 credential 并返回 reauthorization_required；任何 DTO、日志和错误快照都不含 token。
+- 没有 installation、`repository_selection=all`、跨所有可访问 installations 的 repo 总数不等于 1 时不能保存 remote config。
+- remote config 持久化 installation/repository id；owner/repo rename 不改变 identity，repository id 不一致时 blocked。
+- repo/branch/manifest 的 401/403/404 结合 rate-limit headers、GitHub error body/message/documentation URL 与完整 installation/repository 枚举证据映射；无 headers 的 secondary limit 仍是 rate_limited；证据不足时 repository_unavailable，只有精确 manifest path 404 是 missing_manifest；空 repo 通过无 branch 判定。
+- HTTP 200 但 manifest JSON/schema/path/hash 非法时返回 invalid_manifest，check 与 initialize 都不得覆盖。
+- sync_state remote identity 包含 installation/repository id；普通 preview/apply mismatch 只读 blocked 且 state bytes 不变；只有 bind command 的显式 confirmed rebind 归档旧 state并从空 base 开始。
+- bind command 对 config/state 使用可恢复 journal；故障注入覆盖 temp write、journal fsync、两个 replace 与 journal clear 后的启动恢复。
+- empty_repository 初始化用 Contents API 创建 canonical empty manifest 首 commit；missing_manifest 在已有 branch 创建 commit；ready 幂等 0 commit；非空 repo branch_missing blocked。
+- 除 wiremock 外，release checklist 使用已安装 App 的 disposable empty private repo 跑 gated 首提交集成测试，验证 GitHub 真实无 HEAD 行为；token 从 keyring 读取，不进环境变量或 CI 日志。
+- 初始化竞态或 409/422 后重新读取；已存在合法 empty manifest 视为成功，非空/非法 manifest 不覆盖。
+- Tauri error payload 的 retry_after/latest_check 能完整序列化，前端 invoke wrapper 保留并二次 Zod 校验；错误/message/details 均通过 token redaction。
 - RemoteStore、LocalVaultStore 与 SyncEngine 测试运行在 Tokio test runtime；GitHub request path 使用异步 mock，不启用 reqwest blocking client。
 - scan/pack/unpack/trash move 等阻塞工作只从 `spawn_blocking` 路径调用；相关 async command future 可满足 Tauri 的 Send 要求，且代码中不存在自建 runtime 或 `block_on`。
 - LocalVaultStore 并发读写测试不能观察到新 manifest + 旧 commit（或相反）的混合 snapshot；两个指向同一路径的独立 store 实例必须共享同一把锁。
@@ -894,9 +1013,19 @@ npm run lint:i18n
 
 ## 风险与处理
 
-### GitHub Device Flow 体验
+### GitHub App 分发与 Device Flow
 
-Device Flow 需要 GitHub OAuth app 支持，并要处理 user code 过期、用户取消、轮询间隔、授权失败和网络错误。第一阶段不要求 deep link 回跳应用，也不让用户手动创建 PAT。UI 需要把授权状态做成可恢复流程：过期后重新生成 code，失败后允许重试，已授权后再检测 repo/branch。
+普通用户能否完成授权依赖项目维护者正确发布 GitHub App。App 注册配置、公开 client id/app slug、Device Flow 开关、Contents read/write 权限、user token expiration 和安装 URL 都必须进入 release checklist。V1 不要求 deep link，不让用户创建 PAT，也不提供 OAuth App fallback；构建配置错误应在 CI 打包前暴露，而不是安装后才发现。
+
+Device Flow 需要处理 user code 过期、用户取消、slow_down、网络错误和 token rotation。刷新不需要 client secret 的前提是 token 由 Device Flow 生成，因此 credential 中保存授权时的 app client id，并拒绝拿其他构建的 refresh token 静默刷新。
+
+### 单仓库权限的真实边界
+
+GitHub App user token 不是按当前 UI 选择动态裁剪的 token；它可以触达 App 已安装且用户有权访问的资源。V1 通过最小 App permissions、列举所有 user installations 并要求总计唯一 repository 来实现单仓库承诺。若用户随后扩大 App 安装范围，下一次 app state/check/sync 在网络副作用前重新验证并 blocked，要求先收窄权限。
+
+### 空仓库初始化
+
+Git Database API 不能依赖不存在的 HEAD 创建常规同步 commit。空 repo 和缺 manifest 使用独立、用户确认的 Contents API 初始化路径；一旦 HEAD 与 manifest 存在，初始化 command 不再用于同步。初始化状态变化、响应丢失或并发请求都通过重新读取实现幂等，绝不覆盖已存在的非空或非法 manifest。
 
 ### GitHub API 并发
 

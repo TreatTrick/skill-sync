@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将当前 Git CLI / 本地中转仓库同步模型替换为 GitHub API backed vault：`manifest.json` + content-addressed skill zip blobs + 本机 `sync_state` + Device Flow 授权 + 双向同步 + A-lite 删除传播。
+**Goal:** 将当前 Git CLI / 本地中转仓库同步模型替换为 GitHub App Device Flow 授权的单仓库 GitHub API vault：`manifest.json` + content-addressed skill zip blobs + 本机 `sync_state` + 双向同步 + A-lite 删除传播。
 
-**Architecture:** Svelte 前端只负责展示、筛选、用户决策和调用 Tauri commands；本地文件读写、canonical zip、hash、GitHub API、三方比较、删除护栏、覆盖保护全部在 Rust。后端围绕 `SkillPacker`、`SyncStateStore`、`RemoteStore`、`GitHubVaultStore`、`LocalVaultStore` 和重写后的 `SyncEngine` 组织。
+**Architecture:** Svelte 前端只负责展示、筛选、用户决策和调用 Tauri commands；本地文件读写、canonical zip、hash、GitHub API、三方比较、删除护栏、覆盖保护全部在 Rust。V1 唯一产品远端使用 GitHub App user token；GitHub 授权/credential 轮换、repository discovery/初始化和 steady-state store 分模块实现，空仓库初始化不混入 `RemoteStore` 的常规 commit 语义。
 
-**Tech Stack:** Tauri 2, Rust 1.77+, Svelte 5, SvelteKit static SPA, TypeScript strict, Zod, i18next, Tailwind CSS v4, GitHub REST/Git Database APIs.
+**Tech Stack:** Tauri 2, Rust 1.77+, Svelte 5, SvelteKit static SPA, TypeScript strict, Zod, i18next, Tailwind CSS v4, GitHub App Device Flow, GitHub REST Contents/Git Database APIs.
 
 ---
 
@@ -35,6 +35,14 @@
 - 删除成功后从 `sync_state.skills` 移除 base，重新导入即重新作为 `local_update` 上传。
 - 第一阶段不做 Backups 页面、不做 restore flow、不做文件级 diff、不做 per-skill `.skill-syncignore`。
 - GitHub token 不写入 YAML/JSON config、日志或长期前端状态。
+- V1 只支持 GitHub App Device Flow；不实现 OAuth App、PAT、Git URL、HTTPS、SSH 或 GitHub Enterprise fallback。
+- GitHub App 只申请 Contents read/write + Metadata read-only；Device Flow 不发送 OAuth `repo` scope。
+- access/refresh token 与过期时间作为一个 versioned credential 存入 keyring；刷新不使用 client secret，轮换持久化失败要求重新授权。
+- client id/app slug 是构建时公开配置；release 缺失即失败，private key/client secret 永不进入桌面包。
+- 授权后穷尽分页检查所有 user installations/repositories；V1 总计非唯一 repo 或 `repository_selection=all` 时 blocked。
+- AppConfig 与 SyncState 均绑定 `installation_id + repository_id + branch`；远端 identity 变化不能复用旧 base。
+- repo/branch/manifest 状态精确区分；invalid manifest 不覆盖，rate limit 不伪装成权限或不存在。
+- empty repo / missing manifest 只在 Onboarding 显式确认后由 Contents API 初始化；有 HEAD 后稳态更新使用 Git Database API。
 - RemoteStore、SyncEngine 远端调用链和同步相关 Tauri commands 统一 async；阻塞文件/CPU 工作只通过 `tauri::async_runtime::spawn_blocking` 执行，不使用 reqwest blocking client、自建 runtime 或 block_on。
 
 最终验证命令：
@@ -65,8 +73,13 @@ Create:
 - `src-tauri/src/sync_state.rs`：本机 `base_hash` / `remote_commit` 状态。
 - `src-tauri/src/remote_store.rs`：`RemoteStore` trait 与远端 DTO。
 - `src-tauri/src/local_vault_store.rs`：测试/开发用本地 vault。
-- `src-tauri/src/github_auth.rs`：GitHub Device Flow 与 token 存储边界。
+- `src-tauri/src/github_auth.rs`：GitHub App Device Flow 与 refresh HTTP client。
+- `src-tauri/src/github_app_config.rs`：编译时 GitHub App client id / slug。
+- `src-tauri/src/github_credentials.rs`：keyring credential、过期判断和单飞刷新。
+- `src-tauri/src/github_repository.rs`：installation/repository 枚举、状态探测和显式初始化。
 - `src-tauri/src/github_store.rs`：GitHub manifest/blob/commit 适配器。
+- `src-tauri/src/vault_binding.rs`：ready vault 的 AppConfig/SyncState journaled bind/rebind transaction。
+- `src-tauri/src/sync_engine/vault.rs`：新 vault DTO、plan/apply 实现；Task 13 后由 sync_engine boundary re-export。
 - `src-tauri/tests/github_vault_sync.rs`：基于 `LocalVaultStore` 的同步测试。
 - `src/modules/sync/lib/syncStatus.ts`：同步状态筛选和搜索 helper。
 - `src/modules/sync/components/SyncSkillCard.svelte`：同步状态卡片。
@@ -75,6 +88,7 @@ Create:
 Modify:
 
 - `src-tauri/Cargo.toml`
+- `src-tauri/build.rs`
 - `src-tauri/src/lib.rs`
 - `src-tauri/src/commands.rs`
 - `src-tauri/src/config.rs`
@@ -96,6 +110,7 @@ Modify:
 - `src/shared/i18n/locales/zh-CN.json`
 - `src/shared/i18n/locales/en-US.json`
 - `src/shared/schemas/apiResponse.ts`
+- `.github/workflows/release.yml`
 
 Delete:
 
@@ -123,7 +138,10 @@ Delete:
 - Create: `src-tauri/src/sync_state.rs`
 - Create: `src-tauri/src/remote_store.rs`
 - Create: `src-tauri/src/local_vault_store.rs`
+- Create: `src-tauri/src/github_app_config.rs`
 - Create: `src-tauri/src/github_auth.rs`
+- Create: `src-tauri/src/github_credentials.rs`
+- Create: `src-tauri/src/github_repository.rs`
 - Create: `src-tauri/src/github_store.rs`
 
 - [ ] **Step 1: 添加 Rust 依赖**
@@ -136,6 +154,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 base64 = "0.22"
 keyring = "3"
+secrecy = "0.10"
 unicode-normalization = "0.1"
 
 [dev-dependencies]
@@ -150,6 +169,9 @@ wiremock = "0.6"
 
 ```rust
 mod github_auth;
+mod github_app_config;
+mod github_credentials;
+mod github_repository;
 mod github_store;
 mod ignore;
 mod local_vault_store;
@@ -159,7 +181,7 @@ mod sync_state;
 mod vault_manifest;
 ```
 
-旧 `backup`、`git_store`、`manifest` 暂时保留，等 Task 17 删除。
+旧 `backup`、`git_store`、`manifest` 暂时保留，等 Task 18 删除。
 
 - [ ] **Step 3: 创建可编译模块文件**
 
@@ -186,43 +208,26 @@ git add src-tauri/Cargo.toml src-tauri/src
 git commit -m "build: add github vault backend modules"
 ```
 
-### Task 2: 替换 AppConfig 为 GitHub vault 配置
+### Task 2: 定义 GitHub vault 配置 DTO
 
 **Files:**
 
 - Modify: `src-tauri/src/config.rs`
-- Create: `src-tauri/tests/fixtures/config-v1.yaml`
 
 - [ ] **Step 1: 写配置测试**
 
 ```rust
 #[test]
-fn default_config_uses_github_vault_remote() {
-    let cfg = AppConfig::default_config();
-    assert_eq!(cfg.remote.provider, "github");
-    assert_eq!(cfg.remote.branch, "main");
-    assert_eq!(cfg.limits.max_skill_zip_bytes, 20 * 1024 * 1024);
-    assert_eq!(cfg.limits.max_auto_delete, 5);
-    assert!(cfg.ignore.iter().any(|p| p == "**/cache/**"));
-}
-
-#[test]
-fn config_roundtrip_preserves_ignore_and_limits() {
-    let cfg = AppConfig::default_config();
-    let text = serde_yaml::to_string(&cfg).unwrap();
-    let back: AppConfig = serde_yaml::from_str(&text).unwrap();
-    assert_eq!(back.ignore, cfg.ignore);
-    assert_eq!(back.limits.max_skill_zip_bytes, cfg.limits.max_skill_zip_bytes);
-    assert_eq!(back.limits.max_auto_delete, cfg.limits.max_auto_delete);
-}
-
-#[test]
-fn legacy_hosts_and_custom_paths_are_ignored_on_migration() {
-    let legacy = include_str!("../tests/fixtures/config-v1.yaml");
-    let cfg = AppConfig::from_yaml_with_migration(legacy).unwrap();
-    let serialized = serde_yaml::to_string(&cfg).unwrap();
-    assert!(!serialized.contains("hosts:"));
-    assert!(!serialized.contains("custom_paths:"));
+fn github_remote_config_roundtrip_preserves_stable_identity() {
+    let remote = RemoteConfig {
+        installation_id: 123456,
+        repository_id: 987654,
+        owner: "example".into(),
+        repo: "agent-skills".into(),
+        branch: "main".into(),
+    };
+    let back: RemoteConfig = serde_yaml::from_str(&serde_yaml::to_string(&remote).unwrap()).unwrap();
+    assert_eq!(back, remote);
 }
 ```
 
@@ -231,15 +236,12 @@ fn legacy_hosts_and_custom_paths_are_ignored_on_migration() {
 替换 `RepositoryConfig` 和 `DefaultsConfig.backup`：
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoteConfig {
-    #[serde(default = "default_provider")]
-    pub provider: String,
-    #[serde(default)]
+    pub installation_id: u64,
+    pub repository_id: u64,
     pub owner: String,
-    #[serde(default)]
     pub repo: String,
-    #[serde(default = "default_branch")]
     pub branch: String,
 }
 
@@ -252,15 +254,7 @@ pub struct LimitsConfig {
 }
 ```
 
-`AppConfig` 只保留：
-
-```rust
-pub remote: RemoteConfig,
-pub limits: LimitsConfig,
-pub ignore: Vec<String>,
-```
-
-删除 `HostsConfig`、`HostConfig`、`hosts`、`custom_paths`、`enabled_hosts()` 和默认可编辑路径。配置版本递增；加载旧 YAML 时只迁移 remote/ignore/limits 所需字段，旧 root 字段忽略且保存后消失。固定 root registry 属于 `detect.rs` 的产品规则，不序列化到 AppConfig。
+本任务只新增 `RemoteConfig` / `LimitsConfig` 与默认值 helper，不立刻替换现有 `AppConfig` 字段；旧 commands/detect/sync_engine 仍需编译。Task 13 在重接所有 Rust consumers 的同一提交中把 `AppConfig` 原子迁移为 `remote: Option<RemoteConfig> + limits + ignore`，并删除旧 repository/hosts/custom_paths/defaults。新 GitHub 模块从本任务起只使用新 DTO，不读取旧字段。
 
 - [ ] **Step 3: 扩展默认 ignore**
 
@@ -288,13 +282,13 @@ Run:
 cargo test --manifest-path src-tauri/Cargo.toml config
 ```
 
-Expected: Rust config 与 migration tests pass。前端 schema 和所有消费者在 Task 16 同一提交中原子迁移，避免中间提交留下无法通过 typecheck 的状态。
+Expected: 新 DTO tests pass，现有 crate consumers 仍编译。Rust AppConfig 原子迁移在 Task 13，前端 schema 和消费者在 Task 17 迁移。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src-tauri/src/config.rs src-tauri/tests/fixtures/config-v1.yaml
-git commit -m "refactor: define github vault config"
+git add src-tauri/src/config.rs
+git commit -m "feat: define github vault config dto"
 ```
 
 ### Task 3: 定义 VaultManifest 与 SyncState
@@ -366,6 +360,8 @@ fn sync_state_roundtrip_preserves_base_hash() {
     let dir = tempfile::tempdir().unwrap();
     let mut state = SyncState::empty(RemoteIdentity {
         provider: "github".into(),
+        installation_id: 123456,
+        repository_id: 987654,
         owner: "example".into(),
         repo: "agent-skills".into(),
         branch: "main".into(),
@@ -388,6 +384,30 @@ fn sync_state_roundtrip_preserves_base_hash() {
     assert_eq!(back.skills["codex:ponytail"].namespace, SkillNamespace::Codex);
     assert_eq!(back.skills["codex:ponytail"].relative_dir, "ponytail");
 }
+
+#[test]
+fn ordinary_load_blocks_identity_mismatch_without_archiving() {
+    let dir = tempfile::tempdir().unwrap();
+    save_tracked_state(dir.path(), remote_identity(1, 10, "main"));
+    for remote in [
+        remote_identity(2, 10, "main"),
+        remote_identity(1, 20, "main"),
+        remote_identity(1, 10, "other"),
+    ] {
+        assert!(SyncState::load_and_validate(dir.path(), &remote).is_err());
+        assert!(history_files(dir.path()).is_empty());
+    }
+}
+
+#[test]
+fn explicit_rebind_archives_old_base_and_starts_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    save_tracked_state(dir.path(), remote_identity(1, 10, "main"));
+    let state = SyncState::rebind_remote(dir.path(), remote_identity(2, 20, "main")).unwrap();
+    assert!(state.skills.is_empty());
+    assert_eq!(state.remote.repository_id, 20);
+    assert_eq!(history_files(dir.path()).len(), 1);
+}
 ```
 
 - [ ] **Step 4: 实现 sync_state 存储**
@@ -403,6 +423,8 @@ fn sync_state_roundtrip_preserves_base_hash() {
 ```rust
 impl SyncState {
     pub fn load_from(config_dir: &Path) -> Result<Self>;
+    pub fn load_and_validate(config_dir: &Path, remote: &RemoteIdentity) -> Result<Self>;
+    pub fn rebind_remote(config_dir: &Path, remote: RemoteIdentity) -> Result<Self>;
     pub fn save_to(&self, config_dir: &Path) -> Result<()>;
     pub fn load() -> Result<Self>;
     pub fn save(&self) -> Result<()>;
@@ -411,7 +433,7 @@ impl SyncState {
 }
 ```
 
-`load_from/save_to` 是可注入 config directory 的核心实现，测试和 command 都复用它；`load/save` 只负责解析系统 config directory 后调用核心实现，不复制读写逻辑。保存使用同目录临时文件 + rename，确保 remote identity、`namespace` 和 `relative_dir` 在一次原子写入中持久化。
+`RemoteIdentity` 包含 provider 常量、`installation_id`、`repository_id`、owner/repo、branch 和 commit SHA。`load_and_validate` 是普通 sync 的只读入口：installation/repository/branch 任一不一致即 blocked，不移动/保存文件。`rebind_remote` 只能由 Onboarding 显式切换调用，把旧 state 原子移动到 `<config-dir>/skill-sync/history/<repository_id>-<timestamp>.json`，再创建空 base。owner/repo rename但 repository id 不变时由显式 config/state 更新事务修改展示字段。`load_from/save_to` 是可注入 config directory 的核心实现；保存使用同目录临时文件 + rename。
 
 - [ ] **Step 5: 增加错误类型**
 
@@ -427,7 +449,8 @@ Blocked(String)
 Run:
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml vault_manifest sync_state
+cargo test --manifest-path src-tauri/Cargo.toml vault_manifest
+cargo test --manifest-path src-tauri/Cargo.toml sync_state
 ```
 
 Expected: manifest 与 sync_state tests pass。
@@ -601,7 +624,8 @@ std::env::temp_dir()/skill-sync/<uuid>/
 Run:
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml ignore pack
+cargo test --manifest-path src-tauri/Cargo.toml ignore
+cargo test --manifest-path src-tauri/Cargo.toml pack
 ```
 
 Expected: ignore、canonical bytes、secret warning、RAII cleanup、zip-slip、oversized tests pass。
@@ -619,6 +643,7 @@ git commit -m "feat: pack skills as canonical zip"
 
 - Modify: `src-tauri/src/skill.rs`
 - Modify: `src-tauri/src/detect.rs`
+- Modify: `src-tauri/src/sync_engine.rs`（仅补全 legacy Skill constructor）
 - Modify: `src/modules/skills/schemas/skill.ts`
 
 - [ ] **Step 1: 写 skill id 测试**
@@ -707,10 +732,14 @@ pub struct Skill {
     pub hash: String,
     pub zip_size: u64,
     pub modified_at: String,
+    // Transitional fields used only by legacy consumers until Task 13.
+    pub host: String,
+    pub repo_path: String,
+    pub enabled: bool,
 }
 ```
 
-删除旧 `host/platform/enabled/repo_path` compatibility 字段，新逻辑只使用 namespace。`relative_dir` 在 V1 等于经验证的单段 `folder_name`，保留字段是为了 sync_state 明确记录上次安装位置。
+本任务新增 namespace/folder_name/relative_dir，所有新 scanner/engine 逻辑只使用这些字段。为保证旧 commands/页面在后续原子切换前仍可编译，Rust `host: String`、`repo_path: String`、`enabled: bool` 暂按原类型保留，但不得参与新 identity、扫描或计划；同步更新 detect.rs 和 legacy sync adapter 的全部 `Skill { ... }` literals，给新字段提供由 fixed registry 得出的值。Task 13 重接 Rust consumers 时删除旧字段。`relative_dir` 在 V1 等于经验证的单段 `folder_name`。
 
 - [ ] **Step 4: 扫描结果增加 root 状态**
 
@@ -749,7 +778,12 @@ namespace: z.enum(['agents', 'codex', 'claude-code']),
 folder_name: z.string(),
 relative_dir: z.string(),
 zip_size: z.number().optional(),
+host: z.string(), // transitional; removed with page migration in Task 16
+repo_path: z.string(), // transitional
+enabled: z.boolean(), // transitional
 ```
+
+`host` 在过渡期保持 required `z.string()`（不是 optional），使现有 `hostLabel(skill.host)` 继续 typecheck；Task 16 与页面消费者同一提交删除 host/repo_path/enabled。
 
 `scanResultSchema` 增加 `roots: ScanRootStatus[]` 与 `collisions: ScanCollision[]`；root status 的 namespace 使用同一 enum，并包含 resolved `root_path`、`exists`、`readable`、`scan_complete`、`error`。TS `ScanCollision` 完整镜像 `namespace/collision_key/kind/skill_ids/paths`，其中 kind 为 `normalized_id | folded_folder_name`。
 
@@ -760,7 +794,8 @@ scanner 只负责本地碰撞。远端 manifest 和 local/remote 合并后的目
 Run:
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml skill detect
+cargo test --manifest-path src-tauri/Cargo.toml skill
+cargo test --manifest-path src-tauri/Cargo.toml detect
 npm run typecheck
 ```
 
@@ -769,7 +804,7 @@ Expected: identity 和 scan tests pass。
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src-tauri/src/skill.rs src-tauri/src/detect.rs src/modules/skills/schemas/skill.ts
+git add src-tauri/src/skill.rs src-tauri/src/detect.rs src-tauri/src/sync_engine.rs src/modules/skills/schemas/skill.ts
 git commit -m "refactor: normalize skill identity"
 ```
 
@@ -915,7 +950,8 @@ blobs/sha256/<hash>.skill.zip
 Run:
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml local_vault_store remote_store
+cargo test --manifest-path src-tauri/Cargo.toml local_vault_store
+cargo test --manifest-path src-tauri/Cargo.toml remote_store
 rg -n "reqwest::blocking|block_on|Runtime::new" src-tauri/src
 ```
 
@@ -934,10 +970,8 @@ git commit -m "feat: add local vault store"
 
 **Files:**
 
-- Modify: `src-tauri/src/sync_engine.rs`
-- Modify: `src/modules/sync/schemas/syncPlan.ts`
-- Modify: `src/modules/sync/api/syncApi.ts`
-- Modify: `src/modules/sync/state/syncDecisions.svelte.ts`
+- Create: `src-tauri/src/sync_engine/vault.rs`
+- Modify: `src-tauri/src/sync_engine.rs`（只添加 `pub mod vault;`）
 
 - [ ] **Step 1: 定义 Rust status 和 conflict reason**
 
@@ -1057,52 +1091,24 @@ decision 白名单：
 
 未提供 decision 表示该冲突不执行并返回 warning；不存在于当前冲突集合的 skill_id 或不在白名单内的 decision 返回 `Blocked`，整次 Apply 不得部分执行。
 
-- [ ] **Step 4: 定义前端决策值**
+- [ ] **Step 4: 保留旧 command adapter 的编译边界**
 
-```ts
-export const syncDecisionSchema = z.enum([
-  'keep_local',
-  'use_remote',
-  'delete_remote',
-  'restore_remote',
-  'accept_delete',
-  'skip',
-])
-```
+Task 7-9 的全部新类型和函数放在独立 `crate::sync_engine::vault` 子模块，测试和新调用方使用限定名；旧 `sync_engine.rs` 的同名 `SyncPlan/build_plan/apply_plan` 保持不动，因此不存在符号冲突。Task 13 重接 commands 的同一提交中删除 legacy 实现并从 boundary module re-export vault API。前端 sync schema/decision/apply adapter 全部延后到 Task 16 原子迁移。
 
-- [ ] **Step 5: 更新 TS status 与 plan schema**
-
-```ts
-z.enum([
-  'synced',
-  'local_update',
-  'remote_update',
-  'local_deleted',
-  'remote_deleted',
-  'both_deleted',
-  'conflict',
-  'blocked',
-  'unknown',
-])
-```
-
-`syncPlanSchema` 必须包含 `entries[].action_id`、`entries[].namespace/folder_name/relative_dir`、`both_deleted`、`delete_remote`、`delete_local`、`delete_guard_tripped`、`expected_remote_commit`、`plan_fingerprint`、`base_adoptions`、`base_removals` 和 `commit_summary.local_state_updates`，并删除旧 `platform/platforms`。增加 Rust serde 与 Zod fixture，断言 `both_deleted` 和三个 namespace 均能 round-trip。前端 Apply request/response 与 ApplyResult schema 必须和 adapter、页面原子迁移，统一放到 Task 15，避免中间提交破坏现有页面类型。
-
-- [ ] **Step 6: 验证**
+- [ ] **Step 5: 验证**
 
 Run:
 
 ```bash
-npm run typecheck
 cargo test --manifest-path src-tauri/Cargo.toml --no-run
 ```
 
 Expected: schema compiles；Rust 可在 Task 8 完成实现后全绿。
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src-tauri/src/sync_engine.rs src/modules/sync
+git add src-tauri/src/sync_engine.rs src-tauri/src/sync_engine/vault.rs
 git commit -m "refactor: define vault sync plan dto"
 ```
 
@@ -1110,7 +1116,7 @@ git commit -m "refactor: define vault sync plan dto"
 
 **Files:**
 
-- Modify: `src-tauri/src/sync_engine.rs`
+- Modify: `src-tauri/src/sync_engine/vault.rs`
 - Create/Modify: `src-tauri/tests/github_vault_sync.rs`
 
 - [ ] **Step 1: 写三方比较测试**
@@ -1212,6 +1218,12 @@ fn scan_collision_blocks_all_involved_paths() { ... }
 
 #[test]
 fn remote_or_merged_target_collision_blocks_all_involved_entries() { ... }
+
+#[test]
+fn missing_remote_config_requires_onboarding() { ... }
+
+#[test]
+fn state_remote_identity_mismatch_is_blocked_before_fetch() { ... }
 ```
 
 - [ ] **Step 4: 实现 `build_plan`**
@@ -1226,7 +1238,7 @@ pub async fn build_plan<S: RemoteStore>(
 
 流程：
 
-1. `store.fetch_manifest().await` 获取 `RemoteSnapshot`。
+1. 要求 `config.remote` 存在，并验证 state 的 installation_id/repository_id/branch 与 config 一致；不一致在任何 RemoteStore 调用前 blocked。然后 `store.fetch_manifest().await` 获取 `RemoteSnapshot`。
 2. 通过 `tauri::async_runtime::spawn_blocking` 扫描三个固定 namespace roots，带回每个 namespace 唯一的 `ScanRootStatus` 与 collisions。
 3. 通过 `spawn_blocking` 对每个本地 skill pack/hash/size；禁止直接在 async future 中执行目录遍历、zip 或 hash。
 4. 合并 `base/local/remote`，按 13 行表判定。
@@ -1246,7 +1258,7 @@ pub async fn build_plan<S: RemoteStore>(
 Run:
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml github_vault_sync
+cargo test --manifest-path src-tauri/Cargo.toml --test github_vault_sync
 ```
 
 Expected: 三方比较、删除护栏、blocked size tests pass。
@@ -1254,7 +1266,7 @@ Expected: 三方比较、删除护栏、blocked size tests pass。
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src-tauri/src/sync_engine.rs src-tauri/tests/github_vault_sync.rs
+git add src-tauri/src/sync_engine/vault.rs src-tauri/tests/github_vault_sync.rs
 git commit -m "feat: build vault sync plan with deletes"
 ```
 
@@ -1262,7 +1274,7 @@ git commit -m "feat: build vault sync plan with deletes"
 
 **Files:**
 
-- Modify: `src-tauri/src/sync_engine.rs`
+- Modify: `src-tauri/src/sync_engine/vault.rs`
 - Modify: `src-tauri/tests/github_vault_sync.rs`
 
 - [ ] **Step 1: 写 apply 测试**
@@ -1353,6 +1365,9 @@ fn update_download_uses_state_namespace_and_relative_dir() { ... }
 
 #[test]
 fn unsafe_folder_or_state_namespace_mismatch_is_blocked() { ... }
+
+#[test]
+fn missing_remote_or_state_remote_mismatch_blocks_before_fetch_and_preserves_state() { ... }
 ```
 
 adoption-only 与 removal-only 测试必须显式使用空 `selected_action_ids`、空 `decisions` 和 `delete_guard_ack=false`，并断言：返回 `Applied`、`applied == []`、`state_updated` 为正确且去重后的 skill ids、`remote_commit == None`、`commit_changes` 调用次数为 0、`state.remote.commit_sha` 更新为当前 snapshot commit，且 base 被正确写入/推进或移除。
@@ -1364,10 +1379,13 @@ adoption-only 与 removal-only 测试必须显式使用空 `selected_action_ids`
 ```rust
 pub async fn apply_plan<S: RemoteStore>(
     config: &AppConfig,
+    state: &mut SyncState,
     request: &ApplySyncRequest,
     store: &S,
 ) -> Result<ApplySyncResponse>
 ```
+
+command 先只读 load/validate state，再 clone 成 working state 传入；engine 只在所有选中动作成功后修改 working state。返回 Applied 后 command 原子保存 working state；PlanChanged/Blocked/error 直接丢弃 clone，原 state bytes 不变。batch upload/download 使用同一 state 参数/保存规则。
 
 `ApplyResult` 不再返回 backups：
 
@@ -1383,6 +1401,8 @@ pub struct ApplyResult {
 - [ ] **Step 3: 执行前重新生成计划**
 
 async apply 必须通过内部 async `prepare_plan` await manifest，并以 `spawn_blocking` 重新 scan/pack/hash、重建计划，返回同时持有 `SyncPlan`、本次 `PackedSkill` 和 RAII 临时目录的 `PreparedSyncPlan`。预览阶段 zip 不允许复用，指纹校验后也不得再次 pack；后续上传必须使用 `PreparedSyncPlan` 中参与校验的准确 bytes。在任何持久化副作用（本地 skill 写入、trash move、远端提交或 sync_state 更新）之前：
+
+0. 要求 config.remote 存在，并验证传入 state 的 installation_id/repository_id/branch；缺失或 mismatch 在第一次 `RemoteStore` 调用前返回 OnboardingRequired/Blocked，remote fetch count 为 0，working/original state 和本地目录均不变。
 
 1. 比较 `request.expected_remote_commit` 与新计划的 `expected_remote_commit`。
 2. 比较 `request.plan_fingerprint` 与新计划的 `plan_fingerprint`。
@@ -1420,6 +1440,7 @@ Windows 下将 `:` 转为安全片段，例如 `codex__ponytail`。
 
 - 成功 upload/download 后写入新的 `base_hash`。
 - 成功 upload/download 同时写入 `namespace` 与 `relative_dir`，使后续覆盖与删除护栏定位同一固定 root。
+- 保存 state 时保留已验证的 installation_id/repository_id/branch，只更新 owner/repo rename 展示字段和 commit SHA；RemoteSnapshot 不得改变 stable IDs。
 - 对 `base_adoptions` 写入 `base_hash` / `last_remote_hash = adoption.hash` 并更新 `last_synced_at`。
 - 对 `base_removals` 移除对应 skill state；`both_deleted` 不再依赖存在其他动作才清理。
 - `local_deleted` 删云端成功后移除 base。
@@ -1442,7 +1463,7 @@ pub async fn download_skills<S: RemoteStore>(skill_ids: &[String], ... ) -> Resu
 Run:
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml github_vault_sync
+cargo test --manifest-path src-tauri/Cargo.toml --test github_vault_sync
 ```
 
 Expected: apply、删除、批量、RemoteChanged tests pass。
@@ -1450,108 +1471,260 @@ Expected: apply、删除、批量、RemoteChanged tests pass。
 - [ ] **Step 10: Commit**
 
 ```bash
-git add src-tauri/src/sync_engine.rs src-tauri/tests/github_vault_sync.rs
+git add src-tauri/src/sync_engine/vault.rs src-tauri/tests/github_vault_sync.rs
 git commit -m "feat: apply vault sync plan with deletes"
 ```
 
 ## Chunk 4: GitHub 与 Tauri Commands
 
-### Task 10: 实现 GitHub Device Flow
+### Task 10: 实现 GitHub App 构建配置、Device Flow 与 credential 轮换
 
 **Files:**
 
+- Modify: `src-tauri/Cargo.toml`
+- Modify: `src-tauri/build.rs`
+- Modify: `.github/workflows/release.yml`
+- Create/Modify: `src-tauri/src/github_app_config.rs`
 - Create/Modify: `src-tauri/src/github_auth.rs`
-- Modify: `src-tauri/src/commands.rs`
-- Modify: `src-tauri/src/lib.rs`
+- Create/Modify: `src-tauri/src/github_credentials.rs`
+- Modify: `src-tauri/src/errors.rs`
 
-- [ ] **Step 1: 写 Device Flow 请求与状态测试**
-
-使用 wiremock 覆盖：start request 的 client id/scope 与 `device_code`、`user_code`、`verification_uri`、`expires_in`、`interval` 解析；poll request 的 device grant type；`authorization_pending`、`slow_down`、`expired_token`、`access_denied` 映射；authorized 成功后 token 已写入 injected credential store 且响应/日志不含 token。`slow_down` 必须把下一次轮询间隔在当前值上增加 GitHub 要求的 5 秒，并通过 poll DTO 返回新 interval。
-
-- [ ] **Step 2: 实现 commands**
+- [ ] **Step 1: 写公开构建配置测试**
 
 ```rust
-#[tauri::command]
-pub async fn start_github_device_flow() -> Result<DeviceFlowStart>;
+#[test]
+fn embedded_config_requires_non_empty_client_id_and_slug() {
+    assert!(GithubAppPublicConfig::new("", "skill-sync").is_err());
+    assert!(GithubAppPublicConfig::new("Iv1.test", "").is_err());
+    assert!(GithubAppPublicConfig::new("Iv1.test", "skill-sync").is_ok());
+}
 
-#[tauri::command]
-pub async fn poll_github_device_flow(device_code: String) -> Result<DeviceFlowPoll>;
+#[test]
+fn public_config_contains_no_private_key_or_client_secret_fields() {
+    let fields = GithubAppPublicConfig::public_field_names();
+    assert_eq!(fields, ["client_id", "slug"]);
+}
 ```
 
-`github_auth.rs` 定义可注入 `api_base_url` 和 `CredentialStore` 的 `GitHubAuthClient`。生产 endpoint 使用 GitHub 官方 Device Flow URL；测试只访问 wiremock。`start` POST `client_id` 与 scope，`poll` POST `client_id`、`device_code` 和 `urn:ietf:params:oauth:grant-type:device_code`。`DeviceFlowPoll` 只返回 status/message/next interval，不暴露 access token。
-
-- [ ] **Step 3: 处理 client id**
-
-从环境变量读取：
-
-```text
-SKILL_SYNC_GITHUB_CLIENT_ID
-```
-
-缺失时返回可操作的 `Auth` 错误，不硬编码假 client id。
-
-- [ ] **Step 4: 实现 token storage**
-
-使用 `keyring` 实现 `CredentialStore`，测试注入内存实现：
+`GithubAppPublicConfig { client_id, slug }` 只接受编译时值，另提供 test constructor。生产代码不得调用 `std::env::var`。`build.rs` 读取 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` / `SKILL_SYNC_GITHUB_APP_SLUG` 并以 `cargo:rustc-env` 注入；普通 debug/test 构建可返回明确 `GithubAppNotConfigured`，release workflow 必须在 `tauri-action` 前检查 GitHub repository variables 非空并传入 build env，缺失直接失败。
 
 ```rust
-pub async fn save_github_token(token: String) -> Result<()>;
-pub async fn load_github_token() -> Result<Option<String>>;
-pub async fn clear_github_token() -> Result<()>;
+fn main() {
+    for key in ["SKILL_SYNC_GITHUB_APP_CLIENT_ID", "SKILL_SYNC_GITHUB_APP_SLUG"] {
+        println!("cargo:rerun-if-env-changed={key}");
+        let value = std::env::var(key).unwrap_or_default();
+        if std::env::var("PROFILE").as_deref() == Ok("release") && value.trim().is_empty() {
+            panic!("missing required release build variable: {key}");
+        }
+        println!("cargo:rustc-env={key}={value}");
+    }
+    tauri_build::build();
+}
 ```
 
-keyring 是阻塞 OS credential-store I/O，三个 async 函数内部必须用 `tauri::async_runtime::spawn_blocking` 包住完整 keyring 调用并映射 join error；禁止在 async command 中直接调用 keyring，禁止 log token。
+release workflow 在 validate step 与 `tauri-action` env 都传 `${{ vars.SKILL_SYNC_GITHUB_APP_CLIENT_ID }}` / `${{ vars.SKILL_SYNC_GITHUB_APP_SLUG }}`。它们是公开 repository variables，不是 GitHub secrets；现有 `GITHUB_TOKEN` 仍只用于发布 release artifact。
 
-poll 收到 `access_token` 后必须先成功保存，再返回 `authorized`；保存失败则返回 `Auth` 错误，不能向前端返回 token 或假装授权完成。`authorization_pending` 保持原 interval，`slow_down` 返回增加后的 interval，expired/denied 终止轮询。
+- [ ] **Step 2: 写 Device Flow 请求与状态测试**
 
-- [ ] **Step 5: 验证**
+wiremock 覆盖：start 只发送 `client_id`，明确断言没有 `scope`；poll 发送 client id、device code 和 device grant type；pending 保持 interval，slow_down 增加 5 秒，expired/denied 终止；成功响应解析 `access_token/refresh_token/expires_in/refresh_token_expires_in`，但公共 `DeviceFlowPoll` JSON 不含任何 token。
 
-Run:
+- [ ] **Step 3: 实现 Device Flow client**
+
+```rust
+pub struct GithubAuthClient {
+    client: reqwest::Client,
+    public_config: GithubAppPublicConfig,
+    web_base_url: reqwest::Url,
+    api_base_url: reqwest::Url,
+}
+
+pub async fn start(&self) -> Result<DeviceFlowStart>;
+pub async fn poll(&self, device_code: &str, interval: u64) -> Result<InternalPollResult>;
+pub async fn refresh(&self, current: &GithubCredential) -> Result<GithubCredential>;
+```
+
+生产 web/API base 固定 `https://github.com/` 与 `https://api.github.com/`，测试注入 wiremock。首次 token 成功后用该 token调用 `/user` 取得 login，再构造完整 credential；无法取得 login 不保存半成品。refresh 只发送 client id、`grant_type=refresh_token` 和 current refresh token，并沿用已验证 login；Device Flow token 不需要也不得发送 client secret。所有 token 请求使用 form encoding 与 `Accept: application/json`。内部 token DTO 使用 `secrecy::SecretString`，禁止 `Debug` 输出明文。
+
+- [ ] **Step 4: 写 credential store 与刷新测试**
+
+覆盖：授权成功把完整 credential 作为单个 versioned JSON value 保存；尚未临近过期直接复用；临近过期只刷新一次；20 个并发 caller 共享一次 refresh；轮换后 access/refresh token 和绝对过期时间一起更新；HTTP refresh 失败保留仍可用旧 credential；GitHub refresh 成功但 store overwrite 失败时 best-effort clear 并返回 `CredentialPersistenceFailed`；bad/expired refresh 或撤销授权清除并返回 `ReauthorizationRequired`；任何 error/serialized public DTO 不含 token。
+
+- [ ] **Step 5: 实现 keyring 与 `GithubCredentialManager`**
+
+```rust
+pub struct GithubCredential {
+    pub schema: u32,
+    pub generation: Uuid,
+    pub access_token: SecretString,
+    pub refresh_token: SecretString,
+    pub access_expires_at: DateTime<Utc>,
+    pub refresh_expires_at: DateTime<Utc>,
+    pub github_login: String,
+    pub app_client_id: String,
+}
+
+#[async_trait]
+pub trait CredentialStore: Send + Sync {
+    async fn load(&self) -> Result<Option<GithubCredential>>;
+    async fn replace(&self, credential: &GithubCredential) -> Result<()>;
+    async fn clear(&self) -> Result<()>;
+}
+```
+
+keyring adapter 的 load/replace/clear 各自在一个 `spawn_blocking` closure 中完成；replace 写单个 credential JSON，不能分字段写。`GithubCredentialManager` 持 `tokio::sync::Mutex<()>`，`valid_credential()` 在锁内重新 load、按 5 分钟 skew 判断刷新、调用 auth client 并原子 replace。每次成功 refresh 生成新 generation；credential 的 app client id 与当前 build 不同直接要求重新授权。
+
+不要给 `GithubCredential`/`SecretString` 派生 Serialize。keyring adapter 内部定义不派生 Debug 的 private `StoredGithubCredential`（token 字段为 String）作为唯一 JSON 边界，只在 blocking closure 内用 `ExposeSecret` 转换；离开 closure 前清理临时明文对象。错误只报告字段名/存储操作，不附序列化 JSON。
+
+同文件定义共享 `GithubAuthenticatedClient`。所有生产 GitHub API 请求都通过它发送，并由 `lib.rs` 作为单个 `Arc` managed state 注入 commands/services/stores：首次 401 调用 `force_refresh(rejected_generation)`；锁内若 keyring generation 已变化则复用新 token，否则无视 access expiry 强制 refresh；只重放原请求一次；第二次 401 best-effort clear 并返回 `ReauthorizationRequired`。GET 和幂等 status 请求可按该规则重放；Contents PUT/Git Database 写请求只有收到明确 401 且 GitHub 未执行请求时才重放一次，其他网络/409/422 不在 wrapper 内重试。
+
+- [ ] **Step 6: 验证**
 
 ```bash
+cargo test --manifest-path src-tauri/Cargo.toml github_app_config
 cargo test --manifest-path src-tauri/Cargo.toml github_auth
+cargo test --manifest-path src-tauri/Cargo.toml github_credentials
+rg -n "std::env::var\(|client_secret\s*:|private_key\s*:|scope\s*[:=].*repo" src-tauri/src/github_*.rs
 ```
 
-Expected: wiremock Device Flow 成功/等待/减速/终止测试 pass；keyring 如 CI 不可用，只 gate OS storage adapter tests，内存 credential store 的成功路径必须默认执行。
+Expected: 默认测试只访问 wiremock；禁止项无产品代码命中。OS keyring adapter 可 gated，但内存 store 的完整授权与轮换测试必须默认运行。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src-tauri/src/github_auth.rs src-tauri/src/commands.rs src-tauri/src/lib.rs
-git commit -m "feat: add github device flow auth"
+git add src-tauri/build.rs .github/workflows/release.yml src-tauri/Cargo.toml src-tauri/src/github_app_config.rs src-tauri/src/github_auth.rs src-tauri/src/github_credentials.rs src-tauri/src/errors.rs
+git commit -m "feat: add github app device auth"
 ```
 
-### Task 11: 实现 GitHubVaultStore
+### Task 11: 实现 GitHub App installation、repo 状态与显式初始化
+
+**Files:**
+
+- Create/Modify: `src-tauri/src/github_repository.rs`
+- Modify: `src-tauri/src/vault_manifest.rs`
+- Modify: `src-tauri/src/config.rs`
+- Modify: `src-tauri/src/errors.rs`
+
+- [ ] **Step 1: 写 installation/repository 分页与单仓库测试**
+
+wiremock 覆盖：无 installation 返回 `app_not_installed` 和基于 app slug 的安装 URL；穷尽 `/user/installations` 与每个 installation repositories 的 Link pagination；`repository_selection=all` blocked；跨所有 installations 汇总 0、2 个 repository blocked；恰好 1 个返回稳定 `installation_id/repository_id/owner/repo`。任何中间 page 401/403/404/网络失败都返回 unavailable，不能用部分结果证明唯一 repo。
+
+- [ ] **Step 2: 定义 repo 状态 DTO**
+
+```rust
+#[serde(rename_all = "snake_case")]
+pub enum GithubVaultStatus {
+    AppNotInstalled,
+    RepositoryForbidden,
+    RepositoryMissing,
+    RepositoryUnavailable,
+    EmptyRepository,
+    BranchMissing,
+    MissingManifest,
+    InvalidManifest,
+    Ready,
+}
+
+pub struct GithubVaultCheck {
+    pub status: GithubVaultStatus,
+    pub installation_id: Option<u64>,
+    pub repository_id: Option<u64>,
+    pub owner: Option<String>,
+    pub repo: Option<String>,
+    pub branch: Option<String>,
+    pub head_sha: Option<String>,
+    pub manifest_sha: Option<String>,
+    pub retry_after: Option<String>,
+    pub message: Option<String>,
+}
+
+pub struct InitializeGithubVaultRequest {
+    pub remote: RemoteConfig,
+    pub expected_status: GithubVaultStatus,
+    pub expected_head_sha: Option<String>,
+    pub expected_manifest_sha: Option<String>,
+}
+
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum GithubRepositoryDiscovery {
+    AppNotInstalled { install_url: String },
+    SingleRepository { repository: GithubRepositorySelection },
+    SelectionAll,
+    MultipleRepositories { count: usize },
+    Unavailable { message: String },
+}
+```
+
+`message` 只保存消毒后的 GitHub message/request id，不含 token。初始化 request 只允许 expected status 为 empty_repository 或 missing_manifest。
+
+- [ ] **Step 3: 写精确状态与错误映射测试**
+
+覆盖：未过期 token 首次 401 也强制单飞 refresh 并只重放一次；并发 401 只轮换一个 generation；重放仍 401 清 credential；403 + `Retry-After`、rate-limit headers、或无相关 headers 但 GitHub error body/message/documentation_url 明确 secondary rate limit 时返回 `RateLimited` 和 retry_after；非限流 403 是 forbidden；private repo 404 根据完整 installation 列表证据区分 forbidden/missing，证据不足是 unavailable；repo identity 已验证后 branch 404 才是 branch_missing；branches 空列表是 empty_repository；branch 存在且精确 manifest path 404 是 missing_manifest；HTTP 200 但 JSON/schema/path/hash 非法是 invalid_manifest；合法 manifest 是 ready。不得用 repository `size == 0` 判空。
+
+- [ ] **Step 4: 实现 `GithubRepositoryService`**
+
+```rust
+pub async fn discover_single_repository(&self) -> Result<GithubRepositoryDiscovery>;
+pub async fn list_branches(&self, remote: &RemoteConfig) -> Result<Vec<String>>;
+pub async fn check_vault(&self, remote: &RemoteConfig) -> Result<GithubVaultCheck>;
+pub async fn validate_for_side_effect(&self, remote: &RemoteConfig) -> Result<GithubRepositoryContext>;
+pub async fn initialize_vault(&self, request: InitializeGithubVaultRequest) -> Result<GithubVaultCheck>;
+```
+
+service 持 Tauri managed 的同一个 `Arc<GithubAuthenticatedClient>`，所有 GitHub 请求都通过其 generation/401 强制刷新路径发送，不直接取或缓存 token。`validate_for_side_effect` 每次穷尽 installation/repository 列表，要求总计唯一 repository 且 id 与 config 一致；owner/repo rename 可返回更新后的 display fields，repository id/installation id/branch 不一致 blocked。
+
+- [ ] **Step 5: 写初始化与幂等测试**
+
+覆盖：empty repository 经显式 request 用 Contents API PUT canonical empty `manifest.json` 创建配置 branch 的首 commit；missing_manifest 在已有 branch 创建 1 commit；ready 返回现有 check 且 0 PUT；非空 repo branch_missing blocked；invalid_manifest 永不 PUT；expected status/head/manifest sha 变化返回 `VaultStateChanged(latest_check)`；409/422/网络结果不明后先 recheck，schema 合法且 skills 为空的 manifest（即使另一设备的 updated_by/updated_at 不同）视为成功，非空或非法 manifest blocked；并发两个 initialize 最多产生一个有效初始化 commit。
+
+- [ ] **Step 6: 实现 Contents API 初始化**
+
+初始化 body 使用 `VaultManifest::empty(device_id)` 的 canonical JSON bytes、base64 content、固定 commit message `Initialize Skill Sync vault` 和 request branch。empty repo 没有 HEAD 时不调用 Git Database API；missing_manifest 不传 file sha，避免覆盖竞态文件。响应成功后必须重新 `check_vault` 并只接受 Ready。RateLimited 按 retry_after 返回 UI，不自动循环写请求。
+
+- [ ] **Step 7: 验证**
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml github_repository
+```
+
+Expected: 分页、单 repo、状态分类、invalid manifest、rate limit 和初始化幂等测试全部通过；无真实网络。
+
+另提供默认跳过的 `github_empty_repo_initialization` 集成测试，只在设置 `SKILL_SYNC_GITHUB_INTEGRATION=1`、系统 keyring 已有测试账号的 GitHub App credential、且配置 `SKILL_SYNC_GITHUB_EMPTY_TEST_REPO` 时运行；token 不通过环境变量传入。目标必须是已安装 App、无 branch/HEAD 的 disposable private repo；测试断言 Contents API 创建首个配置 branch + manifest commit、随后 check 为 ready、第二次 initialize 0 commit。测试不自动创建或删除 repository，避免默认 CI 产生外部副作用；正式 release checklist 必须人工执行一次。
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src-tauri/src/github_repository.rs src-tauri/src/vault_manifest.rs src-tauri/src/config.rs src-tauri/src/errors.rs
+git commit -m "feat: discover and initialize github app vault"
+```
+
+### Task 12: 实现 GitHubVaultStore
 
 **Files:**
 
 - Create/Modify: `src-tauri/src/github_store.rs`
 - Modify: `src-tauri/src/remote_store.rs`
+- Modify: `src-tauri/src/github_repository.rs`
 - Modify: `src-tauri/src/errors.rs`
 
 - [ ] **Step 1: 定义 GitHub client**
 
 ```rust
 pub struct GitHubVaultStore {
-    client: reqwest::Client,
-    token: String,
-    owner: String,
-    repo: String,
-    branch: String,
+    api: Arc<GithubAuthenticatedClient>,
+    repository: GithubRepositoryContext,
     device_id: String,
-    api_base_url: reqwest::Url,
 }
 ```
 
 headers：`Authorization`、`Accept: application/vnd.github+json`、`X-GitHub-Api-Version: 2022-11-28`、`User-Agent: skill-sync`。
 
-使用 `#[async_trait] impl RemoteStore for GitHubVaultStore`，三个方法直接 await `reqwest::Client`。Cargo 不启用 reqwest `blocking` feature；实现中禁止 `block_on` 或创建嵌套 Tokio runtime。
+使用 `#[async_trait] impl RemoteStore for GitHubVaultStore`，三个方法只通过共享 authenticated client 发送请求。Cargo 不启用 reqwest `blocking` feature；实现中禁止 `block_on` 或创建嵌套 Tokio runtime。
 
-生产构造函数固定 `api_base_url = https://api.github.com/`；另提供 `#[cfg(test)] new_with_base_url(..., wiremock_server.uri())`。所有 endpoint 必须相对该 base URL 构建，不能在方法中散落硬编码 GitHub host。
+store 只能由 Task 11 的 `validate_for_side_effect` 结果与 Tauri managed 的同一个 `Arc<GithubAuthenticatedClient>` 构造；不得接收或缓存 `SecretString token`。context 包含 installation/repository id、owner/repo、branch 和已验证 HEAD。生产/test base URL 只在 authenticated client 构造；store 只构造相对 endpoint。
 
 - [ ] **Step 2: 实现 manifest fetch**
 
-先读取 repository 与 branch ref/HEAD；这些请求的 401/403/404 都按认证、repo 或 branch 错误返回，不能伪装成空 vault。只有 branch 已确认存在后，读取该 commit 上 `manifest.json` 的 path 请求返回 404，才构造 `VaultManifest::empty(&device_id)`，并保留已读取的 HEAD SHA 作为 `RemoteSnapshot.commit_sha`。
+读取 branch HEAD 与 `manifest.json`，并强制 `VaultManifest::parse_validated`。本 task 只处理 Ready vault；manifest 404、invalid manifest、repo/branch 变化均返回 `VaultStateChanged`/`RemoteChanged`，绝不能构造 empty manifest。empty/missing vault 必须先走 Task 11 的显式初始化 command。
 
 - [ ] **Step 3: 实现 blob fetch**
 
@@ -1565,7 +1738,7 @@ headers：`Authorization`、`Accept: application/vnd.github+json`、`X-GitHub-Ap
 
 默认只测 DTO、error mapping、request building。真实 GitHub 测试只能手动或 gated：
 
-使用 `wiremock` 的 Tokio mock server 测试 request/response path。默认测试必须包含：branch HEAD 成功 + manifest path 404 返回 empty manifest；repo/ref/branch 404 返回明确错误；manifest/blob 请求；update-ref request 的 `force=false`；以及仅 update-ref 模拟 non-fast-forward / 409 / 422 时映射为 `AppError::RemoteChanged`。其他 endpoint 的 409/422 仍映射为 Vault error。默认测试不访问真实 GitHub。
+使用 `wiremock` 的 Tokio mock server 测试 request/response path。默认测试必须包含：ready manifest/blob 请求；manifest 404/invalid 返回 state changed 且不写入；rate-limit 403 保留 retry_after；fetch manifest、fetch blob、commit path 各自首次 401 后使用新 generation 重放成功；重放仍 401 清 credential；update-ref request 的 `force=false`；以及仅 update-ref 模拟 non-fast-forward / 409 / 422 时映射为 `AppError::RemoteChanged`。其他 endpoint 的 409/422 仍映射为 Vault error。默认测试不访问真实 GitHub。
 
 ```text
 SKILL_SYNC_GITHUB_TEST_REPO
@@ -1584,19 +1757,28 @@ Expected: 默认不访问网络。
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src-tauri/src/github_store.rs src-tauri/src/remote_store.rs src-tauri/src/errors.rs
+git add src-tauri/src/github_store.rs src-tauri/src/github_repository.rs src-tauri/src/remote_store.rs src-tauri/src/errors.rs
 git commit -m "feat: add github vault store"
 ```
 
-### Task 12: 重接 Tauri commands
+### Task 13: 重接 Tauri commands
 
 **Files:**
 
 - Modify: `src-tauri/src/commands.rs`
 - Modify: `src-tauri/src/lib.rs`
 - Modify: `src-tauri/src/config.rs`
+- Modify: `src-tauri/src/detect.rs`
+- Modify: `src-tauri/src/sync_engine.rs`
+- Modify: `src-tauri/src/skill.rs`
+- Create: `src-tauri/src/vault_binding.rs`
+- Create: `src-tauri/tests/fixtures/config-v1.yaml`
 
-- [ ] **Step 1: 删除旧 commands**
+- [ ] **Step 1: 原子迁移 AppConfig 和所有 Rust consumers**
+
+先写 `legacy_hosts_and_custom_paths_are_ignored_on_migration`、`default_config_has_no_unvalidated_remote`、`save_config_cannot_change_remote_identity` 测试。将 AppConfig 改为 `remote: Option<RemoteConfig> + limits + ignore`，配置版本递增，旧 YAML 只迁移 ignore/limits；Git/OAuth remote、hosts/custom_paths/defaults 保存后消失。所有 AppConfig load 先调用 `VaultBindingStore::recover_if_needed`。同步修改 commands/detect/sync engine 的所有字段引用，删除 Task 5 暂留的 Rust host/platform/enabled/repo_path compatibility 字段和 Task 7-9 暂留的 legacy engine adapter；扫描只用 fixed registry，未绑定 remote 返回 OnboardingRequired。不得保留只为编译而继续生效的 legacy config/identity 字段。
+
+- [ ] **Step 2: 删除旧 commands**
 
 删除：
 
@@ -1608,7 +1790,7 @@ list_backups
 restore_backup
 ```
 
-- [ ] **Step 2: 暴露新 commands**
+- [ ] **Step 3: 暴露新 commands**
 
 ```rust
 async get_app_state()
@@ -1618,25 +1800,24 @@ async get_sync_plan()
 async apply_sync_plan(request: ApplySyncRequest) -> Result<ApplySyncResponse>
 open_path(path)
 async start_github_device_flow()
-async poll_github_device_flow(device_code)
+async poll_github_device_flow(device_code, interval)
+async get_github_app_info()
+async list_github_installations()
+async list_installation_repositories(installation_id)
+async discover_single_github_repository()
+async list_github_repository_branches(config)
 async check_github_vault(config)
+async initialize_github_vault(request: InitializeGithubVaultRequest)
+async bind_github_vault(request: BindGithubVaultRequest)
+async disconnect_github(expected_repository_id)
 async list_remote_skills()
 async upload_skills(skill_ids)
 async download_skills(skill_ids)
 ```
 
-`get_app_state` 响应在移除 Git 字段后必须包含 `github_authorized`、`github_user`、`device_name` 和来自 `sync_state.remote.commit_sha` 的 nullable `remote_commit`。`check_github_vault` 返回稳定 DTO：
+`get_github_app_info` 只返回编译时 app slug、install URL 和 `configured`，不返回 client secret/private key。installation/repository/check/init 响应使用 Task 11 DTO；`GithubVaultCheck.status` 必须保留 app_not_installed/repository_forbidden/repository_missing/repository_unavailable/empty_repository/branch_missing/missing_manifest/invalid_manifest/ready，rate limit 作为带 retry_after 的 tagged error 返回。
 
-```rust
-pub struct GithubVaultCheck {
-    pub repository_accessible: bool,
-    pub branch_accessible: bool,
-    pub manifest_exists: bool,
-    pub remote_commit: Option<String>,
-}
-```
-
-认证、repo 或 branch 不可访问返回明确错误；repo/branch 可访问但 `manifest.json` 不存在时返回 `manifest_exists=false`，供 Onboarding 提示创建空 vault，而不是把两类状态混为一谈。
+Tauri command errors 统一序列化为 `AppErrorPayload { kind, message, retry_after?, latest_check? }`。只有 `RateLimited` 填 retry_after，只有 `VaultStateChanged` 填 latest_check；其他错误两字段省略。payload 的 message/details 必须经过 token redaction。
 
 在 `commands.rs` 定义并由 `lib.rs` 注册 Tauri managed state：
 
@@ -1647,38 +1828,74 @@ pub struct SyncOperationGate {
 }
 ```
 
+`lib.rs` 还只构造一次 `Arc<GithubCredentialManager>` 和 `Arc<GithubAuthenticatedClient>`；auth、repository service、store 与所有 commands clone 同一 Arc。禁止每个 command 新建 manager/mutex，否则并发 401 会重复使用已轮换 refresh token。
+
 - `get_app_state`、`scan_skills`、`get_sync_plan` 在读取 config/state 前获取 read guard，并持有到扫描/预览返回。
 - `save_config`、`apply_sync_plan`、`upload_skills`、`download_skills` 在读取任何 config/state 前获取 write guard，并持有到所有本地目录变更和最终 sync_state/config 保存结束。
 - engine 与 adapter 不再次获取 application gate；LocalVaultStore 自己的 path lock 是另一层 adapter transaction lock。
-- remote-only auth polling 不获取该 gate；需要读取当前配置的 vault check/list command 至少获取 read guard。
+- remote-only auth polling、installation discovery 不获取 application gate；`check_github_vault` 获取 read guard。`initialize_github_vault`、保存新 remote identity和 disconnect 获取 write guard，持有到 config/sync_state 原子更新结束。
 
-`apply_sync_plan` command 必须是 async，接收并完整转发单个 `request: ApplySyncRequest` 参数：通过 `spawn_blocking` 加载 config / sync_state，通过 async keyring API 读取 token，构造 `GitHubVaultStore`、await 新的 engine apply 路径并返回 `Result<ApplySyncResponse>`，不得只提取 decisions。command 层或 engine 层捕获提交期 `AppError::RemoteChanged` 后，重新生成并返回 `ApplySyncResponse::PlanChanged { reason: RemoteChanged, latest_plan }`；此路径不得写 sync_state。其他同步 commands 同样 await engine/store；扫描、pack、解包和目录移动不得直接阻塞 command future。
+`apply_sync_plan` command 必须是 async，接收并完整转发单个 `request: ApplySyncRequest` 参数：通过 `spawn_blocking` 加载 config / `load_and_validate` sync_state（只读、mismatch 不归档），通过共享 authenticated client 与 `GithubRepositoryService.validate_for_side_effect` 复核单 repo 与稳定 identity，再构造 `GitHubVaultStore`、clone working state、await engine apply。只有 Applied 才原子保存 working state；PlanChanged/error 丢弃。不得绕过 installation validation。其他同步 commands 同样复用该构造路径。
+
+Device Flow poll 的 authorized 分支必须先保存完整 credential 再返回公共状态；public response 不含 token。`initialize_github_vault` 只改变远端并返回 Ready check，不写本机 config/state。Ready 后调用 `bind_github_vault`：首次绑定创建空 state；已有不同 remote 时必须明确 confirm_rebind，普通 check/sync mismatch 不得隐式 rebind。
+
+```rust
+pub struct BindGithubVaultRequest {
+    pub remote: RemoteConfig,
+    pub expected_head_sha: String,
+    pub expected_manifest_sha: String,
+    pub expected_previous_binding: Option<RemoteBindingKey>,
+    pub confirm_rebind: bool,
+}
+
+pub struct RemoteBindingKey {
+    pub installation_id: u64,
+    pub repository_id: u64,
+    pub branch: String,
+}
+```
+
+bind 在 write gate 内先比较 `expected_previous_binding` 与锁内当前 installation/repository/branch，再重新 validate single repo + Ready HEAD/manifest；同 repository 但 branch 已变化也返回 stale binding。随后由 `VaultBindingStore` 写 `<config-dir>/skill-sync/bind-transaction.json` journal：新 config/state temp 和 journal 均 fsync 后再 replace 两个目标，最后删除 journal。每次 AppConfig load 前先 recover journal，根据 previous/new hashes 完成或回滚，不能让新 config + 旧 base 进入 sync。首次绑定、same identity rename、confirmed rebind、stale previous branch，以及 temp/journal/config replace/state replace/clear 各故障点都写测试。`invalid_manifest`、branch_missing、rate limit 或 stale expected state 不 bind。disconnect 校验 expected repository id，best-effort 清 keyring，使用同类 journal 归档 state并清 remote config；不调用 GitHub uninstall/delete API。
 
 `get_app_state` 与 `save_config` 也改为 async command，并分别用 `spawn_blocking` 包住完整的 AppConfig load/save。SyncState load/save 必须各自在一个 blocking closure 中完成；写入使用临时文件 + rename 的原子流程。所有 spawn join errors 映射为 `AppError`。
 
-`scan_skills` 不再读取 AppConfig roots，直接调用固定 registry，返回 `skills + roots + collisions + warnings`。Task 16 的 Settings 复用该响应显示只读路径状态。
+`save_config` 只允许修改 limits/ignore；request 中 remote identity 必须与当前 config 完全相同，否则 `Blocked`。只有成功的 Onboarding initialize/ready 绑定流程与 disconnect command 可以设置或清除 remote，防止前端手工伪造 installation/repository id。
 
-- [ ] **Step 3: 更新 AppState**
+`scan_skills` 不再读取 AppConfig roots，直接调用固定 registry，返回 `skills + roots + collisions + warnings`。Task 17 的 Settings 复用该响应显示只读路径状态。
+
+- [ ] **Step 4: 更新 AppState**
 
 移除 `git_available` / `git_version`，新增：
 
 ```rust
 pub github_authorized: bool,
 pub github_user: Option<String>,
+pub github_app_slug: Option<String>,
+pub credential_status: CredentialStatus,
+pub installation_id: Option<u64>,
+pub repository_id: Option<u64>,
+pub remote_owner: Option<String>,
+pub remote_repo: Option<String>,
+pub remote_branch: Option<String>,
+pub vault_status: Option<GithubVaultStatus>,
+pub device_name: String,
+pub remote_commit: Option<String>,
 ```
 
-- [ ] **Step 4: 验证**
+- [ ] **Step 5: 验证**
 
 Run:
 
 ```bash
-rg -n "check_git|check_remote|prepare_repo|list_backups|restore_backup" src-tauri/src
+rg -n "check_git\(|check_remote\(|prepare_repo\(|list_backups\(|restore_backup\(" src-tauri/src
 cargo test --manifest-path src-tauri/Cargo.toml commands
 ```
 
 Expected: `rg` 无产品代码命中；commands compile。
 
 增加 `#[tokio::test]` command 边界测试：完整 request 字段不会丢失，`applied` / `plan_changed` tagged response 可序列化，提交期 `RemoteChanged` 会返回带 `latest_plan` 的响应而不是普通 command rejection；原请求不会自动重试，暂存的本地变更会被丢弃。编译检查还必须证明 async command future 满足 Tauri 的 Send 要求。
+
+增加 GitHub App command 测试：Device Flow public response 和 AppState serialization 不含 access/refresh token；installation discovery 不持 application gate；check/init 的 status DTO 不丢字段；initialize 即使 ready 也不写本机 binding；只有 bind 对 Ready check 写完整 config/state；普通 identity mismatch 保持 bytes 不变；confirmed rebind 才归档。expected previous installation/repository/branch 任一 stale（特别是同 repo branch 被另一窗口切换）都不得覆盖。对 bind journal 的 temp write、journal fsync、config replace、state replace、journal clear 逐点注入失败并模拟重启 recovery，结果只能是完整 previous 或完整 new binding。invalid/stale/rate-limited bind 保持 bytes 不变；sync/list/upload/download 每次构造 store 前 validate；disconnect 不发远端删除/uninstall 请求。
 
 增加 operation gate 并发测试：两个 apply/upload/download 不会同时进入 engine；download-only 与 state-only Apply 同样串行；活动写操作期间启动的 scan/get_sync_plan 必须等待，写操作完成后读取最新 sync_state；测试使用 barrier/notify 控制交错，不能依赖 sleep。
 
@@ -1691,20 +1908,21 @@ assert_send(get_sync_plan_impl(...));
 assert_send(apply_sync_plan_impl(...));
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src-tauri/src/commands.rs src-tauri/src/lib.rs src-tauri/src/config.rs
+git add src-tauri/src/commands.rs src-tauri/src/lib.rs src-tauri/src/config.rs src-tauri/src/detect.rs src-tauri/src/sync_engine.rs src-tauri/src/skill.rs src-tauri/src/vault_binding.rs src-tauri/tests/fixtures/config-v1.yaml
 git commit -m "refactor: route commands through github vault"
 ```
 
 ## Chunk 5: 前端契约与页面
 
-### Task 13: 更新前端 API schemas
+### Task 14: 更新前端 API schemas
 
 **Files:**
 
 - Modify: `src/shared/schemas/apiResponse.ts`
+- Modify: `src/shared/lib/tauri.ts`
 - Modify: `src/modules/settings/schemas/config.ts`
 - Modify: `src/modules/onboarding/schemas/onboarding.ts`
 - Modify: `src/modules/settings/api/configApi.ts`
@@ -1717,6 +1935,14 @@ git commit -m "refactor: route commands through github vault"
 ```ts
 github_authorized: z.boolean(),
 github_user: z.string().nullable(),
+github_app_slug: z.string().nullable(),
+credential_status: z.enum(['disconnected', 'valid', 'refreshing', 'reauthorization_required']),
+installation_id: z.number().int().nullable(),
+repository_id: z.number().int().nullable(),
+remote_owner: z.string().nullable(),
+remote_repo: z.string().nullable(),
+remote_branch: z.string().nullable(),
+vault_status: githubVaultStatusSchema.nullable(),
 device_name: z.string(),
 remote_commit: z.string().nullable(),
 ```
@@ -1745,22 +1971,65 @@ export const deviceFlowPollSchema = z.object({
 
 ```ts
 export const startGithubDeviceFlow = async (): Promise<DeviceFlowStart>;
-export const pollGithubDeviceFlow = async (deviceCode: string): Promise<DeviceFlowPoll>;
-export const checkGithubVault = async (config: AppConfig): Promise<GithubVaultCheck>;
+export const pollGithubDeviceFlow = async (deviceCode: string, interval: number): Promise<DeviceFlowPoll>;
+export const getGithubAppInfo = async (): Promise<GithubAppInfo>;
+export const listGithubInstallations = async (): Promise<GithubInstallation[]>;
+export const listInstallationRepositories = async (installationId: number): Promise<GithubRepository[]>;
+export const discoverSingleGithubRepository = async (): Promise<GithubRepositoryDiscovery>;
+export const listGithubRepositoryBranches = async (remote: RemoteConfig): Promise<string[]>;
+export const checkGithubVault = async (remote: RemoteConfig): Promise<GithubVaultCheck>;
+export const initializeGithubVault = async (request: InitializeGithubVaultRequest): Promise<GithubVaultCheck>;
+export const bindGithubVault = async (request: BindGithubVaultRequest): Promise<AppState>;
+export const disconnectGithub = async (expectedRepositoryId: number): Promise<void>;
 ```
 
 定义并导出对应契约：
 
 ```ts
+export const githubVaultStatusSchema = z.enum([
+  'app_not_installed',
+  'repository_forbidden',
+  'repository_missing',
+  'repository_unavailable',
+  'empty_repository',
+  'branch_missing',
+  'missing_manifest',
+  'invalid_manifest',
+  'ready',
+])
+
 export const githubVaultCheckSchema = z.object({
-  repository_accessible: z.boolean(),
-  branch_accessible: z.boolean(),
-  manifest_exists: z.boolean(),
-  remote_commit: z.string().nullable(),
+  status: githubVaultStatusSchema,
+  installation_id: z.number().int().nullable(),
+  repository_id: z.number().int().nullable(),
+  owner: z.string().nullable(),
+  repo: z.string().nullable(),
+  branch: z.string().nullable(),
+  head_sha: z.string().nullable(),
+  manifest_sha: z.string().nullable(),
+  retry_after: z.string().nullable(),
+  message: z.string().nullable(),
 })
 ```
 
-`checkGithubVault` 必须用该 schema 解析 command 返回值。Onboarding 将 `manifest_exists=false` 映射为“创建空 vault”状态；command error 映射为认证/repo/branch 错误，不能显示成空 vault。
+`githubAppInfoSchema` 只含 slug/install_url/configured。installation schema 包含 id/account_login/repository_selection，repository schema 包含 installation_id/repository_id/owner/repo/default_branch/private。discovery schema 必须表达 app_not_installed（带 install URL）、single_repository（带唯一 repo）、selection_all、multiple_repositories、unavailable；列表和 discovery 都不能包含 token。`initializeGithubVaultRequestSchema` 完整镜像 Task 11 expected status/head/manifest fields。
+
+`bindGithubVaultRequestSchema` 包含完整 remote、expected_head_sha、expected_manifest_sha、nullable `expected_previous_binding { installation_id, repository_id, branch }` 和 confirm_rebind；ready check 不能由前端删减字段。bind 返回更新后的 AppState，页面只在成功后进入 Sync。
+
+API adapter 对 `RateLimited` 保留 retry_after，对 reauthorization_required 进入重新授权状态。Onboarding 只有 empty_repository/missing_manifest 显示初始化，invalid_manifest 显示只读错误，branch_missing 要求选择现有 branch，ready 才进入同步。
+
+扩展共享错误边界：
+
+```ts
+export const appErrorSchema = z.object({
+  kind: z.string(),
+  message: z.string(),
+  retry_after: z.string().nullable().optional(),
+  latest_check: z.unknown().optional(),
+})
+```
+
+`SkillSyncError` 保留 `retryAfter` 和 `latestCheck: unknown`；`invokeCmd` 必须先用 `appErrorSchema.safeParse(raw)`，不能用 type assertion 丢字段。Onboarding 捕获 `vault_state_changed` 时再用 `githubVaultCheckSchema.parse(error.latestCheck)`，捕获 `rate_limited` 时使用 retryAfter。
 
 - [ ] **Step 4: 验证**
 
@@ -1781,7 +2050,7 @@ git add src/shared/schemas src/modules/settings src/modules/onboarding src/modul
 git commit -m "feat: add github vault frontend contracts"
 ```
 
-### Task 14: 移除独立 Backups / Conflicts 路由
+### Task 15: 移除独立 Backups / Conflicts 路由
 
 **Files:**
 
@@ -1834,7 +2103,7 @@ git add src
 git commit -m "refactor: remove standalone conflict and backup pages"
 ```
 
-### Task 15: 构建 Sync 卡片、筛选、删除确认和冲突详情
+### Task 16: 构建 Sync 卡片、筛选、删除确认和冲突详情
 
 **Files:**
 
@@ -1877,6 +2146,8 @@ requiresConfirmation?: boolean
 
 同一步原子更新 `SyncSkillEntry` Zod schema：`namespace` 必须为 `agents | codex | claude-code`，`folder_name` 为 string，`relative_dir` 为 nullable string；删除旧 `platform/platforms`。为三个 namespace、nullable relative_dir 与 `both_deleted` 添加解析 fixture，确保前端契约与 Task 7 Rust DTO 一致。
 
+`syncStatusSchema` 原子替换为 synced/local_update/remote_update/local_deleted/remote_deleted/both_deleted/conflict/blocked/unknown。`syncPlanSchema` 完整包含 entries/action_id、uploads/downloads/delete_remote/delete_local/conflicts/blocked/warnings、delete_guard_tripped、expected_remote_commit、plan_fingerprint、base_adoptions/base_removals、will_create_commit 和 commit_summary.local_state_updates；同时删除 Task 5 暂留的 host 和其他旧 Git/platform 字段。
+
 - [ ] **Step 3: 创建 ConflictDetailDialog**
 
 Props:
@@ -1890,6 +2161,17 @@ onDecision(choice: SyncDecision): void
 不做文件级 diff。
 
 - [ ] **Step 4: 冲突决策按 reason 分组**
+
+```ts
+export const syncDecisionSchema = z.enum([
+  'keep_local',
+  'use_remote',
+  'delete_remote',
+  'restore_remote',
+  'accept_delete',
+  'skip',
+])
+```
 
 普通冲突：
 
@@ -2023,7 +2305,7 @@ git add src/modules/sync src/shared/i18n/locales
 git commit -m "feat: consolidate sync status ui"
 ```
 
-### Task 16: 更新 Onboarding 与 Settings
+### Task 17: 更新 Onboarding 与 Settings
 
 **Files:**
 
@@ -2044,17 +2326,35 @@ git commit -m "feat: consolidate sync status ui"
 - [ ] **Step 2: 添加 Device Flow 状态**
 
 ```ts
-let deviceCode = $state('')
-let userCode = $state('')
-let verificationUri = $state('')
-let authStatus = $state<
-  'idle' | 'pending' | 'authorized' | 'expired' | 'denied' | 'error'
->('idle')
+type OnboardingStage =
+  | 'app_not_configured'
+  | 'authorize'
+  | 'device_pending'
+  | 'install_app'
+  | 'repository_scope_blocked'
+  | 'select_branch'
+  | 'checking_vault'
+  | 'confirm_initialize'
+  | 'invalid_manifest'
+  | 'rate_limited'
+  | 'ready'
 ```
+
+Device Flow 局部状态保存 device code、user code、verification URI、expires_at 和当前 interval。离开页面/组件销毁时停止 poll timer；重新进入根据 expires_at 恢复或重新申请 code。前端状态和 query cache 永不保存 access/refresh token。
 
 - [ ] **Step 3: 添加连接、轮询和 repo 检测**
 
-连接按钮调用 `startGithubDeviceFlow()`，展示 `userCode` 和打开 `verificationUri`。按 interval 轮询到 authorized/expired/denied；收到 slow_down 时采用响应的新 interval。授权成功且 owner/repo/branch 完整后调用 `checkGithubVault(config)`：command error 显示认证/repo/branch 问题，`manifest_exists=false` 显示创建空 vault 提示，true 才进入 ready。
+实现以下单一路径，不提供 OAuth/PAT/Git/SSH 切换：
+
+1. `getGithubAppInfo()` 缺少编译配置时显示不可继续的发布配置错误。
+2. `startGithubDeviceFlow()` 后展示 code/open URL，按 interval poll；slow_down 采用响应新 interval，authorized 后进入 installation discovery。
+3. `discoverSingleGithubRepository()` 无 installation 时显示 app slug/install URL 和“安装后重新检查”；selection_all 或 multiple_repositories 时显示调整 GitHub App 为唯一 repo 的链接与原因，不能手填 owner/repo 绕过。
+4. single_repository 后用 stable installation/repository id 构造临时 remote，列出已有 branches。empty repo 使用 repository default branch/name fallback `main` 作为待初始化 branch；非空 repo 只能选择 API 返回的 branch。
+5. `checkGithubVault()`：ready 才完成；empty_repository/missing_manifest 展示“将创建 GitHub commit”的显式确认；branch_missing 回到 branch 选择；invalid_manifest 只显示校验错误和打开仓库按钮；rate_limited 显示 retry_after；unavailable/forbidden/missing 使用不同文案。
+6. 用户确认后调用 `initializeGithubVault(expected status/head/manifest sha)`。VaultStateChanged 用 latest check 替换页面状态并要求重新确认，不自动重试 PUT；initialize 返回 ready 仍不写本机 binding。
+7. 对原本 ready 或初始化后 ready 的 check 调用 `bindGithubVault`。首次绑定 confirm_rebind=false；若 AppState 已绑定不同 stable identity，先展示会归档旧 base 的切换确认，并携带 AppState 当前 installation id + repository id + branch 组成的 expected previous binding。bind 成功返回新 AppState 后才进入 Sync；同 repo branch 被另一窗口切换等 stale binding 必须刷新状态并重新确认，失败/恢复中保持 Onboarding。
+
+在 Step 5 手动验收中逐项覆盖以上状态迁移、poll timer 清理、install 后 recheck、单 repo blocked、初始化确认、invalid manifest 不出现初始化按钮、rate limit、stale initialize 不自动重试，以及浏览器 devtools/query state 中没有 token；当前仓库没有前端 test runner，本任务不额外引入一套测试框架。
 
 - [ ] **Step 4: 更新 Settings**
 
@@ -2064,15 +2364,17 @@ let authStatus = $state<
 config.remote.owner
 config.remote.repo
 config.remote.branch
+config.remote.installation_id
+config.remote.repository_id
 config.limits.max_skill_zip_bytes
 config.limits.max_auto_delete
 ```
 
-同一任务原子迁移 `appConfigSchema` 与 Onboarding schema：定义 `remoteConfigSchema` 和 `limitsConfigSchema`，从 `appConfigSchema` 删除 `hosts`、`custom_paths` 和旧 `defaults`；同步更新所有 Settings/Onboarding 消费者。root 状态来自 scan/AppState 响应，不属于可保存配置。
+同一任务原子迁移 `appConfigSchema` 与 Onboarding schema：`remote` 为 nullable，完整值必须包含 installation/repository id、owner/repo/branch；定义 limits schema，从 AppConfig 删除 provider selector、hosts、custom_paths 和旧 defaults；同步更新所有消费者。root 状态来自 scan/AppState 响应，不属于可保存配置。
 
 保留 ignore textarea，文案说明它影响 zip/hash/size/status。
 
-Settings 还只读显示 `AppState.device_name` 与 nullable `remote_commit`；没有 commit 时显示 locale 中的“尚未同步”，不得从可编辑表单伪造这两个运行时字段。
+Settings 只读显示 GitHub App slug、credential status、GitHub login、installation/repository id、owner/repo/branch、`AppState.device_name` 与 nullable remote commit；这些 identity/runtime 字段不能直接编辑。提供“重新配置 vault”和“断开 GitHub”命令：断开前显示会清除本机授权与归档本机 base、不会卸载 GitHub App 或删除远端内容；确认后携带 expected repository id。
 
 新增固定 root 只读列表，数据来自 `scanSkills().roots`：
 
@@ -2094,6 +2396,12 @@ claude-code  ~/.claude/skills       resolved path + exists/readable/scan status
   "settings.deviceName": "本机设备名",
   "settings.remoteCommit": "当前远端版本",
   "settings.remoteCommitEmpty": "尚未同步",
+  "github.installApp": "安装 GitHub App",
+  "github.singleRepoRequired": "GitHub App 必须只授权一个 vault 仓库",
+  "github.initializeVault": "初始化 Vault",
+  "github.initializeCreatesCommit": "这会在目标仓库创建 manifest.json commit",
+  "github.invalidManifest": "manifest.json 存在但格式无效，应用不会覆盖它",
+  "github.reauthorizationRequired": "GitHub 授权已失效，请重新连接",
   "settings.rootNotFound": "目录尚未创建",
   "settings.rootUnreadable": "目录不可读"
 }
@@ -2110,7 +2418,7 @@ npm run lint
 npm run build
 ```
 
-手动验证：三个 namespace 均显示唯一固定路径；没有 root 输入、开关或新增按钮；修改旧 config YAML 的 hosts/custom_paths 不会改变页面或扫描目标；缺失 root 显示 unknown/待创建而不产生删除。
+手动验证：GitHub App Device Flow -> install -> 唯一 repo -> branch -> empty/missing manifest 确认初始化 -> ready 全链路可完成；OAuth/PAT/Git/SSH 控件不存在；多 repo、invalid manifest 和 stale init 均不能越过；Settings 不显示 token、不允许编辑 stable IDs。三个 namespace 均显示唯一固定路径；修改旧 hosts/custom_paths 不改变扫描目标；缺失 root 显示 unknown 而不产生删除。
 
 - [ ] **Step 6: Commit**
 
@@ -2121,7 +2429,7 @@ git commit -m "feat: connect github vault settings"
 
 ## Chunk 6: 旧模型删除与最终验证
 
-### Task 17: 删除旧 Git working tree 与备份后端
+### Task 18: 删除旧 Git working tree 与备份后端
 
 **Files:**
 
@@ -2174,13 +2482,15 @@ git add src-tauri/src
 git commit -m "refactor: remove git cli sync backend"
 ```
 
-### Task 18: 更新 README / docs 并全量验证
+### Task 19: 更新 README / docs 并全量验证
 
 **Files:**
 
 - Modify: `README.md`
 - Modify: `README.zh-CN.md`
 - Modify: `docs/development-plan.md`
+- Create: `docs/github-app-setup.md`
+- Delete: `docs/ssh-setup.md`
 - Modify: `docs/github-base-refactor-design.md` only if implementation details changed during execution.
 
 - [ ] **Step 1: 搜索旧产品描述**
@@ -2188,14 +2498,16 @@ git commit -m "refactor: remove git cli sync backend"
 Run:
 
 ```bash
-rg -n "Git CLI|git_store|GitStore|check_git|check_remote|prepare_repo|Backups|backup|restore|SSH|skill-sync.lock.json|skills/<host>/<name>|HostsConfig|HostConfig|custom_paths|enabled_hosts|repo_path|\bplatforms?\b|\bhosts?\b" README.md README.zh-CN.md docs src src-tauri
+rg -n "Git CLI|git_store|GitStore|check_git|check_remote|prepare_repo|Backups|backup|restore|SSH|skill-sync.lock.json|skills/<host>/<name>|HostsConfig|HostConfig|custom_paths|enabled_hosts|repo_path|\bplatforms?\b|\bhosts?\b|OAuth App|PAT|SKILL_SYNC_GITHUB_CLIENT_ID" README.md README.zh-CN.md docs src src-tauri
 ```
 
 Expected: 只有历史上下文或明确非 MVP 注记保留。
 
 - [ ] **Step 2: 更新文档**
 
-README 和开发文档说明 GitHub private repo vault、Device Flow、`manifest.json` + `blobs/sha256`、三个固定 namespace/root、advisory 删除传播、本地 trash、blob 不 GC、不需要 Git/SSH。明确 V1 不管理项目级 skill roots，也不允许自定义用户 root。
+README 和开发文档说明 V1 唯一 provider 是 GitHub App Device Flow，private repo vault 使用 `manifest.json` + `blobs/sha256`，不需要 OAuth App/PAT/Git/SSH/SaaS backend。说明 installation 必须只授权一个 vault repo、token 只进 keyring且自动刷新、空 repo/缺 manifest 会在显式确认后创建初始化 commit，以及三个固定 namespace/root、advisory 删除、本地 trash、blob 不 GC。
+
+删除仍以有效指南口吻推荐 SSH/HTTPS/PAT 的 `docs/ssh-setup.md`。`docs/github-app-setup.md` 给维护者完整 release checklist：注册可安装 GitHub App；开启 Device Flow 和 expiring user tokens；Repository permissions 仅 Contents read/write + Metadata read-only；无 account/org permissions、events/webhook；记录公开 client id/app slug；在 GitHub Actions repository variables 配置 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` / `SKILL_SYNC_GITHUB_APP_SLUG`；在打包前实际打开并核对 `https://github.com/apps/<slug>/installations/new`；确认 release artifact 不含 private key/client secret；用 keyring 中的测试 App credential 和 disposable empty private repo 运行 `SKILL_SYNC_GITHUB_INTEGRATION=1 SKILL_SYNC_GITHUB_EMPTY_TEST_REPO=<owner/repo> cargo test --manifest-path src-tauri/Cargo.toml github_empty_repo_initialization -- --ignored --nocapture`。给普通用户说明授权、Only select repositories、唯一 vault repo、installation 调整与撤销方式。
 
 - [ ] **Step 3: 全量验证**
 
@@ -2204,13 +2516,14 @@ Run:
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml
 rg -n "reqwest::blocking|block_on|Runtime::new" src-tauri/src
+rg -n "std::env::var\(|SKILL_SYNC_GITHUB_CLIENT_ID|client_secret\s*:|private_key\s*:|scope\s*[:=].*repo" src-tauri/src src .github/workflows
 npm run typecheck
 npm run format:check
 npm run lint
 npm run build
 ```
 
-Expected: tests/build checks all pass；禁止项 `rg` 无命中。
+Expected: tests/build checks all pass；禁止项 `rg` 无产品代码命中，release workflow 只注入公开 App client id/slug。
 
 - [ ] **Step 4: 手动烟测**
 
@@ -2224,8 +2537,11 @@ npm run tauri dev
 
 - App opens to Sync。
 - Nav 没有 Conflicts 或 Backups。
-- Onboarding 展示 GitHub Device Flow。
-- Settings 有 GitHub repo、size limit、delete guard、ignore rules，以及 agents/codex/claude-code 三个只读固定 root；没有 root 输入、开关或新增按钮。
+- Onboarding 只展示 GitHub App Device Flow；能从未授权走到 installation、唯一 repo、branch、显式初始化和 ready。
+- empty repo 初始化只创建一次 manifest commit；missing manifest 明确确认；invalid manifest 不可覆盖；非空 repo branch missing 只能选择已有 branch。
+- 多 repo installation 被 blocked；扩大 installation scope 后下一次 check/sync 在副作用前 blocked。
+- token 临近过期可自动刷新，撤销授权后进入重新连接；前端和日志不出现 token。
+- Settings 有只读 GitHub App/repository stable identity、size limit、delete guard、ignore rules，以及 agents/codex/claude-code 三个只读固定 root；没有 provider/root 编辑控件。
 - Sync 页面有搜索、筛选、卡片、删除 badge、delete guard warning。
 - 删除项不默认勾选，必须显式确认。
 - 冲突详情能展示普通冲突和两类删改冲突。
@@ -2243,6 +2559,13 @@ git commit -m "docs: update github vault behavior"
 - 每个任务按测试驱动执行：先写失败测试，再实现最小代码，再验证。
 - 不要创建本地 Git clone/repo 作为同步实现。
 - 不要保留 Git CLI fallback。
+- 不要增加 OAuth App、PAT、HTTPS、SSH、Git URL 或 GitHub Enterprise provider fallback。
+- GitHub App Device Flow 不发送 OAuth scope；App private key/client secret 不得进入桌面端、源码或 release artifact。
+- 公开 client id/app slug 只在构建时注入；正式 release 缺失必须失败，运行时不读环境变量。
+- access/refresh token 与过期时间只作为单个 keyring credential 保存；刷新轮换写入失败必须重新授权，不能使用部分 credential。
+- installation/repository 枚举必须穷尽分页并 fail closed；总计非唯一 repo 或 repository_selection=all 时禁止任何远端副作用。
+- 普通 preview/apply 发现 AppConfig/SyncState 的 installation_id、repository_id、branch 不一致时只读 blocked；只有用户明确确认切换 vault 后才归档旧 base 并 rebind，不得按 owner/repo 名称猜测。
+- 只有 empty_repository/missing_manifest 可经用户确认初始化；invalid_manifest、branch_missing、unavailable/rate_limited 不得 PUT manifest。
 - 不要实现 Backups 页面或 restore flow。
 - 不要实现文件级 conflict diff。
 - 不要新增 per-skill `.skill-syncignore`。
