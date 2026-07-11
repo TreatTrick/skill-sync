@@ -566,7 +566,9 @@ ApplySyncRequest
   delete_guard_ack
 ```
 
-Apply 响应使用 tagged union：`Applied { result }` 或 `PlanChanged { reason, latest_plan }`。`reason` 只取 `remote_changed` 与 `plan_changed`：remote commit 不同优先判为 `remote_changed`；commit 相同但 fingerprint 不同判为 `plan_changed`。`Applied.result.state_updated` 返回本次完成 base adoption/removal 的 skill id；仅状态协调时 `applied` 为空、`state_updated` 非空、`remote_commit` 为空。
+Apply 响应使用 tagged union：`Applied { result }`、`PlanChanged { reason, latest_plan }` 或 `RecoveryRequired { recovery }`。`PlanChanged.reason` 只取 `remote_changed` 与 `plan_changed`：remote commit 不同优先判为 `remote_changed`；commit 相同但 fingerprint 不同判为 `plan_changed`。`Applied.result.state_updated` 返回本次完成 base adoption/removal 的 skill id；仅状态协调时 `applied` 为空、`state_updated` 非空、`remote_commit` 为空。
+
+`RecoveryRequired` 只用于已经发生远端或本地持久化副作用、不能安全当作全新 Apply 重跑的情况。payload 至少包含 `task_id`、`phase`、nullable `remote_commit`、`completed_action_ids`、`pending_action_ids` 和可公开的错误摘要；phase 固定为 `remote_outcome_unknown`、`local_replace_failed`、`trash_move_failed` 或 `state_save_failed`。收到它后 UI 禁止新的 preview/apply，并只允许调用 `resume_sync_recovery(task_id)` 或打开相关路径，不得自动重发原 Apply 请求。
 
 - `selected_action_ids` 是用户本次明确选择的普通动作集合。上传/下载可以由 UI 默认选中，删除动作永不默认选中。
 - `base_adoptions` 与 `base_removals` 是后端根据三方表生成的本机状态协调，不属于 `selected_action_ids`。只要 Apply 请求通过版本与指纹校验，就自动执行这些协调项；它们不改变远端，也不触发删除确认。
@@ -576,7 +578,7 @@ Apply 响应使用 tagged union：`Applied { result }` 或 `PlanChanged { reason
 - UI 收到 `PlanChanged` 后替换为 `latest_plan`，清空旧选择、旧 conflict decisions 和删除熔断确认，要求用户重新确认；禁止自动重试 Apply。手动 recheck 或其他 query 更新导致展示中的 `plan_fingerprint` 变化时，也执行同样的清空逻辑。
 - 预检通过后，GitHub 更新 branch ref 时仍使用 `base_commit_sha` 乐观锁，覆盖预检通过后到提交前的竞态窗口。
 
-执行阶段内部使用 `PreparedSyncPlan` 同时持有 `SyncPlan`、本次重新生成且已参与 fingerprint 校验的 `PackedSkill` 以及任务临时目录。Apply 必须使用这些已校验 bytes，不能在指纹校验后再次 pack；`PreparedSyncPlan` 在成功、拒绝或错误退出时都通过 RAII 清理临时目录。计划只有 base adoption/removal 时，`selected_action_ids` 和 `decisions` 可以为空，Apply 仍返回 `Applied` 并写入本机状态。
+执行阶段内部使用 `PreparedSyncPlan` 同时持有 `SyncPlan`、本次重新生成且已参与 fingerprint 校验的 `PackedSkill` 以及只保存 zip/blob 的任务临时目录。Apply 必须使用这些已校验 bytes，不能在指纹校验后再次 pack；未进入本地事务前，`PreparedSyncPlan` 在成功、拒绝或错误退出时都通过 RAII 清理临时产物。下载解包结果不能留在可能跨卷的系统 temp；它必须转入目标 namespace root 内的同盘 staging，并在 apply journal 建立后由本地事务接管其生命周期。计划只有 base adoption/removal 时，`selected_action_ids` 和 `decisions` 可以为空，Apply 仍返回 `Applied` 并写入本机状态。
 
 ### 扫描与 hash 性能策略
 
@@ -599,32 +601,67 @@ Apply 响应使用 tagged union：`Applied { result }` 或 `PlanChanged { reason
 2. await remote manifest；通过 spawn_blocking 重新扫描本地、重新 pack/hash，并重建计划（含删除判定与护栏复核）
 3. 在任何持久化副作用前比较 expected_remote_commit 和 plan_fingerprint；不一致则返回 PlanChanged 和 latest_plan，并清理本次临时 pack
 4. 校验 selected_action_ids、当前 conflict reason 对应的 decisions，以及 delete_guard_ack；非法请求返回 Blocked，且不部分执行
-5. 使用 PreparedSyncPlan 中已校验的 pack bytes，并将 download 解包结果暂存到任务临时目录：
+5. 使用 PreparedSyncPlan 中已校验的 pack bytes，并将 download 解包结果放入目标 namespace root 内的同盘 staging：
    - 拉取 blob
-   - 校验 hash
+   - 校验 compressed size/hash 和 canonical archive
+   - 解包后要求根级 `SKILL.md` 为 regular file，重新解析 metadata，并验证 `skill_id(namespace, SKILL.md.name)` 与 manifest map key/entry id 完全一致
    - 检查本地目标路径是否可安全覆盖
    - 如果目标路径存在但不属于当前 base，标记为冲突或 blocked
-   - 解包到目标 root
+   - 所有下载都验证完成前不改正式 target
 6. 对选中的 upload 动作：
    - 收集本次执行阶段重新生成的 canonical zip blob
    - 更新 next_manifest
 7. 对明确选中的 delete_remote 动作：从 next_manifest 移除该 skill 条目（blob 暂不 GC）
-8. 对明确选中的 delete_local 动作：准备 trash move，但在需要远端 commit 时先不移动本地目录
-9. 如果需要改云端，先提交云端变更：
+8. 对明确选中的 delete_local 动作准备同 namespace root 内的 trash target；预先生成完整 next sync_state bytes
+9. 原子写入 apply journal，记录远端意图、每个 stage/target/rollback/trash 路径、before/after hash、next state hash 和当前 phase
+10. 如果需要改云端，先提交云端变更：
    - await commit_changes(base_commit_sha, blobs, next_manifest)  // 上传与删云端条目合并为 1 个 commit
    - GitHub update ref 必须 force=false；non-fast-forward / 409 / 422 映射为 RemoteChanged
    - RemoteChanged 时重新生成 latest_plan，返回 PlanChanged(RemoteChanged)，不提交已暂存的本地写入
-10. 远端提交成功或本次不需要远端提交后，再提交暂存的本地目录替换与 trash move
-11. 写入 sync_state：
+   - update-ref 响应不明时必须重新读取 branch ref：HEAD 等于本次 candidate commit 才按成功继续，HEAD 仍为 base 才可判定未提交，其他 HEAD 视为 RemoteChanged；无法取得证据时返回 RecoveryRequired(remote_outcome_unknown)
+11. 远端提交成功或本次不需要远端提交后，逐项提交暂存的本地目录替换与同盘 trash move；每完成一项就原子推进 journal
+12. 原子写入 sync_state：
    - 更新 remote commit_sha
    - 更新成功同步项的 base_hash
    - 写入 base_adoptions：base_hash / last_remote_hash = adoption.hash，并更新 last_synced_at
    - 执行 base_removals：从 sync_state.skills 移除 both_deleted 项
    - 已执行的 local_deleted / remote_deleted 删除项同样从 sync_state 移除（base 清空）
    - 计划只有 base adoption/removal 时也必须原子保存 sync_state，且不调用 commit_changes
-12. 清理执行阶段临时目录
-13. 返回 ApplySyncResponse::Applied
+13. state 持久化成功后删除 rollback/staging 并清理 journal；清理失败不回退业务结果，返回 Applied + cleanup warning，启动时继续清理
+14. 返回 ApplySyncResponse::Applied
 ```
+
+### 本地写入事务与失败语义
+
+GitHub branch、多个 namespace root 和 config directory 不在同一个事务系统中，V1 不宣称全局原子。目标是：正式 target 永远不暴露半解包目录；远端已成功后，本地失败有持久 journal 可以幂等继续；新同步不能跨过未解决事务。
+
+每个下载使用目标 root 内的保留目录，确保最终 rename 不跨卷：
+
+```text
+<namespace-root>/.skill-sync-staging/<task-id>/<folder_name>/
+<namespace-root>/.skill-sync-rollback/<task-id>/<folder_name>/
+<namespace-root>/.skill-sync-trash/<task-id>/<folder_name>/
+<config-dir>/skill-sync/apply-transaction.json
+```
+
+scanner 必须显式跳过三个 `.skill-sync-*` 保留目录。目标不存在时，将 stage 原子 rename 为 target；目标存在时，先把 target rename 到 rollback，再把 stage rename 到 target。第二次 rename 失败时立即尝试恢复 rollback；只有恢复成功、远端尚未发布且此前没有其他本地动作时，才可作为无副作用普通错误返回，否则保留 journal 并返回 `RecoveryRequired(local_replace_failed)`。覆盖产生的 rollback 在 sync_state 保存成功前不得删除。删本地使用同 root 的 trash 路径做 rename，不使用可能位于另一卷的 config-dir trash。若 namespace root 原本不存在，journal 记录 `created_root=true`；预提交失败只在 root 仍为空且仍由本事务拥有时删除它。
+
+apply journal 和 sync_state 都使用其目标文件同目录的临时文件，执行 `write -> flush/fsync file -> atomic replace/rename -> fsync parent directory（或平台等价的 durable replace）`。journal 记录 schema、task id、phase、remote base/candidate/result commit、canonical next manifest hash、next state bytes/hash，以及每个动作的 expected-before/expected-after hash和路径状态。路径在恢复时重新经过固定 root 与 portable component 校验，journal 不能指挥客户端访问任意路径。
+
+失败结果与重试策略：
+
+| 失败点                                              | 可见副作用                                        | 返回                                       | 重试规则                                                                |
+| --------------------------------------------------- | ------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------- |
+| staging、blob/hash、`SKILL.md` 或 identity 校验失败 | 正式 target、trash、远端、state 均不变            | `Blocked` 或普通校验错误                   | 修复原因后重新 preview；不得复用旧 stage                                |
+| 远端 commit 明确未发布                              | 本地与 state 不变；远端可能只有不可达 Git object  | 普通 retryable error                       | 重新 preview 后由用户重试                                               |
+| 远端 HEAD 已变化且不是 candidate                    | 本地与 state 不变                                 | `PlanChanged(remote_changed, latest_plan)` | 清空旧选择，用户重新确认                                                |
+| update-ref 结果无法证明成功或失败                   | 本地正式 target 与 state 不变，保留 journal/stage | `RecoveryRequired(remote_outcome_unknown)` | `resume_sync_recovery` 先读取 branch/commit 证据；禁止重发 Apply        |
+| 目录替换失败且无法完整恢复                          | 远端可能已成功，部分本地动作可能完成              | `RecoveryRequired(local_replace_failed)`   | 按 journal hash 幂等完成或恢复当前动作，再继续后续动作                  |
+| trash move 失败                                     | 远端可能已成功，已完成动作保留                    | `RecoveryRequired(trash_move_failed)`      | 保留源目录与 journal；resume 只重试未完成 move                          |
+| sync_state 保存失败                                 | 远端和全部本地动作已完成，旧 state 仍完整         | `RecoveryRequired(state_save_failed)`      | 使用 journal 中已验证的 next state 原子重写，不重复远端 commit/目录替换 |
+| state 已保存但清理失败                              | 业务状态已一致，仅残留 rollback/stage/journal     | `Applied`，附 `cleanup_pending` warning    | 启动或下次获取写锁时幂等清理，不重新同步                                |
+
+应用启动/`get_app_state` 和 mutation command 在 `SyncOperationGate` write lock 下检查 pending journal；可由本地证据唯一判定的 cleanup 阶段可以自动恢复，需要网络确认或继续业务写入的阶段通过 `resume_sync_recovery` 处理。preview/scan 继续持 read lock，在锁内发现 journal 时只返回 `recovery_pending`，不得尝试锁升级或读取部分 state。恢复必须逐项比较 expected-before/after hash，使重复调用幂等；证据与 journal 不一致时 fail closed，保留现场并要求用户处理，不能猜测覆盖。
 
 ### 批量上传
 
@@ -647,10 +684,10 @@ async upload_skills(skill_ids)
 async download_skills(skill_ids)
   fetch manifest
   对每个 skill_id 读取远端 entry 并 fetch blob
-  verify hash
+  verify compressed size/hash/canonical archive/SKILL.md/identity
   从 namespace/folder_name 解析唯一固定 target，并检查覆盖安全
-  按 target namespace/folder_name 解包到唯一固定 root
-  update sync_state base_hash for downloaded skills
+  解包到 target root 内同盘 staging
+  复用 apply journal 提交目录替换并原子更新 sync_state base_hash
   0 commit
 ```
 
@@ -685,7 +722,7 @@ async download_skills(skill_ids)
 - root 可读性闸门：把 `local == ∅` 判成删除前，根据 skill_id / sync_state namespace 定位唯一固定 root，并校验它存在、可读且扫描完整。root 缺失、不可读或扫描有错误时，该 namespace 下已跟踪 skill 标记为 `unknown`，不推断删除。其他 namespace 的健康状态不影响它。
 - 固定 root 尚不存在时，remote-new 下载可以在 Apply 阶段创建该 root；但缺失 root 永远不能作为“本地删除”证据。
 - 批量删除熔断：单个计划的删除数超过 `max_auto_delete`（默认 5）或超过被跟踪 skill 的 50% 时，置 `delete_guard_tripped`，UI 醒目警告、不预选删除、要求额外确认；后端要求同一 `plan_fingerprint` 下的 `delete_guard_ack == true`，不能只依赖 UI 弹窗。
-- 删本地进 trash：删本地把目录移到 `<config-dir>/skill-sync/trash/<task-id>/<skill_id>/` 而不是硬删（删云端有 Git 历史兜底）。
+- 删本地进 trash：删本地把目录 rename 到 `<namespace-root>/.skill-sync-trash/<task-id>/<folder_name>/` 而不是硬删，确保与 target 同盘；scanner 显式排除该保留目录（删云端有 Git 历史兜底）。
 - blob 不做 GC：删云端只移除 `manifest.json` 条目，orphan blob 保留（内容寻址、可 dedup、可恢复），GC 延后。
 
 ## Tauri command 设计
@@ -698,6 +735,7 @@ async save_config(config)
 async scan_skills()
 async get_sync_plan()
 async apply_sync_plan(request: ApplySyncRequest) -> Result<ApplySyncResponse>
+async resume_sync_recovery(task_id) -> Result<ApplySyncResponse>
 open_path(path)
 
 新增：
@@ -716,6 +754,8 @@ async list_remote_skills()
 async upload_skills(skill_ids)
 async download_skills(skill_ids)
 ```
+
+`AppState.pending_recovery` 返回 nullable `RecoveryInfo`，使应用重启后仍能展示并恢复 journal；它不包含 stage/rollback/trash 的绝对路径。pending recovery 存在时，普通同步 command 返回 `recovery_pending`。
 
 删除 `check_git()`、`check_remote()`、`prepare_repo()` 这类 Git CLI / Git remote command。GitHub vault 模式不要求用户安装 Git，也不保留旧 Git 同步路径。
 
@@ -835,6 +875,7 @@ UI 上应该明确：
 - 每个删除动作的方向与目标（删云端条目 / 删本地路径，删本地进 trash），默认不勾选、需显式确认。
 - delete_guard_tripped 时给出醒目警告，说明删除数量超阈的原因（可能是 root 不可读或批量误删）。
 - Apply 必须提交当前 `expected_remote_commit`、`plan_fingerprint`、选中的 `action_id`、冲突 decisions 和删除熔断确认；收到 `PlanChanged` 后清空旧选择并展示后端返回的新计划，不自动重试。
+- 收到 `RecoveryRequired` 后冻结 preview/apply/批量操作，展示 phase、已完成/待完成数量和 nullable remote commit，只允许按后端 task id 调用 `resume_sync_recovery`；不得重发旧 Apply。
 - 只有 base adoption/removal 时仍显示可执行的 Apply，并明确这是“保存本机同步基线”、不会产生 GitHub commit；成功结果使用 `state_updated` 展示更新数量。
 - 超过大小限制的 skill 被标记为无法上传，并显示实际 zip 大小、上限和处理建议。
 - 冲突详情第一阶段只展示摘要，不做文件级 diff。
@@ -875,6 +916,7 @@ src-tauri/src/
   skill.rs               # 保留 metadata parser，补充 normalized id
   pack.rs                # 新增 canonical zip / hash / unpack
   portable_path.rs       # 新增共享 portable component/path 与 collision 校验
+  local_apply.rs         # 新增同盘 staging、apply journal、目录提交与恢复
   vault_manifest.rs      # 新增 manifest schema 与校验
   sync_state.rs          # 新增本地 base_hash/commit_sha 状态
   remote_store.rs        # 新增 trait 与 DTO
@@ -972,6 +1014,7 @@ Rust 优先测试：
 - namespace + skill id normalize；三个固定 root 分别生成 `agents:*`、`codex:*`、`claude-code:*`。
 - root registry 路径不可由 AppConfig 改写；旧 hosts/custom_paths 配置迁移后不参与扫描。
 - 只扫描固定用户 root 的直接子目录；项目级目录、`~/.codex/skills/.system` 和无合法 `SKILL.md` 的聚合目录不会进入计划。
+- scanner 永远排除 `.skill-sync-staging`、`.skill-sync-rollback` 和 `.skill-sync-trash`，恢复现场不会被识别成用户 skill。
 - 同 namespace normalized ID 或大小写不敏感 folder name 碰撞时全部 blocked，不保留扫描到的第一个；测试同时覆盖纯本地、纯远端和 local/remote 合并后的目标碰撞。
 - 云端新增按 namespace/folder_name 落到唯一 root；更新按 sync_state namespace/relative_dir 写回，非法或不一致目标 blocked。
 - canonical zip golden bytes/hash 对遍历顺序、mtime、权限和平台稳定；metadata 固定为 ZIP epoch、Unix creator system、regular-file external attributes + 0644、Deflate level 6，无显式目录项、comment 或 extra fields。
@@ -982,6 +1025,7 @@ Rust 优先测试：
 - 内置默认 ignore 和 Settings 全局 ignore 都会影响 zip/hash/size/status。
 - manifest round trip 使用合法 64 位 lowercase hash；parser 拒绝 unsupported schema、重复 map key、key/id 或 namespace 不一致、非法 hash、非 hash-derived blob path、非法 size/folder/collision。
 - 下载验证 manifest size == actual compressed bytes、manifest hash == actual bytes hash，再执行 canonical archive/resource validation。
+- 下载解包后验证根级 `SKILL.md`、metadata 与 manifest skill identity；失败不触碰正式 target。
 - sync_state round trip。
 - release build 缺少 GitHub App client id 或 slug 时在打包前失败；测试构造函数可注入公开配置，运行时不读取环境变量。
 - Device Flow 不发送 OAuth `scope`，正确处理 pending/slow_down/expired/denied；成功响应把 access/refresh token 与过期时间一次写入 credential store。
@@ -1015,6 +1059,9 @@ Rust 优先测试：
 - root 不可读导致的空扫描不产生任何删除；删除数超阈时置 delete_guard_tripped。
 - canonical zip 超过 compressed/file-count/single-unpacked/total-unpacked 任一 limit 时进入 blocked，不上传 blob、不更新 manifest；下载超限不触碰正式目标。
 - download-only 不创建 remote commit。
+- 下载目录替换只从目标 root 内同盘 staging rename；覆盖时 rollback 保留到 sync_state 原子保存成功。
+- 故障注入覆盖 apply journal write/fsync、远端结果不明、本地 target->rollback、stage->target、rollback restore、trash move、state temp write/fsync/rename 和 cleanup；逐点验证返回类型、正式路径、journal 与幂等 resume 结果。
+- 远端成功后本地替换/trash/state 任一步失败返回 RecoveryRequired，resume 不重复远端 commit；pending recovery 阻止新的普通同步。
 - upload/update 只创建一次 remote commit。
 - 预览后、Apply 预检前 GitHub commit SHA 变化时返回 `PlanChanged(remote_changed, latest_plan)`；预检通过后的 update-ref 竞态先由 store 返回 `RemoteChanged`，再转换成带最新计划的 `PlanChanged` 响应。
 - 相同计划内容无论条目生成顺序如何都产生相同 `plan_fingerprint`；本地 hash、远端 commit、冲突原因、动作方向或目标路径变化时 fingerprint 必须变化。
@@ -1033,6 +1080,7 @@ Rust 优先测试：
 - 删改冲突详情能写入删除感知决策。
 - 冲突详情摘要能写入 `syncDecisions` 的三项决策。
 - Apply 请求包含当前计划版本和明确选择；收到 `PlanChanged` 后替换计划并清空选择、决策和删除确认。
+- AppState 能在重启后返回 pending recovery；`RecoveryRequired` 冻结普通同步且 resume mutation 不自动重试旧 Apply。
 - 只有 base adoption/removal 时 Apply 按钮仍可用，页面显示 0 GitHub commit，并用 `state_updated` 展示已保存的同步基线。
 - 独立 `Conflicts` 路由、侧边栏入口和模块已移除。
 - 独立 `Backups` 路由、侧边栏入口和模块已移除。
