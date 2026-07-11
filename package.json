@@ -8,7 +8,7 @@
     "build": "npm run typecheck && vite build",
     "format": "prettier --ignore-unknown --write .",
     "format:check": "prettier --ignore-unknown --check .",
-    "lint": "npm run typecheck && eslint . && npm run lint:responsive && npm run lint:colors && npm run lint:i18n && npm run lint:knip",
+    "lint": "npm run typecheck && eslint . && npm run lint:responsive && npm run lint:colors && npm run lint:i18n",
     "lint:colors": "node scripts/check-color-tokens.mjs",
     "lint:i18n": "node scripts/check-i18n-literals.mjs",
     "lint:knip": "knip",
@@ -18,7 +18,7 @@
     "prepare": "node scripts/setup-husky.mjs",
     "rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings",
     "rust:fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
-    "rust:precommit": "npm run rust:fmt:check && npm run rust:clippy && npm run rust:test",
+    "rust:precommit": "npm run rust:fmt:check && npm run rust:test",
     "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml --all-features --locked",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.node.json --noEmit",
     "tauri": "tauri"

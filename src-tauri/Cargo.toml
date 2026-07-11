@@ -10,7 +10,8 @@ rust-version = "1.88"
 unsafe_code = "forbid"
 unreachable_pub = "deny"
 unused_must_use = "deny"
-dead_code = "deny"
+# dead_code 不在此 deny：partial commit 不应被死代码阻断；
+# 改由 `npm run rust:clippy`（-D warnings）手动扫描死代码
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
