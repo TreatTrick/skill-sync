@@ -2,6 +2,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::{AppError, Result};
 
+/// 三个固定用户级 skill namespace，供 vault manifest / sync_state / scanner / SyncPlan 共用。
+/// serde 值为 `agents` / `codex` / `claude-code`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum SkillNamespace {
+    Agents,
+    Codex,
+    ClaudeCode,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct SkillMeta {
     pub name: String,

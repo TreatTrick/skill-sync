@@ -15,6 +15,27 @@ pub(crate) enum AppError {
     Sync(String),
     #[error("not configured: {0}")]
     NotConfigured(String),
+    #[error("vault error: {0}")]
+    Vault(String),
+    // RemoteChanged / RemoteOutcomeUnknown / Auth / RecoveryPending 在 Task 6/9/10 才被构造，
+    // Task 3 阶段暂未使用，故标注 allow(dead_code)；Vault / Blocked 本任务即使用。
+    #[allow(dead_code)]
+    #[error("remote changed: {0}")]
+    RemoteChanged(String),
+    #[allow(dead_code)]
+    #[error("remote outcome unknown (base={base_commit_sha}, candidate={candidate_commit_sha})")]
+    RemoteOutcomeUnknown {
+        base_commit_sha: String,
+        candidate_commit_sha: String,
+    },
+    #[allow(dead_code)]
+    #[error("auth error: {0}")]
+    Auth(String),
+    #[error("blocked: {0}")]
+    Blocked(String),
+    #[allow(dead_code)]
+    #[error("recovery pending: {0}")]
+    RecoveryPending(String),
     #[error("{0}")]
     Other(String),
 }
@@ -28,6 +49,12 @@ impl AppError {
             AppError::Skill(_) => "skill",
             AppError::Sync(_) => "sync",
             AppError::NotConfigured(_) => "not_configured",
+            AppError::Vault(_) => "vault",
+            AppError::RemoteChanged(_) => "remote_changed",
+            AppError::RemoteOutcomeUnknown { .. } => "remote_outcome_unknown",
+            AppError::Auth(_) => "auth",
+            AppError::Blocked(_) => "blocked",
+            AppError::RecoveryPending(_) => "recovery_pending",
             AppError::Other(_) => "other",
         }
     }
