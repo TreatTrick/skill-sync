@@ -22,6 +22,11 @@ pub(crate) struct AppConfig {
     pub custom_paths: Vec<String>,
     #[serde(default = "default_ignore")]
     pub ignore: Vec<String>,
+    // 新 vault 字段（Task 8 build_plan 需要；Task 13 原子迁移时删除旧 repository/hosts/custom_paths/defaults）。
+    #[serde(default)]
+    pub remote: Option<RemoteConfig>,
+    #[serde(default)]
+    pub limits: LimitsConfig,
 }
 
 fn default_version() -> u32 {
@@ -192,6 +197,8 @@ impl AppConfig {
             },
             custom_paths: vec![],
             ignore: default_ignore(),
+            remote: None,
+            limits: LimitsConfig::default(),
         }
     }
 

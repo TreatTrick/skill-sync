@@ -1259,9 +1259,8 @@ git commit -m "refactor: define vault sync plan dto"
 **Files:**
 
 - Modify: `src-tauri/src/sync_engine/vault.rs`
-- Create/Modify: `src-tauri/tests/github_vault_sync.rs`
 
-- [ ] **Step 1: 写三方比较测试**
+- [x] **Step 1: 写三方比较测试**
 
 本 Task 中所有调用 async `build_plan` / `RemoteStore` 的测试实际使用 `#[tokio::test] async fn`；下列简写中的同步 `#[test] fn` 仅表示断言主体。纯 `plan_fingerprint` helper 测试可以保留普通 `#[test]`。
 
@@ -1319,7 +1318,7 @@ fn duplicate_action_id_is_blocked() { ... }
 
 再增加不变量测试：adoptions 内 skill id 唯一、removals 内 skill id 唯一、两者无交集，`commit_summary.local_state_updates` 对协调 skill id 去重计数。
 
-- [ ] **Step 2: 实现 13 行状态表**
+- [x] **Step 2: 实现 13 行状态表**
 
 | #   | base | local | remote         | status                                   | 动作                       | commit |
 | --- | ---- | ----- | -------------- | ---------------------------------------- | -------------------------- | ------ |
@@ -1337,7 +1336,7 @@ fn duplicate_action_id_is_blocked() { ... }
 | 12  | 有   | 有    | `∅`，`l!=b`    | `conflict: remote_deleted_local_changed` | 保留本地 / 接受删除 / 跳过 | 视选择 |
 | 13  | 有   | `∅`   | `∅`            | `both_deleted`                           | 生成 base_removal          | 0      |
 
-- [ ] **Step 3: 写删除护栏测试**
+- [x] **Step 3: 写删除护栏测试**
 
 ```rust
 #[test]
@@ -1371,7 +1370,7 @@ fn missing_remote_config_requires_onboarding() { ... }
 fn state_remote_identity_mismatch_is_blocked_before_fetch() { ... }
 ```
 
-- [ ] **Step 4: 实现 `build_plan`**
+- [x] **Step 4: 实现 `build_plan`**
 
 ```rust
 pub async fn build_plan<S: RemoteStore>(
@@ -1398,20 +1397,20 @@ pub async fn build_plan<S: RemoteStore>(
 
 `will_create_commit` 只由实际远端变化决定，base adoption/removal 不得把它设为 true。`commit_summary.local_state_updates` 等于 adoption/removal 去重后的 skill 数量。
 
-- [ ] **Step 5: 验证**
+- [x] **Step 5: 验证**
 
 Run:
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml --test github_vault_sync
+cargo test --manifest-path src-tauri/Cargo.toml sync_engine::vault::tests
 ```
 
 Expected: 三方比较、删除护栏、blocked size tests pass。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add src-tauri/src/sync_engine/vault.rs src-tauri/tests/github_vault_sync.rs
+git add src-tauri/src/config.rs src-tauri/src/sync_engine/vault.rs docs/superpowers/plans/2026-07-07-github-vault-refactor.md
 git commit -m "feat: build vault sync plan with deletes"
 ```
 
