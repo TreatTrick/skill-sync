@@ -11,7 +11,7 @@ use crate::manifest::hash_dir;
 use crate::skill::{parse_skill_md, Skill};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct SyncPlan {
+pub(crate) struct SyncPlan {
     pub uploads: Vec<SyncAction>,
     pub downloads: Vec<SyncAction>,
     pub updates: Vec<SyncAction>,
@@ -21,7 +21,7 @@ pub struct SyncPlan {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncAction {
+pub(crate) struct SyncAction {
     pub skill_id: String,
     pub name: String,
     pub host: String,
@@ -34,7 +34,7 @@ pub struct SyncAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Conflict {
+pub(crate) struct Conflict {
     pub skill_id: String,
     pub name: String,
     pub host: String,
@@ -46,13 +46,13 @@ pub struct Conflict {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LockFile {
+pub(crate) struct LockFile {
     /// skill_id -> last synced hash.
     pub skills: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ApplyResult {
+pub(crate) struct ApplyResult {
     pub applied: Vec<String>,
     pub backups: Vec<String>,
     pub warnings: Vec<String>,
@@ -64,7 +64,7 @@ const SKILLS_DIR: &str = "skills";
 /// Build a sync plan by comparing local skills with the remote repo state.
 /// Read-only: writes nothing. Uses the lock file to distinguish update from
 /// conflict when both sides changed.
-pub fn build_plan(config: &AppConfig, local_skills: &[Skill]) -> Result<SyncPlan> {
+pub(crate) fn build_plan(config: &AppConfig, local_skills: &[Skill]) -> Result<SyncPlan> {
     let repo_path = config.resolve_repo_path()?;
     let git = GitStore::new(&repo_path);
     if !git.is_repo() {
@@ -78,14 +78,10 @@ pub fn build_plan(config: &AppConfig, local_skills: &[Skill]) -> Result<SyncPlan
     let lock = read_lock(&repo_path);
 
     let mut plan = SyncPlan::default();
-    let local_map: HashMap<&str, &Skill> = local_skills
-        .iter()
-        .map(|s| (s.id.as_str(), s))
-        .collect();
-    let remote_map: HashMap<&str, &Skill> = remote_skills
-        .iter()
-        .map(|s| (s.id.as_str(), s))
-        .collect();
+    let local_map: HashMap<&str, &Skill> =
+        local_skills.iter().map(|s| (s.id.as_str(), s)).collect();
+    let remote_map: HashMap<&str, &Skill> =
+        remote_skills.iter().map(|s| (s.id.as_str(), s)).collect();
 
     let mut all_ids: Vec<&str> = local_map.keys().copied().collect();
     all_ids.extend(remote_map.keys().copied());
@@ -117,8 +113,9 @@ pub fn build_plan(config: &AppConfig, local_skills: &[Skill]) -> Result<SyncPlan
             (None, None) => {}
         }
         if local.is_none() && remote.is_none() && lock.skills.contains_key(id) {
-            plan.warnings
-                .push(format!("{id}: existed in last sync but missing on both sides; skipped"));
+            plan.warnings.push(format!(
+                "{id}: existed in last sync but missing on both sides; skipped"
+            ));
         }
     }
     Ok(plan)
@@ -151,7 +148,7 @@ fn conflict(l: &Skill, r: &Skill, reason: &str) -> Conflict {
 }
 
 /// Read skills from the repo's `skills/<host>/<name>/` tree.
-pub fn read_remote_skills(repo_path: &Path, ignore: &[String]) -> Result<Vec<Skill>> {
+pub(crate) fn read_remote_skills(repo_path: &Path, ignore: &[String]) -> Result<Vec<Skill>> {
     let skills_dir = repo_path.join(SKILLS_DIR);
     let mut skills = Vec::new();
     if !skills_dir.exists() {
@@ -204,7 +201,7 @@ fn lock_path(repo_path: &Path) -> PathBuf {
     repo_path.join(LOCK_FILE_NAME)
 }
 
-pub fn read_lock(repo_path: &Path) -> LockFile {
+pub(crate) fn read_lock(repo_path: &Path) -> LockFile {
     let path = lock_path(repo_path);
     if !path.exists() {
         return LockFile::default();
@@ -225,7 +222,7 @@ fn write_lock(repo_path: &Path, lock: &LockFile) -> Result<()> {
 /// `"remote"` (anything else, including missing, means skip). Backs up local
 /// skills before overwriting, updates the lock to the new repo state, then
 /// commits and pushes.
-pub fn apply_plan(
+pub(crate) fn apply_plan(
     config: &AppConfig,
     plan: &SyncPlan,
     decisions: &HashMap<String, String>,
@@ -261,7 +258,10 @@ pub fn apply_plan(
     }
 
     for c in &plan.conflicts {
-        let decision = decisions.get(&c.skill_id).map(|s| s.as_str()).unwrap_or("skip");
+        let decision = decisions
+            .get(&c.skill_id)
+            .map(|s| s.as_str())
+            .unwrap_or("skip");
         match decision {
             "local" => {
                 copy_skill_dir(Path::new(&c.local_path), &repo_path.join(&c.repo_path))?;

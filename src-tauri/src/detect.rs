@@ -11,7 +11,7 @@ use crate::skill::{parse_skill_md, Skill};
 
 /// Scan all enabled host paths (codex + claude) plus custom paths.
 /// Missing paths are not fatal; invalid skills become warnings.
-pub fn scan_local_skills(config: &AppConfig) -> Result<(Vec<Skill>, Vec<String>)> {
+pub(crate) fn scan_local_skills(config: &AppConfig) -> Result<(Vec<Skill>, Vec<String>)> {
     let mut skills = Vec::new();
     let mut warnings = Vec::new();
     let mut seen_ids: HashSet<String> = HashSet::new();

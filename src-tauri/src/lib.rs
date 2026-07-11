@@ -1,3 +1,8 @@
+#![cfg_attr(
+    not(test),
+    deny(clippy::expect_used, clippy::panic, clippy::unwrap_used)
+)]
+
 mod backup;
 mod commands;
 mod config;
@@ -8,6 +13,8 @@ mod manifest;
 mod skill;
 mod sync_engine;
 
+// Tauri 事件循环启动失败后应用无法继续运行，此处允许以明确错误退出。
+#[allow(clippy::expect_used)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

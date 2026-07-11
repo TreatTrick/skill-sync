@@ -4,7 +4,19 @@ version = "0.1.0"
 description = "Sync agent skills across machines"
 authors = ["Skill Sync"]
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.88"
+
+[lints.rust]
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+unused_must_use = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+dbg_macro = "deny"
+let_underscore_must_use = "deny"
+todo = "deny"
+unimplemented = "deny"
 
 [lib]
 name = "skill_sync_lib"

@@ -15,6 +15,10 @@
     "precommit": "lint-staged",
     "preview": "vite preview",
     "prepare": "node scripts/setup-husky.mjs",
+    "rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings",
+    "rust:fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
+    "rust:precommit": "npm run rust:fmt:check && npm run rust:clippy && npm run rust:test",
+    "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml --all-features --locked",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.node.json --noEmit",
     "tauri": "tauri"
   },

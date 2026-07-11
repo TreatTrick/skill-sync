@@ -2,7 +2,7 @@ use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
-pub enum AppError {
+pub(crate) enum AppError {
     #[error("io error: {0}")]
     Io(String),
     #[error("config error: {0}")]
@@ -20,7 +20,7 @@ pub enum AppError {
 }
 
 impl AppError {
-    pub fn kind(&self) -> &'static str {
+    pub(crate) fn kind(&self) -> &'static str {
         match self {
             AppError::Io(_) => "io",
             AppError::Config(_) => "config",
@@ -52,10 +52,7 @@ impl From<serde_json::Error> for AppError {
 }
 
 impl Serialize for AppError {
-    fn serialize<S: Serializer>(
-        &self,
-        s: S,
-    ) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
         let mut st = s.serialize_struct("AppError", 2)?;
         st.serialize_field("kind", self.kind())?;
         st.serialize_field("message", &self.to_string())?;
@@ -63,4 +60,4 @@ impl Serialize for AppError {
     }
 }
 
-pub type Result<T> = std::result::Result<T, AppError>;
+pub(crate) type Result<T> = std::result::Result<T, AppError>;

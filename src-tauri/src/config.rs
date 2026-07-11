@@ -10,7 +10,7 @@ const CONFIG_DIR_NAME: &str = "skill-sync";
 const CONFIG_FILE_NAME: &str = "config.yaml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppConfig {
+pub(crate) struct AppConfig {
     #[serde(default = "default_version")]
     pub version: u32,
     #[serde(default)]
@@ -37,7 +37,7 @@ fn default_ignore() -> Vec<String> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct RepositoryConfig {
+pub(crate) struct RepositoryConfig {
     #[serde(default)]
     pub local_path: String,
     #[serde(default)]
@@ -51,7 +51,7 @@ fn default_branch() -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct DefaultsConfig {
+pub(crate) struct DefaultsConfig {
     #[serde(default = "default_true")]
     pub backup: bool,
     #[serde(default = "default_install_mode")]
@@ -67,20 +67,20 @@ fn default_install_mode() -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HostsConfig {
+pub(crate) struct HostsConfig {
     pub codex: HostConfig,
     pub claude: HostConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HostConfig {
+pub(crate) struct HostConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
     pub paths: Vec<String>,
 }
 
 impl AppConfig {
-    pub fn default_config() -> Self {
+    pub(crate) fn default_config() -> Self {
         Self {
             version: CONFIG_VERSION,
             repository: RepositoryConfig {
@@ -107,17 +107,17 @@ impl AppConfig {
         }
     }
 
-    pub fn config_dir() -> Option<PathBuf> {
+    pub(crate) fn config_dir() -> Option<PathBuf> {
         dirs::config_dir().map(|d| d.join(CONFIG_DIR_NAME))
     }
 
-    pub fn config_path() -> Option<PathBuf> {
+    pub(crate) fn config_path() -> Option<PathBuf> {
         Self::config_dir().map(|d| d.join(CONFIG_FILE_NAME))
     }
 
-    pub fn load() -> Result<Self> {
-        let path =
-            Self::config_path().ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
+    pub(crate) fn load() -> Result<Self> {
+        let path = Self::config_path()
+            .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
         if !path.exists() {
             return Ok(Self::default_config());
         }
@@ -126,23 +126,23 @@ impl AppConfig {
         Ok(cfg)
     }
 
-    pub fn save(&self) -> Result<()> {
+    pub(crate) fn save(&self) -> Result<()> {
         let dir = Self::config_dir()
             .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
         fs::create_dir_all(&dir)?;
-        let path = Self::config_path().unwrap();
+        let path = Self::config_path()
+            .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
         let text = serde_yaml::to_string(self)?;
         fs::write(&path, text)?;
         Ok(())
     }
 
-    pub fn is_configured(&self) -> bool {
-        !self.repository.local_path.trim().is_empty()
-            || !self.repository.remote.trim().is_empty()
+    pub(crate) fn is_configured(&self) -> bool {
+        !self.repository.local_path.trim().is_empty() || !self.repository.remote.trim().is_empty()
     }
 
     /// Default managed repo path used when the user does not supply a local_path.
-    pub fn default_repo_path() -> Result<PathBuf> {
+    pub(crate) fn default_repo_path() -> Result<PathBuf> {
         let dir = Self::config_dir()
             .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
         Ok(dir.join("sync-repo"))
@@ -150,7 +150,7 @@ impl AppConfig {
 
     /// Resolve the sync repo path: use the configured local_path, or fall back
     /// to the managed default under the config dir.
-    pub fn resolve_repo_path(&self) -> Result<PathBuf> {
+    pub(crate) fn resolve_repo_path(&self) -> Result<PathBuf> {
         if !self.repository.local_path.trim().is_empty() {
             return expand_path(&self.repository.local_path);
         }
@@ -158,7 +158,7 @@ impl AppConfig {
     }
 
     /// Returns `(host_name, host_config)` for each enabled host (codex + claude only).
-    pub fn enabled_hosts(&self) -> Vec<(&'static str, &HostConfig)> {
+    pub(crate) fn enabled_hosts(&self) -> Vec<(&'static str, &HostConfig)> {
         let mut hosts = Vec::new();
         if self.hosts.codex.enabled {
             hosts.push(("codex", &self.hosts.codex));
@@ -170,13 +170,15 @@ impl AppConfig {
     }
 }
 
-pub fn expand_path(p: &str) -> Result<PathBuf> {
+pub(crate) fn expand_path(p: &str) -> Result<PathBuf> {
     let trimmed = p.trim();
     if trimmed == "~" {
-        return dirs::home_dir().ok_or_else(|| AppError::Config("cannot determine home dir".into()));
+        return dirs::home_dir()
+            .ok_or_else(|| AppError::Config("cannot determine home dir".into()));
     }
     if let Some(rest) = trimmed.strip_prefix("~/") {
-        let home = dirs::home_dir().ok_or_else(|| AppError::Config("cannot determine home dir".into()))?;
+        let home =
+            dirs::home_dir().ok_or_else(|| AppError::Config("cannot determine home dir".into()))?;
         return Ok(home.join(rest));
     }
     Ok(PathBuf::from(trimmed))

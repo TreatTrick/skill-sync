@@ -6,18 +6,18 @@ use crate::errors::{AppError, Result};
 /// Thin wrapper over the system `git` CLI. Uses explicit argument lists; never
 /// shells out, so remote URLs and commit messages are never interpreted by a
 /// shell.
-pub struct GitStore {
+pub(crate) struct GitStore {
     pub repo_path: PathBuf,
 }
 
 impl GitStore {
-    pub fn new(repo_path: impl Into<PathBuf>) -> Self {
+    pub(crate) fn new(repo_path: impl Into<PathBuf>) -> Self {
         Self {
             repo_path: repo_path.into(),
         }
     }
 
-    pub fn check_git() -> Result<String> {
+    pub(crate) fn check_git() -> Result<String> {
         let out = Command::new("git")
             .arg("--version")
             .output()
@@ -28,30 +28,38 @@ impl GitStore {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     }
 
-    pub fn is_repo(&self) -> bool {
+    pub(crate) fn is_repo(&self) -> bool {
         self.repo_path.join(".git").exists()
     }
 
-    pub fn init(&self) -> Result<()> {
+    pub(crate) fn init(&self) -> Result<()> {
         if self.is_repo() {
             return Ok(());
         }
         fs_create_dir_all(&self.repo_path)?;
         run_git(&self.repo_path, &["init"])?;
-        let _ = run_git(&self.repo_path, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+        run_git(
+            &self.repo_path,
+            &["symbolic-ref", "HEAD", "refs/heads/main"],
+        )?;
         // local identity so commits work without global git config
-        let _ = run_git(&self.repo_path, &["config", "user.email", "skill-sync@local"]);
-        let _ = run_git(&self.repo_path, &["config", "user.name", "Skill Sync"]);
+        run_git(
+            &self.repo_path,
+            &["config", "user.email", "skill-sync@local"],
+        )?;
+        run_git(&self.repo_path, &["config", "user.name", "Skill Sync"])?;
         Ok(())
     }
 
-    pub fn set_remote(&self, remote: &str) -> Result<()> {
-        let _ = run_git(&self.repo_path, &["remote", "remove", "origin"]);
+    pub(crate) fn set_remote(&self, remote: &str) -> Result<()> {
+        if self.has_remote() {
+            run_git(&self.repo_path, &["remote", "remove", "origin"])?;
+        }
         run_git(&self.repo_path, &["remote", "add", "origin", remote])?;
         Ok(())
     }
 
-    pub fn check_remote(remote: &str) -> Result<()> {
+    pub(crate) fn check_remote(remote: &str) -> Result<()> {
         let out = Command::new("git")
             .args(["ls-remote", remote])
             .output()
@@ -63,7 +71,7 @@ impl GitStore {
         Ok(())
     }
 
-    pub fn has_remote(&self) -> bool {
+    pub(crate) fn has_remote(&self) -> bool {
         Command::new("git")
             .args(["remote"])
             .current_dir(&self.repo_path)
@@ -73,37 +81,34 @@ impl GitStore {
     }
 
     /// Fetch and fast-forward merge from origin. No-remote repos are skipped.
-    pub fn pull(&self, branch: &str) -> Result<()> {
+    pub(crate) fn pull(&self, branch: &str) -> Result<()> {
         if !self.has_remote() {
             return Ok(());
         }
-        let _ = run_git(&self.repo_path, &["fetch", "origin", branch]);
+        run_git(&self.repo_path, &["fetch", "origin", branch])?;
         let verify = Command::new("git")
             .args(["rev-parse", "--verify", &format!("origin/{branch}")])
             .current_dir(&self.repo_path)
             .output()?;
         if verify.status.success() {
-            let _ = run_git(
+            run_git(
                 &self.repo_path,
                 &["merge", "--ff-only", &format!("origin/{branch}")],
-            );
+            )?;
         }
         Ok(())
     }
 
     /// Stage all, commit if there are changes, push if a remote exists.
-    pub fn commit_push(&self, branch: &str, message: &str) -> Result<()> {
+    pub(crate) fn commit_push(&self, branch: &str, message: &str) -> Result<()> {
         run_git(&self.repo_path, &["add", "."])?;
         let status = run_git(&self.repo_path, &["status", "--porcelain"])?;
         if status.trim().is_empty() {
             return Ok(());
         }
-        run_git(
-            &self.repo_path,
-            &["commit", "-m", message],
-        )?;
+        run_git(&self.repo_path, &["commit", "-m", message])?;
         if self.has_remote() {
-            let _ = run_git(&self.repo_path, &["push", "-u", "origin", branch]);
+            run_git(&self.repo_path, &["push", "-u", "origin", branch])?;
         }
         Ok(())
     }
@@ -154,6 +159,35 @@ mod tests {
         git.commit_push("main", "test: add skill").unwrap();
         // second commit with no changes is a no-op
         git.commit_push("main", "test: nothing").unwrap();
+    }
+
+    #[test]
+    fn pull_reports_fetch_failure() {
+        let dir = tempdir().unwrap();
+        let remote = tempdir().unwrap();
+        let git = GitStore::new(dir.path());
+        git.init().unwrap();
+        git.set_remote(remote.path().join("missing.git").to_string_lossy().as_ref())
+            .unwrap();
+
+        let result = git.pull("main");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn commit_reports_push_failure() {
+        let dir = tempdir().unwrap();
+        let remote = tempdir().unwrap();
+        let git = GitStore::new(dir.path());
+        git.init().unwrap();
+        git.set_remote(remote.path().join("missing.git").to_string_lossy().as_ref())
+            .unwrap();
+        std::fs::write(dir.path().join("SKILL.md"), "content").unwrap();
+
+        let result = git.commit_push("main", "test: add skill");
+
+        assert!(result.is_err());
     }
 
     #[test]

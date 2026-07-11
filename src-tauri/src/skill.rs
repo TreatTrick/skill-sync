@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use crate::errors::{AppError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct SkillMeta {
+pub(crate) struct SkillMeta {
     pub name: String,
     pub description: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Skill {
+pub(crate) struct Skill {
     /// Stable id: `<host>/<directory-name>`.
     pub id: String,
     /// From `SKILL.md` front matter `name`.
@@ -31,7 +31,7 @@ pub struct Skill {
 }
 
 /// Parse a `SKILL.md` file's YAML front matter. Requires `name` and `description`.
-pub fn parse_skill_md(content: &str) -> Result<SkillMeta> {
+pub(crate) fn parse_skill_md(content: &str) -> Result<SkillMeta> {
     let trimmed = content.trim_start_matches('\u{feff}');
     let rest = trimmed
         .strip_prefix("---")

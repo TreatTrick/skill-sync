@@ -11,7 +11,7 @@ use crate::errors::Result;
 /// Files are sorted by their normalized relative path (separator `/`), and the
 /// hash covers each relative path plus its bytes. Ignore rules are applied so
 /// `.git`, `node_modules`, `.env` and user patterns are excluded.
-pub fn hash_dir(dir: &Path, ignore: &[String]) -> Result<String> {
+pub(crate) fn hash_dir(dir: &Path, ignore: &[String]) -> Result<String> {
     let mut entries: BTreeMap<String, Vec<u8>> = BTreeMap::new();
     collect_files(dir, dir, ignore, &mut entries)?;
     let mut hasher = Sha256::new();
@@ -56,7 +56,7 @@ fn collect_files(
 
 /// Whether a relative path should be ignored. Always skips `.git` and
 /// `node_modules` segments and `.env` basenames, then applies user globs.
-pub fn is_ignored(rel_path: &str, ignore: &[String]) -> bool {
+pub(crate) fn is_ignored(rel_path: &str, ignore: &[String]) -> bool {
     let normalized = rel_path.replace('\\', "/");
     let segments: Vec<&str> = normalized.split('/').collect();
     for seg in &segments {
@@ -77,7 +77,7 @@ pub fn is_ignored(rel_path: &str, ignore: &[String]) -> bool {
 
 /// Simple glob matcher: `*` matches any run of characters (including `/`),
 /// `?` matches one character. `**` collapses into `*`.
-pub fn glob_match(pattern: &str, text: &str) -> bool {
+pub(crate) fn glob_match(pattern: &str, text: &str) -> bool {
     let p: Vec<char> = pattern.chars().collect();
     let t: Vec<char> = text.chars().collect();
     let mut pi = 0;

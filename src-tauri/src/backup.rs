@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::errors::{AppError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupEntry {
+pub(crate) struct BackupEntry {
     pub id: String,
     pub skill_id: String,
     pub original_path: String,
@@ -25,7 +25,7 @@ struct BackupMeta {
 const META_FILE: &str = "meta.json";
 
 /// Backups live under the app data dir: `<data>/skill-sync/backups/<id>/`.
-pub fn backup_root() -> Result<PathBuf> {
+pub(crate) fn backup_root() -> Result<PathBuf> {
     let dir = dirs::data_dir()
         .map(|d| d.join("skill-sync").join("backups"))
         .ok_or_else(|| AppError::Other("cannot determine data dir".into()))?;
@@ -33,13 +33,10 @@ pub fn backup_root() -> Result<PathBuf> {
     Ok(dir)
 }
 
-pub fn create_backup(skill_path: &Path, skill_id: &str) -> Result<BackupEntry> {
+pub(crate) fn create_backup(skill_path: &Path, skill_id: &str) -> Result<BackupEntry> {
     let root = backup_root()?;
     let now = Utc::now();
-    let id = now
-        .timestamp_nanos_opt()
-        .unwrap_or(0)
-        .to_string();
+    let id = now.timestamp_nanos_opt().unwrap_or(0).to_string();
     let target = root.join(&id);
     fs::create_dir_all(&target)?;
     if skill_path.is_dir() {
@@ -61,7 +58,7 @@ pub fn create_backup(skill_path: &Path, skill_id: &str) -> Result<BackupEntry> {
     })
 }
 
-pub fn list_backups() -> Result<Vec<BackupEntry>> {
+pub(crate) fn list_backups() -> Result<Vec<BackupEntry>> {
     let root = backup_root()?;
     let mut entries = Vec::new();
     if !root.exists() {
@@ -93,7 +90,7 @@ pub fn list_backups() -> Result<Vec<BackupEntry>> {
     Ok(entries)
 }
 
-pub fn restore_backup(backup_id: &str, target: &Path) -> Result<()> {
+pub(crate) fn restore_backup(backup_id: &str, target: &Path) -> Result<()> {
     let root = backup_root()?;
     let src = root.join(backup_id);
     if !src.exists() {

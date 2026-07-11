@@ -4,7 +4,9 @@ use std::process::Command;
 
 use serde::Serialize;
 
-use crate::backup::{list_backups as list_backups_impl, restore_backup as restore_backup_impl, BackupEntry};
+use crate::backup::{
+    list_backups as list_backups_impl, restore_backup as restore_backup_impl, BackupEntry,
+};
 use crate::config::{expand_path, AppConfig};
 use crate::detect::scan_local_skills;
 use crate::errors::{AppError, Result};
@@ -13,7 +15,7 @@ use crate::skill::Skill;
 use crate::sync_engine::{apply_plan, build_plan, ApplyResult, SyncPlan};
 
 #[derive(Serialize)]
-pub struct AppState {
+pub(crate) struct AppState {
     pub configured: bool,
     pub config: AppConfig,
     pub git_available: bool,
@@ -21,25 +23,25 @@ pub struct AppState {
 }
 
 #[derive(Serialize)]
-pub struct GitCheck {
+pub(crate) struct GitCheck {
     pub available: bool,
     pub version: String,
 }
 
 #[derive(Serialize)]
-pub struct RemoteCheck {
+pub(crate) struct RemoteCheck {
     pub ok: bool,
     pub message: String,
 }
 
 #[derive(Serialize)]
-pub struct ScanResult {
+pub(crate) struct ScanResult {
     pub skills: Vec<Skill>,
     pub warnings: Vec<String>,
 }
 
 #[tauri::command]
-pub fn get_app_state() -> Result<AppState> {
+pub(crate) fn get_app_state() -> Result<AppState> {
     let config = AppConfig::load()?;
     let git = GitStore::check_git();
     Ok(AppState {
@@ -51,12 +53,12 @@ pub fn get_app_state() -> Result<AppState> {
 }
 
 #[tauri::command]
-pub fn save_config(config: AppConfig) -> Result<()> {
+pub(crate) fn save_config(config: AppConfig) -> Result<()> {
     config.save()
 }
 
 #[tauri::command]
-pub fn check_git() -> Result<GitCheck> {
+pub(crate) fn check_git() -> Result<GitCheck> {
     match GitStore::check_git() {
         Ok(v) => Ok(GitCheck {
             available: true,
@@ -70,7 +72,7 @@ pub fn check_git() -> Result<GitCheck> {
 }
 
 #[tauri::command]
-pub fn check_remote(remote: String) -> Result<RemoteCheck> {
+pub(crate) fn check_remote(remote: String) -> Result<RemoteCheck> {
     match GitStore::check_remote(&remote) {
         Ok(()) => Ok(RemoteCheck {
             ok: true,
@@ -87,7 +89,7 @@ pub fn check_remote(remote: String) -> Result<RemoteCheck> {
 /// repository settings. Called from onboarding. An empty `local_path` means
 /// "manage automatically" — the repo lives under the config dir.
 #[tauri::command]
-pub fn prepare_repo(local_path: String, remote: String, branch: String) -> Result<()> {
+pub(crate) fn prepare_repo(local_path: String, remote: String, branch: String) -> Result<()> {
     let mut config = AppConfig::load()?;
     let repo_path = if local_path.trim().is_empty() {
         AppConfig::default_repo_path()?
@@ -111,14 +113,14 @@ pub fn prepare_repo(local_path: String, remote: String, branch: String) -> Resul
 }
 
 #[tauri::command]
-pub fn scan_skills() -> Result<ScanResult> {
+pub(crate) fn scan_skills() -> Result<ScanResult> {
     let config = AppConfig::load()?;
     let (skills, warnings) = scan_local_skills(&config)?;
     Ok(ScanResult { skills, warnings })
 }
 
 #[tauri::command]
-pub fn get_sync_plan() -> Result<SyncPlan> {
+pub(crate) fn get_sync_plan() -> Result<SyncPlan> {
     let config = AppConfig::load()?;
     if !config.is_configured() {
         return Err(AppError::NotConfigured("repository not configured".into()));
@@ -130,7 +132,7 @@ pub fn get_sync_plan() -> Result<SyncPlan> {
 /// Recompute the plan fresh (pull first), then apply it. `decisions` maps a
 /// conflict skill id to `"local"` or `"remote"`; missing entries skip.
 #[tauri::command]
-pub fn apply_sync_plan(decisions: HashMap<String, String>) -> Result<ApplyResult> {
+pub(crate) fn apply_sync_plan(decisions: HashMap<String, String>) -> Result<ApplyResult> {
     let config = AppConfig::load()?;
     if !config.is_configured() {
         return Err(AppError::NotConfigured("repository not configured".into()));
@@ -141,17 +143,17 @@ pub fn apply_sync_plan(decisions: HashMap<String, String>) -> Result<ApplyResult
 }
 
 #[tauri::command]
-pub fn list_backups() -> Result<Vec<BackupEntry>> {
+pub(crate) fn list_backups() -> Result<Vec<BackupEntry>> {
     list_backups_impl()
 }
 
 #[tauri::command]
-pub fn restore_backup(backup_id: String, target_path: String) -> Result<()> {
+pub(crate) fn restore_backup(backup_id: String, target_path: String) -> Result<()> {
     restore_backup_impl(&backup_id, &PathBuf::from(&target_path))
 }
 
 #[tauri::command]
-pub fn open_path(path: String) -> Result<()> {
+pub(crate) fn open_path(path: String) -> Result<()> {
     open_path_platform(&path)
 }
 
