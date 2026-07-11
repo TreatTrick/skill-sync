@@ -1,8 +1,2 @@
 export { cn } from './utils'
-export {
-  SkillSyncError,
-  chooseDirectory,
-  errorMessage,
-  invokeCmd,
-  openPath,
-} from './tauri'
+export { errorMessage, invokeCmd, openPath } from './tauri'

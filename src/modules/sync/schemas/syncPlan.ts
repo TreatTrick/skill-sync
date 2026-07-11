@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const syncActionSchema = z.object({
+const syncActionSchema = z.object({
   skill_id: z.string(),
   name: z.string(),
   host: z.string(),
@@ -13,7 +13,7 @@ export const syncActionSchema = z.object({
 
 export type SyncAction = z.infer<typeof syncActionSchema>
 
-export const conflictSchema = z.object({
+const conflictSchema = z.object({
   skill_id: z.string(),
   name: z.string(),
   host: z.string(),

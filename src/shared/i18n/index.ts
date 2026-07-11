@@ -28,9 +28,6 @@ export const t = (
   return translate(...args)
 }
 
-export { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './language'
-export type { Language } from './language'
-
 export const hostLabel = (host: string): string => {
   if (host === 'codex') {
     return t('common.host.codex')
@@ -40,5 +37,3 @@ export const hostLabel = (host: string): string => {
   }
   return host
 }
-
-export { i18next }

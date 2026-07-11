@@ -8,6 +8,6 @@ export const cn = (...inputs: ClassValue[]): string => twMerge(clsx(inputs))
 export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & {
   ref?: U | null
 }
-export type WithoutChildren<T> = Omit<T, 'children'>
-export type WithoutChild<T> = Omit<T, 'child'>
+type WithoutChildren<T> = Omit<T, 'children'>
+type WithoutChild<T> = Omit<T, 'child'>
 export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>

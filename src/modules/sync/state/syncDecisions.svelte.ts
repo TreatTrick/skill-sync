@@ -1,7 +1,5 @@
 // Reactive sync-conflict decisions. Replaces the Zustand syncDecisionsStore;
 // shared between the Conflicts and Sync Preview pages.
-export type ConflictChoice = 'local' | 'remote' | 'skip'
-
 class SyncDecisionsState {
   decisions = $state<Record<string, string>>({})
 

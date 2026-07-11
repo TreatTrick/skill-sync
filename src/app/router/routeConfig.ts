@@ -7,7 +7,7 @@ import {
 } from '@lucide/svelte'
 import type { Component } from 'svelte'
 
-export type RouteTitleKey =
+type RouteTitleKey =
   | 'routes.backups'
   | 'routes.conflicts'
   | 'routes.onboarding'

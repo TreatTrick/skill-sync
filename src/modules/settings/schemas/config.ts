@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
-export const repositoryConfigSchema = z.object({
+const repositoryConfigSchema = z.object({
   local_path: z.string(),
   remote: z.string(),
   branch: z.string(),
 })
 
-export const hostConfigSchema = z.object({
+const hostConfigSchema = z.object({
   enabled: z.boolean(),
   paths: z.array(z.string()),
 })
