@@ -1,3 +1,6 @@
+// 远端 vault manifest DTO 与校验。Task 8/10 接入前，非测试构建中为 dead code，整模块 allow。
+#![allow(dead_code)]
+
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 
@@ -9,7 +12,6 @@ use crate::portable_path::validate_component;
 use crate::skill::SkillNamespace;
 use unicode_normalization::UnicodeNormalization;
 
-#[allow(dead_code)] // Task 6/8 接入非测试调用方后移除
 const SCHEMA_VERSION: u32 = 1;
 
 /// 远端 vault manifest 中的单个 skill 条目。
@@ -40,7 +42,6 @@ pub(crate) struct VaultManifest {
 
 impl VaultManifest {
     /// 构造空 manifest（schema 1，无 skill）。
-    #[allow(dead_code)]
     pub(crate) fn empty(device_id: &str) -> Self {
         Self {
             schema: SCHEMA_VERSION,
@@ -52,7 +53,6 @@ impl VaultManifest {
 
     /// 解析远端 manifest JSON 的唯一入口；任何单项校验失败都使整个 manifest 无效。
     /// adapter 不得直接调用 `serde_json::from_slice::<VaultManifest>` 绕过校验。
-    #[allow(dead_code)]
     pub(crate) fn parse_validated(bytes: &[u8]) -> Result<Self> {
         let manifest: VaultManifest = serde_json::from_slice(bytes)
             .map_err(|e| AppError::Vault(format!("invalid manifest json: {e}")))?;
@@ -60,7 +60,6 @@ impl VaultManifest {
         Ok(manifest)
     }
 
-    #[allow(dead_code)]
     fn validate(&self) -> Result<()> {
         if self.schema != SCHEMA_VERSION {
             let schema = self.schema;
@@ -89,7 +88,6 @@ impl VaultManifest {
 }
 
 /// 校验单个 skill 条目：id 前缀与 namespace 一致、hash/blob/size/folder_name 合法。
-#[allow(dead_code)]
 fn validate_skill_entry(skill: &VaultSkill) -> Result<()> {
     let namespace_value = namespace_ser_value(skill.namespace);
     let (prefix, name) = skill.id.split_once(':').ok_or_else(|| {
@@ -140,7 +138,6 @@ fn validate_skill_entry(skill: &VaultSkill) -> Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
 fn namespace_ser_value(ns: SkillNamespace) -> &'static str {
     match ns {
         SkillNamespace::Agents => "agents",
@@ -150,7 +147,6 @@ fn namespace_ser_value(ns: SkillNamespace) -> &'static str {
 }
 
 /// folder_name 的 NFC + lowercase 折叠 collision key。
-#[allow(dead_code)]
 fn folder_collision_key(folder_name: &str) -> String {
     folder_name.nfc().collect::<String>().to_lowercase()
 }

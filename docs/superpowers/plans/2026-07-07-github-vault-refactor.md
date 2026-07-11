@@ -939,7 +939,7 @@ git commit -m "refactor: normalize skill identity"
 - Create/Modify: `src-tauri/src/local_vault_store.rs`
 - Modify: `src-tauri/src/vault_manifest.rs`
 
-- [ ] **Step 1: 定义 RemoteStore**
+- [x] **Step 1: 定义 RemoteStore**
 
 ```rust
 #[async_trait]
@@ -985,7 +985,7 @@ impl LocalVaultStore {
 
 `BlobWrite.expected_hash` 必须匹配 `sha256:[0-9a-f]{64}`，path 必须严格等于从其 hex 推导的 `blobs/sha256/<hex>.skill.zip`，bytes SHA-256 必须等于 expected_hash；无效 path/hash 返回 `AppError::Vault`，不允许部分提交。`RemoteCommit.commit_sha` 是提交后 snapshot 的版本标识。
 
-- [ ] **Step 2: 写 LocalVaultStore 测试**
+- [x] **Step 2: 写 LocalVaultStore 测试**
 
 ```rust
 #[tokio::test]
@@ -1052,7 +1052,7 @@ async fn fetch_blob_rejects_bytes_that_do_not_match_expected_hash() {
 
 `LocalVaultFixture` 在测试模块中保存 `path`、store 和 `commit_sha -> manifest hash` 对照表；`spawn_sequential_commits` 每次用上一次返回的 SHA 提交并记录 pair，`spawn_snapshot_probe` 只调用公共 `fetch_manifest`，`manifest_matches_commit` 根据该对照表验证 snapshot 的 manifest 与 commit 来自同一次事务。测试不得读取 store 内部锁来制造通过结果。
 
-- [ ] **Step 3: 实现本地 vault 布局**
+- [x] **Step 3: 实现本地 vault 布局**
 
 ```text
 manifest.json
@@ -1068,7 +1068,7 @@ blobs/sha256/<hash>.skill.zip
 
 为规范化 vault path 建立 process-wide path-keyed lock registry，返回共享的 `Arc<tokio::sync::RwLock<()>>`；两个独立 `LocalVaultStore::open` 指向同一路径时必须拿到同一个 Arc。`fetch_manifest` / `fetch_blob` 获取读锁，其中 manifest 与 `.local-vault-commit` 必须在同一个 blocking closure 内读取；`commit_changes` 获取写锁，并把 base commit 校验、blob/manifest 原子写入和 commit marker 更新作为一个完整 blocking transaction 执行。registry 清理过期 Weak entry，避免开发测试反复创建路径导致无界增长。
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run:
 
@@ -1080,7 +1080,7 @@ rg -n "reqwest::blocking|block_on|Runtime::new" src-tauri/src
 
 Expected: local vault async tests pass；`rg` 无命中。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/remote_store.rs src-tauri/src/local_vault_store.rs src-tauri/src/vault_manifest.rs
