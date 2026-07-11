@@ -227,7 +227,7 @@ git commit -m "build: add github vault backend modules"
 
 - Modify: `src-tauri/src/config.rs`
 
-- [ ] **Step 1: 写配置测试**
+- [x] **Step 1: 写配置测试**
 
 ```rust
 #[test]
@@ -254,7 +254,7 @@ fn default_limits_include_pack_and_unpack_budgets() {
 }
 ```
 
-- [ ] **Step 2: 实现 Rust DTO**
+- [x] **Step 2: 实现 Rust DTO**
 
 替换 `RepositoryConfig` 和 `DefaultsConfig.backup`：
 
@@ -287,7 +287,7 @@ pub struct LimitsConfig {
 
 本任务只新增 `RemoteConfig` / `LimitsConfig` 与默认值 helper，不立刻替换现有 `AppConfig` 字段；旧 commands/detect/sync_engine 仍需编译。Task 13 在重接所有 Rust consumers 的同一提交中把 `AppConfig` 原子迁移为 `remote: Option<RemoteConfig> + limits + ignore`，并删除旧 repository/hosts/custom_paths/defaults。新 GitHub 模块从本任务起只使用新 DTO，不读取旧字段。
 
-- [ ] **Step 3: 扩展默认 ignore**
+- [x] **Step 3: 扩展默认 ignore**
 
 ```rust
 fn default_ignore() -> Vec<String> {
@@ -305,7 +305,7 @@ fn default_ignore() -> Vec<String> {
 }
 ```
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run:
 
@@ -315,7 +315,7 @@ cargo test --manifest-path src-tauri/Cargo.toml config
 
 Expected: 新 DTO tests pass，现有 crate consumers 仍编译。Rust AppConfig 原子迁移在 Task 13，前端 schema 和消费者在 Task 17 迁移。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/config.rs
@@ -332,7 +332,7 @@ git commit -m "feat: define github vault config dto"
 - Modify: `src-tauri/src/skill.rs`
 - Modify: `src-tauri/src/errors.rs`
 
-- [ ] **Step 1: 写 manifest round-trip 测试**
+- [x] **Step 1: 写 manifest round-trip 测试**
 
 ```rust
 const HASH_A: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -383,7 +383,7 @@ fn manifest_rejects_schema_duplicate_keys_hash_blob_and_size_violations() {
 }
 ```
 
-- [ ] **Step 2: 实现 manifest DTO**
+- [x] **Step 2: 实现 manifest DTO**
 
 使用 `BTreeMap` 保证稳定序列化：
 
@@ -403,7 +403,7 @@ pub struct VaultManifest {
 
 validated parser 使用自定义 serde Visitor 拒绝重复 skill map key，并整体验证：schema 精确为 1；map key == entry id；id 是 canonical `<namespace>:<normalized-name>` 且 namespace 一致；hash 匹配 `sha256:[0-9a-f]{64}`；blob 严格等于从 hash 推导的 `blobs/sha256/<hex>.skill.zip`；size > 0；folder_name 通过 `portable_path::validate_component`；manifest 内 id/folded folder collision 全部 invalid。任一 entry 失败都返回整个 `InvalidManifest`。manifest size 超过本机 max_skill_zip_bytes 时由 SyncPlan 将该 entry blocked，不把共享 manifest 判 invalid。
 
-- [ ] **Step 3: 写 sync_state 测试**
+- [x] **Step 3: 写 sync_state 测试**
 
 ```rust
 #[test]
@@ -461,7 +461,7 @@ fn explicit_rebind_archives_old_base_and_starts_empty() {
 }
 ```
 
-- [ ] **Step 4: 实现 sync_state 存储**
+- [x] **Step 4: 实现 sync_state 存储**
 
 保存到：
 
@@ -486,7 +486,7 @@ impl SyncState {
 
 `RemoteIdentity` 包含 provider 常量、`installation_id`、`repository_id`、owner/repo、branch 和 commit SHA。`load_and_validate` 是普通 sync 的只读入口：installation/repository/branch 任一不一致即 blocked，不移动/保存文件。`rebind_remote` 只能由 Onboarding 显式切换调用，把旧 state 原子移动到 `<config-dir>/skill-sync/history/<repository_id>-<timestamp>.json`，再创建空 base。owner/repo rename但 repository id 不变时由显式 config/state 更新事务修改展示字段。`load_from/save_to` 是可注入 config directory 的核心实现；保存使用同目录 temp + file fsync + atomic replace/rename + parent fsync（或平台等价 durable replace）。
 
-- [ ] **Step 5: 增加错误类型**
+- [x] **Step 5: 增加错误类型**
 
 ```rust
 Vault(String)
@@ -497,7 +497,7 @@ Blocked(String)
 RecoveryPending(String)
 ```
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 Run:
 
@@ -508,7 +508,7 @@ cargo test --manifest-path src-tauri/Cargo.toml sync_state
 
 Expected: manifest 与 sync_state tests pass。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src-tauri/src/vault_manifest.rs src-tauri/src/sync_state.rs src-tauri/src/portable_path.rs src-tauri/src/skill.rs src-tauri/src/errors.rs
