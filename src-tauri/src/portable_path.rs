@@ -1,8 +1,11 @@
+use std::collections::HashSet;
+
+use unicode_normalization::UnicodeNormalization;
+
 use crate::errors::{AppError, Result};
 
 /// 校验单个 portable path 组件（如 skill 的 `folder_name`）。
 /// 拒绝空、`.`、`..`、NUL、路径分隔符、Windows 保留字符/设备名以及末尾空格或 `.`。
-/// 本任务只提供单段组件校验；完整路径与 NFC 折叠 collision key 在 Task 4 补全。
 pub(crate) fn validate_component(name: &str) -> Result<()> {
     let invalid = |reason: &str| -> AppError {
         AppError::Vault(format!("invalid path component {name:?}: {reason}"))
@@ -33,4 +36,82 @@ pub(crate) fn validate_component(name: &str) -> Result<()> {
         return Err(invalid("trailing space or dot"));
     }
     Ok(())
+}
+
+/// 规范化相对路径：Unicode NFC + 反斜杠转 `/`。
+pub(crate) fn normalize(rel: &str) -> String {
+    rel.replace('\\', "/").nfc().collect::<String>()
+}
+
+/// 校验完整相对路径：先规范化，拒绝绝对路径，逐段调用 `validate_component`。
+pub(crate) fn validate_portable_path(rel: &str) -> Result<()> {
+    let normalized = normalize(rel);
+    if normalized.is_empty() {
+        return Err(AppError::Vault("portable path is empty".into()));
+    }
+    if normalized.starts_with('/') {
+        return Err(AppError::Vault(format!(
+            "portable path must be relative: {rel:?}"
+        )));
+    }
+    for component in normalized.split('/') {
+        validate_component(component)?;
+    }
+    Ok(())
+}
+
+/// 完整路径的 NFC + lowercase 折叠 collision key。
+pub(crate) fn collision_key(rel: &str) -> String {
+    normalize(rel).to_lowercase()
+}
+
+/// 批量校验 portable path：每条路径合法，且无精确重复或 NFC+lowercase 折叠 collision。
+pub(crate) fn validate_portable_paths(paths: &[impl AsRef<str>]) -> Result<()> {
+    let mut seen: HashSet<String> = HashSet::new();
+    for p in paths {
+        let s = p.as_ref();
+        validate_portable_path(s)?;
+        let key = collision_key(s);
+        if !seen.insert(key.clone()) {
+            return Err(AppError::Vault(format!("portable path collision: {key:?}")));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn portable_path_validator_rejects_exact_case_and_unicode_collisions() {
+        for paths in [
+            vec!["same", "same"],
+            vec!["Docs/a", "docs/A"],
+            unicode_nfc_collision_paths(),
+        ] {
+            assert!(
+                validate_portable_paths(&paths).is_err(),
+                "expected collision: {paths:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn portable_path_validator_accepts_distinct_paths() {
+        assert!(validate_portable_paths(&["SKILL.md", "scripts/run.sh", "docs/A"]).is_ok());
+    }
+
+    #[test]
+    fn validate_portable_path_rejects_absolute_and_traversal() {
+        assert!(validate_portable_path("/abs/path").is_err());
+        assert!(validate_portable_path("a/../b").is_err());
+        assert!(validate_portable_path("a/b/").is_err());
+        assert!(validate_portable_path("CON/config").is_err());
+    }
+
+    /// 两个 NFC 等价但字节不同的路径：`café`（precomposed）与 `cafe\u{0301}`（decomposed）。
+    fn unicode_nfc_collision_paths() -> Vec<&'static str> {
+        vec!["café/x", "cafe\u{0301}/x"]
+    }
 }

@@ -528,7 +528,7 @@ git commit -m "feat: add vault manifest and sync state"
 - Test fixtures: `src-tauri/tests/fixtures/skills/`
 - Create: `src-tauri/tests/fixtures/canonical/demo.skill.zip`
 
-- [ ] **Step 1: 写 ignore 测试**
+- [x] **Step 1: 写 ignore 测试**
 
 ```rust
 #[test]
@@ -547,7 +547,7 @@ fn user_ignore_excludes_specific_skill_cache() {
 }
 ```
 
-- [ ] **Step 2: 实现 ignore API**
+- [x] **Step 2: 实现 ignore API**
 
 ```rust
 pub fn is_ignored(rel_path: &str, user_ignore: &[String]) -> bool;
@@ -555,7 +555,7 @@ pub fn glob_match(pattern: &str, text: &str) -> bool;
 pub fn default_ignore() -> Vec<String>;
 ```
 
-- [ ] **Step 3: 写 pack 测试**
+- [x] **Step 3: 写 pack 测试**
 
 ```rust
 #[test]
@@ -674,7 +674,7 @@ fn pack_task_dir_is_removed_on_success_error_and_early_return() {
 
 测试模块实现上述 filesystem/ZIP fixtures、`validate_portable_paths`、`test_limits` 和 pack helpers。checked-in golden ZIP 先由独立 inspection test确认 timestamp/creator system/regular-file external attributes/mode/method/no-directory/no-extra，再作为 byte-for-byte fixture 提交；不得在测试运行时用被测 packer重写 golden。断言不得用“函数被调用”替代 bytes/hash、资源计数、warning redaction 和正式目标未变化。
 
-- [ ] **Step 4: 实现 pack DTO 和临时目录**
+- [x] **Step 4: 实现 pack DTO 和临时目录**
 
 ```rust
 pub struct PackedSkill {
@@ -723,7 +723,7 @@ std::env::temp_dir()/skill-sync/<uuid>/
 
 `PackTaskDir` 拥有目录并实现 `Drop` 递归清理；成功路径、错误路径和提前返回都依赖同一 RAII 语义。`SkillPacker::pack_batch` 返回同时拥有 outcomes 与 task dir 的 `PackBatch`，因此返回时 zip 仍存在。`PreparedSyncPlan` 必须持有整个 `PackBatch`；不能只复制 `zip_path`，也不能从 batch 提前取出 task dir。preview 返回 DTO 或 apply 结束时 batch drop，统一清理目录。
 
-- [ ] **Step 5: 实现 canonical zip 与安全解包**
+- [x] **Step 5: 实现 canonical zip 与安全解包**
 
 规则：
 
@@ -736,7 +736,7 @@ std::env::temp_dir()/skill-sync/<uuid>/
 - 实际解包通过限量 reader 流式计数，每文件和累计实际 bytes 再校验，不能信任 header。所有 parent 只在 task temp 内按需创建；任一失败清空 temp，正式 target 不变。完整成功后才由 apply 的覆盖保护原子替换。
 - 对 included text files 扫描私钥 header、PEM 和常见 token，产生不含 secret 原文的结构化 warning。
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 Run:
 
@@ -747,7 +747,7 @@ cargo test --manifest-path src-tauri/Cargo.toml pack
 
 Expected: ignore、golden canonical bytes/metadata、portable collision、symlink/reparse、special ZIP entry、zip-slip、四项资源 limit、header/actual bytes 双重计数、secret warning 和 RAII cleanup tests pass。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src-tauri/src/ignore.rs src-tauri/src/pack.rs src-tauri/src/portable_path.rs src-tauri/src/errors.rs src-tauri/tests
