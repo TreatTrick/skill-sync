@@ -33,6 +33,12 @@ fn default_ignore() -> Vec<String> {
         "**/.git/**".into(),
         "**/node_modules/**".into(),
         "**/.env".into(),
+        "**/.DS_Store".into(),
+        "**/cache/**".into(),
+        "**/.cache/**".into(),
+        "**/tmp/**".into(),
+        "**/temp/**".into(),
+        "**/*.log".into(),
     ]
 }
 
@@ -64,6 +70,88 @@ fn default_true() -> bool {
 
 fn default_install_mode() -> String {
     "copy".into()
+}
+
+/// GitHub vault 远端配置：绑定到固定的 installation/repository/branch。
+/// 本任务只新增 DTO，不接入 AppConfig（Task 13 原子迁移）。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct RemoteConfig {
+    pub installation_id: u64,
+    pub repository_id: u64,
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+}
+
+/// pack/unpack 四项资源 limit 与删除护栏阈值；作为一个对象传给 packer/unpacker，
+/// 下载路径不得使用硬编码的另一组值。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct LimitsConfig {
+    #[serde(default = "default_max_skill_zip_bytes")]
+    pub max_skill_zip_bytes: u64,
+    #[serde(default = "default_max_skill_files")]
+    pub max_skill_files: usize,
+    #[serde(default = "default_max_single_file_unpacked_bytes")]
+    pub max_single_file_unpacked_bytes: u64,
+    #[serde(default = "default_max_skill_unpacked_bytes")]
+    pub max_skill_unpacked_bytes: u64,
+    #[serde(default = "default_max_auto_delete")]
+    pub max_auto_delete: usize,
+}
+
+fn default_max_skill_zip_bytes() -> u64 {
+    20 * 1024 * 1024
+}
+
+fn default_max_skill_files() -> usize {
+    2_000
+}
+
+fn default_max_single_file_unpacked_bytes() -> u64 {
+    50 * 1024 * 1024
+}
+
+fn default_max_skill_unpacked_bytes() -> u64 {
+    100 * 1024 * 1024
+}
+
+fn default_max_auto_delete() -> usize {
+    10
+}
+
+impl Default for LimitsConfig {
+    fn default() -> Self {
+        Self {
+            max_skill_zip_bytes: default_max_skill_zip_bytes(),
+            max_skill_files: default_max_skill_files(),
+            max_single_file_unpacked_bytes: default_max_single_file_unpacked_bytes(),
+            max_skill_unpacked_bytes: default_max_skill_unpacked_bytes(),
+            max_auto_delete: default_max_auto_delete(),
+        }
+    }
+}
+
+impl LimitsConfig {
+    /// 拒绝任一 pack/unpack limit 为 0，并要求单文件上限不超过总上限。
+    /// `max_auto_delete` 为 0 表示“任何删除都触发护栏”，是合法的严格配置，不拒绝。
+    #[allow(dead_code)]
+    pub(crate) fn validate(&self) -> Result<()> {
+        if self.max_skill_zip_bytes == 0
+            || self.max_skill_files == 0
+            || self.max_single_file_unpacked_bytes == 0
+            || self.max_skill_unpacked_bytes == 0
+        {
+            return Err(AppError::Config(
+                "pack/unpack limits must be non-zero".into(),
+            ));
+        }
+        if self.max_single_file_unpacked_bytes > self.max_skill_unpacked_bytes {
+            return Err(AppError::Config(
+                "max_single_file_unpacked_bytes must not exceed max_skill_unpacked_bytes".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,5 +306,29 @@ mod tests {
     fn expand_plain_path_unchanged() {
         let expanded = expand_path("D:/agent-skills").unwrap();
         assert_eq!(expanded.to_string_lossy(), "D:/agent-skills");
+    }
+
+    #[test]
+    fn github_remote_config_roundtrip_preserves_stable_identity() {
+        let remote = RemoteConfig {
+            installation_id: 123456,
+            repository_id: 987654,
+            owner: "example".into(),
+            repo: "agent-skills".into(),
+            branch: "main".into(),
+        };
+        let back: RemoteConfig =
+            serde_yaml::from_str(&serde_yaml::to_string(&remote).unwrap()).unwrap();
+        assert_eq!(back, remote);
+    }
+
+    #[test]
+    fn default_limits_include_pack_and_unpack_budgets() {
+        let limits = LimitsConfig::default();
+        assert_eq!(limits.max_skill_zip_bytes, 20 * 1024 * 1024);
+        assert_eq!(limits.max_skill_files, 2_000);
+        assert_eq!(limits.max_single_file_unpacked_bytes, 50 * 1024 * 1024);
+        assert_eq!(limits.max_skill_unpacked_bytes, 100 * 1024 * 1024);
+        assert!(limits.validate().is_ok());
     }
 }
