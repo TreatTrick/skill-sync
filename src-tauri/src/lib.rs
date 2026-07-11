@@ -9,9 +9,22 @@ mod config;
 mod detect;
 mod errors;
 mod git_store;
+mod github_app_config;
+mod github_auth;
+mod github_credentials;
+mod github_repository;
+mod github_store;
+mod ignore;
+mod local_apply;
+mod local_vault_store;
 mod manifest;
+mod pack;
+mod portable_path;
+mod remote_store;
 mod skill;
 mod sync_engine;
+mod sync_state;
+mod vault_manifest;
 
 // Tauri 事件循环启动失败后应用无法继续运行，此处允许以明确错误退出。
 #[allow(clippy::expect_used)]
