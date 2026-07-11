@@ -763,7 +763,7 @@ git commit -m "feat: pack skills as canonical zip"
 - Modify: `src-tauri/src/sync_engine.rs`（仅补全 legacy Skill constructor）
 - Modify: `src/modules/skills/schemas/skill.ts`
 
-- [ ] **Step 1: 写 skill id 测试**
+- [x] **Step 1: 写 skill id 测试**
 
 ```rust
 #[test]
@@ -824,7 +824,7 @@ fn same_name_in_different_namespaces_is_not_a_collision() {
 }
 ```
 
-- [ ] **Step 2: 实现 `skill_id`**
+- [x] **Step 2: 实现 `skill_id`**
 
 复用 Task 3 的 `SkillNamespace`。identity source 先取 trim 后非空的 frontmatter `name`，否则回退到 `folder_name`；两者都缺失或规范化后为空则该目录 blocked。ID 规则：`<namespace>:<normalized-name>`；name lowercase、trim、空格和 `_` 转 `-`、只保留 ASCII 字母数字和 `-`、连续 `-` 折叠。测试必须覆盖 name 缺失、空白、回退 folder name 和规范化为空。
 
@@ -841,7 +841,7 @@ pub fn fixed_skill_roots(home: &Path) -> [FixedSkillRoot; 3];
 
 映射严格为 `agents -> ~/.agents/skills`、`codex -> ~/.codex/skills`、`claude-code -> ~/.claude/skills`。函数不接收 AppConfig，不扫描项目级目录、环境自定义路径或旧 hosts/custom_paths。
 
-- [ ] **Step 3: 更新 Skill DTO**
+- [x] **Step 3: 更新 Skill DTO**
 
 ```rust
 pub struct Skill {
@@ -864,7 +864,7 @@ pub struct Skill {
 
 本任务新增 namespace/folder_name/relative_dir，所有新 scanner/engine 逻辑只使用这些字段。为保证旧 commands/页面在后续原子切换前仍可编译，Rust `host: String`、`repo_path: String`、`enabled: bool` 暂按原类型保留，但不得参与新 identity、扫描或计划；同步更新 detect.rs 和 legacy sync adapter 的全部 `Skill { ... }` literals，给新字段提供由 fixed registry 得出的值。Task 13 重接 Rust consumers 时删除旧字段。`relative_dir` 在 V1 等于经验证的单段 `folder_name`。
 
-- [ ] **Step 4: 扫描结果增加 root 状态**
+- [x] **Step 4: 扫描结果增加 root 状态**
 
 ```rust
 pub struct ScanRootStatus {
@@ -894,7 +894,7 @@ root 不存在或不可读时记录状态，不把该 namespace 下已跟踪 ski
 
 同 namespace 出现相同 normalized id，或 folder_name 经 Unicode NFC + lowercase 折叠后相同，返回结构化 `ScanCollision` 并把涉及项交给 SyncPlan 标为 blocked；不得保留第一个。三个 namespace 之间同名不构成 collision。
 
-- [ ] **Step 5: 更新 TS skill schema**
+- [x] **Step 5: 更新 TS skill schema**
 
 ```ts
 namespace: z.enum(['agents', 'codex', 'claude-code']),
@@ -912,7 +912,7 @@ enabled: z.boolean(), // transitional
 
 scanner 只负责本地碰撞。远端 manifest 和 local/remote 合并后的目标碰撞由 Task 8 在生成动作前再次检测，避免两个 remote-new 条目落到同一目录。
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 Run:
 
@@ -924,7 +924,7 @@ npm run typecheck
 
 Expected: identity 和 scan tests pass。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src-tauri/src/skill.rs src-tauri/src/detect.rs src-tauri/src/sync_engine.rs src/modules/skills/schemas/skill.ts

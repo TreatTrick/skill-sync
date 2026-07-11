@@ -184,12 +184,16 @@ pub(crate) fn read_remote_skills(repo_path: &Path, ignore: &[String]) -> Result<
             skills.push(Skill {
                 id: format!("{host}/{name}"),
                 name: meta.name,
+                folder_name: name.clone(),
                 description: meta.description,
-                host: host.clone(),
+                namespace: crate::skill::namespace_from_host(&host),
+                relative_dir: name.clone(),
                 source_path: skill_path.to_string_lossy().to_string(),
                 repo_path: format!("skills/{host}/{name}"),
                 hash,
+                zip_size: 0,
                 modified_at: String::new(),
+                host: host.clone(),
                 enabled: true,
             });
         }
