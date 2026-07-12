@@ -1422,7 +1422,7 @@ git commit -m "feat: build vault sync plan with deletes"
 - Modify: `src-tauri/src/sync_engine/vault.rs`
 - Modify: `src-tauri/tests/github_vault_sync.rs`
 
-- [ ] **Step 1: 写 apply 测试**
+- [x] **Step 1: 写 apply 测试**
 
 本 Task 的测试全部使用 `#[tokio::test] async fn` 并 await engine/store；不得在测试中用 `block_on` 包装同步 API。
 
@@ -1549,7 +1549,7 @@ adoption-only 与 removal-only 测试必须显式使用空 `selected_action_ids`
 
 失败路径 fixture 必须包含至少一个 pending adoption/removal：fingerprint/commit 不匹配返回 `PlanChanged`、非法 selection/decision 返回 `Blocked`、以及只调用 preview 未调用 Apply 三种情况下，均断言 sync_state bytes 未变化、`state_updated` 不返回成功结果、远端 commit 次数为 0。
 
-- [ ] **Step 2: 实现 `apply_plan`**
+- [x] **Step 2: 实现 `apply_plan`**
 
 ```rust
 pub async fn apply_plan<S: RemoteStore>(
@@ -1573,7 +1573,7 @@ pub struct ApplyResult {
 }
 ```
 
-- [ ] **Step 3: 执行前重新生成计划**
+- [x] **Step 3: 执行前重新生成计划**
 
 async apply 必须通过内部 async `prepare_plan` await manifest，并以 `spawn_blocking` 重新 scan/pack/hash、重建计划，返回同时持有 `SyncPlan`、本次 `PackedSkill` 和 RAII 临时目录的 `PreparedSyncPlan`。预览阶段 zip 不允许复用，指纹校验后也不得再次 pack；后续上传必须使用 `PreparedSyncPlan` 中参与校验的准确 bytes。在任何持久化副作用（本地 skill 写入、trash move、远端提交或 sync_state 更新）之前：
 
@@ -1588,7 +1588,7 @@ async apply 必须通过内部 async `prepare_plan` await manifest，并以 `spa
 
 预检通过后到 GitHub branch ref 更新前仍可能发生竞态。下载内容先解包到各目标 namespace root 内的同盘 staging，delete_local 只准备同 root trash target，不立即移动；全部 staged 内容和 next state 都验证完成后，原子写入 apply journal，再执行可能的远端提交。`commit_changes` 的 `RemoteChanged` 不得强推：重新生成 `latest_plan`，清理未提交的 staging/journal，不更新 sync_state，并返回 `ApplySyncResponse::PlanChanged { reason: RemoteChanged, latest_plan }`。update-ref 响应不明时 store 先重读 ref；仍无法证明 candidate 已发布或未发布时保留 journal/staging，返回 `RecoveryRequired(RemoteOutcomeUnknown)`。
 
-- [ ] **Step 4: 实现下载覆盖保护**
+- [x] **Step 4: 实现下载覆盖保护**
 
 - 目标不存在则写入。
 - 目标存在且当前 local hash == base hash 才允许覆盖。
@@ -1599,7 +1599,7 @@ async apply 必须通过内部 async `prepare_plan` await manifest，并以 `spa
 - fetch blob 后先断言 actual compressed length == manifest size 且 SHA-256 == manifest hash，再调用 Task 4 的 canonical/resource-validating `unpack_skill`。解包后根级 `SKILL.md` 必须是 regular file，metadata 必须可解析，`skill_id(entry.namespace, metadata.name)` 必须等于 manifest map key/entry id。任一 size/hash/noncanonical entry/unpack limit/SKILL.md/identity 校验失败都清理 stage，现有 target 和 sync_state bytes 不变。
 - staging 固定为 `<namespace-root>/.skill-sync-staging/<task-id>/<folder_name>`；不能使用 `std::env::temp_dir()` 作为最终 rename 来源。scanner 必须忽略所有 `.skill-sync-*` 保留目录。
 
-- [ ] **Step 5: 实现本地 apply transaction 与恢复**
+- [x] **Step 5: 实现本地 apply transaction 与恢复**
 
 在 `local_apply.rs` 定义 `LocalApplyTransaction`、versioned `ApplyJournal`、`LocalAction` 和 `recover_pending`。单一 pending journal 位于 `<config-dir>/skill-sync/apply-transaction.json`，字段包含 task/phase、remote base/candidate/result SHA、next manifest hash、next state bytes/hash，以及每个 action 的 stage/target/rollback/trash、expected-before/after hash 和完成状态。journal path 恢复时必须重新约束在 config dir/fixed roots 内，不能信任文件中的任意绝对路径。
 
@@ -1620,11 +1620,11 @@ sync_state 使用同样的 durable replace 写入 journal 预先记录的 next b
 | state durable replace 失败             | `RecoveryRequired(StateSaveFailed)`      | 只重写 next state                    |
 | state 成功、cleanup 失败               | `Applied` + `cleanup_pending` warning    | 后台/下次启动清理                    |
 
-- [ ] **Step 6: 实现上传和删云端**
+- [x] **Step 6: 实现上传和删云端**
 
 上传写入 blob 并更新 `next_manifest.skills`。删云端只从 `next_manifest.skills` 移除条目，不删除 blob，并与上传合并为一次 `commit_changes`。
 
-- [ ] **Step 7: 实现删本地进 trash**
+- [x] **Step 7: 实现删本地进 trash**
 
 路径：
 
@@ -1634,7 +1634,7 @@ sync_state 使用同样的 durable replace 写入 journal 预先记录的 next b
 
 trash 必须与 target 位于同一 namespace root/文件系统，使用 rename 而不是跨卷 copy+delete。journal 单独记录 skill id，不把含 `:` 的 id 用作目录名。
 
-- [ ] **Step 8: 更新 sync_state**
+- [x] **Step 8: 更新 sync_state**
 
 - 成功 upload/download 后写入新的 `base_hash`。
 - 成功 upload/download 同时写入 `namespace` 与 `relative_dir`，使后续覆盖与删除护栏定位同一固定 root。
@@ -1648,7 +1648,7 @@ trash 必须与 target 位于同一 namespace root/文件系统，使用 rename 
 - `ApplyResult.state_updated` 返回 adoption/removal 的去重 skill ids；这些 id 不混入实际上传、下载或删除动作的 `applied`。
 - 保存执行 `write temp -> flush/fsync file -> atomic replace/rename -> fsync parent`；失败返回 `RecoveryRequired(StateSaveFailed)` 并保留 rollback/trash/journal，resume 只重写 next state，不重复远端 commit 或本地动作。
 
-- [ ] **Step 9: 实现批量内部函数**
+- [x] **Step 9: 实现批量内部函数**
 
 ```rust
 pub async fn upload_skills<S: RemoteStore>(skill_ids: &[String], ... ) -> Result<ApplySyncResponse>;
@@ -1657,7 +1657,7 @@ pub async fn download_skills<S: RemoteStore>(skill_ids: &[String], ... ) -> Resu
 
 复用 async plan/apply 和同一 `LocalApplyTransaction`，不开平行同步流程。下载后的解包、目录替换、trash move、journal 与 sync_state 文件保存通过 `spawn_blocking` 执行；RemoteStore 操作直接 await。
 
-- [ ] **Step 10: 验证**
+- [x] **Step 10: 验证**
 
 Run:
 
@@ -1667,7 +1667,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --test github_vault_sync
 
 Expected: apply、删除、批量、RemoteChanged、同盘 staging、identity revalidation、逐故障点 RecoveryRequired 和幂等 resume tests pass。
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src-tauri/src/local_apply.rs src-tauri/src/sync_engine/vault.rs src-tauri/tests/github_vault_sync.rs
