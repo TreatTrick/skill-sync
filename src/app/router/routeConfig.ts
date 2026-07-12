@@ -1,6 +1,10 @@
 import { FolderSync, Settings as SettingsIcon } from '@lucide/svelte'
 import type { Component } from 'svelte'
 
+import { isWorkspaceReady } from '@/shared/lib'
+
+export { isWorkspaceReady }
+
 type RouteTitleKey = 'routes.settings' | 'routes.sync'
 
 export type RouteGroupKey = 'routeGroups.main'

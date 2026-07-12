@@ -40,13 +40,23 @@ export const remoteConfigSchema = z.object({
 
 export type RemoteConfig = z.infer<typeof remoteConfigSchema>
 
-export const limitsConfigSchema = z.object({
-  max_skill_zip_bytes: z.number().int().positive(),
-  max_skill_files: z.number().int().positive(),
-  max_single_file_unpacked_bytes: z.number().int().positive(),
-  max_skill_unpacked_bytes: z.number().int().positive(),
-  max_auto_delete: z.number().int().nonnegative(),
-})
+export const limitsConfigSchema = z
+  .object({
+    max_skill_zip_bytes: z.number().int().positive(),
+    max_skill_files: z.number().int().positive(),
+    max_single_file_unpacked_bytes: z.number().int().positive(),
+    max_skill_unpacked_bytes: z.number().int().positive(),
+    max_auto_delete: z.number().int().nonnegative(),
+  })
+  .refine(
+    (limits) =>
+      limits.max_single_file_unpacked_bytes <= limits.max_skill_unpacked_bytes,
+    {
+      message:
+        'max_single_file_unpacked_bytes must not exceed max_skill_unpacked_bytes',
+      path: ['max_single_file_unpacked_bytes'],
+    },
+  )
 
 export type LimitsConfig = z.infer<typeof limitsConfigSchema>
 

@@ -27,13 +27,3 @@ export const t = (
   void languageState.language
   return translate(...args)
 }
-
-export const hostLabel = (host: string): string => {
-  if (host === 'codex') {
-    return t('common.host.codex')
-  }
-  if (host === 'claude') {
-    return t('common.host.claude')
-  }
-  return host
-}

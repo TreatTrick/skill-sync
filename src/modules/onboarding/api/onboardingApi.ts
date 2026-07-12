@@ -13,8 +13,6 @@ import {
   githubVaultCheckSchema,
   initializeGithubVaultRequestSchema,
   remoteConfigSchema,
-  gitCheckSchema,
-  remoteCheckSchema,
   type AppState,
   type BindGithubVaultRequest,
   type DeviceFlowPoll,
@@ -26,8 +24,6 @@ import {
   type GithubVaultCheck,
   type InitializeGithubVaultRequest,
   type RemoteConfig,
-  type GitCheck,
-  type RemoteCheck,
 } from '../schemas/onboarding'
 
 const deviceFlowPollPayloadSchema = z.object({
@@ -180,18 +176,4 @@ export const bindGithubVault = async (
     return response
   }
   return appStateSchema.parse(await invokeCmd<unknown>('get_app_state'))
-}
-
-export const checkGit = async (): Promise<GitCheck> =>
-  gitCheckSchema.parse(await invokeCmd<unknown>('check_git'))
-
-export const checkRemote = async (remote: string): Promise<RemoteCheck> =>
-  remoteCheckSchema.parse(await invokeCmd<unknown>('check_remote', { remote }))
-
-export const prepareRepo = async (
-  localPath: string,
-  remote: string,
-  branch: string,
-): Promise<void> => {
-  await invokeCmd('prepare_repo', { localPath, remote, branch })
 }
