@@ -27,6 +27,8 @@ pub(crate) struct AppConfig {
     pub remote: Option<RemoteConfig>,
     #[serde(default)]
     pub limits: LimitsConfig,
+    #[serde(default)]
+    pub device_id: String,
 }
 
 fn default_version() -> u32 {
@@ -199,6 +201,7 @@ impl AppConfig {
             ignore: default_ignore(),
             remote: None,
             limits: LimitsConfig::default(),
+            device_id: String::new(),
         }
     }
 

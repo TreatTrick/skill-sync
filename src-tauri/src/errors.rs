@@ -42,6 +42,12 @@ pub(crate) enum AppError {
     #[allow(dead_code)]
     #[error("reauthorization required: {0}")]
     ReauthorizationRequired(String),
+    #[allow(dead_code)]
+    #[error("rate limited: retry after {retry_after:?}")]
+    RateLimited { retry_after: Option<String> },
+    #[allow(dead_code)]
+    #[error("vault state changed: {0}")]
+    VaultStateChanged(String),
     #[error("{0}")]
     Other(String),
 }
@@ -63,6 +69,8 @@ impl AppError {
             AppError::RecoveryPending(_) => "recovery_pending",
             AppError::CredentialPersistenceFailed(_) => "credential_persistence_failed",
             AppError::ReauthorizationRequired(_) => "reauthorization_required",
+            AppError::RateLimited { .. } => "rate_limited",
+            AppError::VaultStateChanged(_) => "vault_state_changed",
             AppError::Other(_) => "other",
         }
     }
@@ -88,9 +96,12 @@ impl From<serde_json::Error> for AppError {
 
 impl Serialize for AppError {
     fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
-        let mut st = s.serialize_struct("AppError", 2)?;
+        let mut st = s.serialize_struct("AppError", 3)?;
         st.serialize_field("kind", self.kind())?;
         st.serialize_field("message", &self.to_string())?;
+        if let AppError::RateLimited { retry_after } = self {
+            st.serialize_field("retry_after", retry_after)?;
+        }
         st.end()
     }
 }
