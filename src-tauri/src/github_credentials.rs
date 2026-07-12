@@ -289,12 +289,23 @@ pub(crate) struct GithubAuthenticatedClient {
     manager: Arc<GithubCredentialManager>,
     http: reqwest::Client,
     app_client_id: String,
+    api_base_url: reqwest::Url,
 }
 
 impl GithubAuthenticatedClient {
     pub(crate) fn new(
         manager: Arc<GithubCredentialManager>,
         app_client_id: String,
+    ) -> Result<Self> {
+        let api_base_url = reqwest::Url::parse("https://api.github.com/")
+            .map_err(|e| AppError::Auth(format!("invalid GitHub API URL: {e}")))?;
+        Self::new_with_api_base(manager, app_client_id, api_base_url)
+    }
+
+    pub(crate) fn new_with_api_base(
+        manager: Arc<GithubCredentialManager>,
+        app_client_id: String,
+        api_base_url: reqwest::Url,
     ) -> Result<Self> {
         let http = reqwest::Client::builder()
             .user_agent("skill-sync")
@@ -304,7 +315,37 @@ impl GithubAuthenticatedClient {
             manager,
             http,
             app_client_id,
+            api_base_url,
         })
+    }
+
+    pub(crate) async fn get_path(&self, path: &str) -> Result<reqwest::Response> {
+        let url = self.resolve_path(path)?;
+        self.get(url.as_str()).await
+    }
+
+    pub(crate) async fn post_json_path(
+        &self,
+        path: &str,
+        body: serde_json::Value,
+    ) -> Result<reqwest::Response> {
+        let url = self.resolve_path(path)?;
+        self.post_json(url.as_str(), body).await
+    }
+
+    pub(crate) async fn patch_json_path(
+        &self,
+        path: &str,
+        body: serde_json::Value,
+    ) -> Result<reqwest::Response> {
+        let url = self.resolve_path(path)?;
+        self.patch_json(url.as_str(), body).await
+    }
+
+    fn resolve_path(&self, path: &str) -> Result<reqwest::Url> {
+        self.api_base_url
+            .join(path.trim_start_matches('/'))
+            .map_err(|e| AppError::Auth(format!("invalid GitHub API path: {e}")))
     }
 
     pub(crate) async fn get(&self, url: &str) -> Result<reqwest::Response> {
@@ -313,7 +354,8 @@ impl GithubAuthenticatedClient {
             .http
             .get(url)
             .bearer_auth(cred.access_token.expose_secret())
-            .header("Accept", "application/json")
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
             .send()
             .await
             .map_err(map_http_err)?;
@@ -338,7 +380,8 @@ impl GithubAuthenticatedClient {
             .http
             .get(url)
             .bearer_auth(cred.access_token.expose_secret())
-            .header("Accept", "application/json")
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
             .send()
             .await
             .map_err(map_http_err)?;
@@ -360,7 +403,8 @@ impl GithubAuthenticatedClient {
             .http
             .put(url)
             .bearer_auth(cred.access_token.expose_secret())
-            .header("Accept", "application/json")
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
             .json(&body)
             .send()
             .await
@@ -380,7 +424,8 @@ impl GithubAuthenticatedClient {
                 .http
                 .put(url)
                 .bearer_auth(cred2.access_token.expose_secret())
-                .header("Accept", "application/json")
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
                 .json(&body)
                 .send()
                 .await
@@ -389,6 +434,104 @@ impl GithubAuthenticatedClient {
                 drop(self.manager.clear().await);
                 return Err(AppError::ReauthorizationRequired(
                     "second 401 on put".into(),
+                ));
+            }
+            return Ok(resp2);
+        }
+        Ok(resp)
+    }
+
+    /// POST JSON（create blob/tree/commit）。与 put_json 相同的 401 重放逻辑。
+    pub(crate) async fn post_json(
+        &self,
+        url: &str,
+        body: serde_json::Value,
+    ) -> Result<reqwest::Response> {
+        let cred = self.manager.valid_credential(&self.app_client_id).await?;
+        let resp = self
+            .http
+            .post(url)
+            .bearer_auth(cred.access_token.expose_secret())
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .json(&body)
+            .send()
+            .await
+            .map_err(map_http_err)?;
+        if resp.status().as_u16() == 401 {
+            let cred2 = self
+                .manager
+                .force_refresh(cred.generation, &self.app_client_id)
+                .await?;
+            if cred2.generation == cred.generation {
+                drop(self.manager.clear().await);
+                return Err(AppError::ReauthorizationRequired(
+                    "refresh did not produce new generation".into(),
+                ));
+            }
+            let resp2 = self
+                .http
+                .post(url)
+                .bearer_auth(cred2.access_token.expose_secret())
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .json(&body)
+                .send()
+                .await
+                .map_err(map_http_err)?;
+            if resp2.status().as_u16() == 401 {
+                drop(self.manager.clear().await);
+                return Err(AppError::ReauthorizationRequired(
+                    "second 401 on post".into(),
+                ));
+            }
+            return Ok(resp2);
+        }
+        Ok(resp)
+    }
+
+    /// PATCH JSON（update ref）。与 put_json 相同的 401 重放逻辑。
+    pub(crate) async fn patch_json(
+        &self,
+        url: &str,
+        body: serde_json::Value,
+    ) -> Result<reqwest::Response> {
+        let cred = self.manager.valid_credential(&self.app_client_id).await?;
+        let resp = self
+            .http
+            .patch(url)
+            .bearer_auth(cred.access_token.expose_secret())
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .json(&body)
+            .send()
+            .await
+            .map_err(map_http_err)?;
+        if resp.status().as_u16() == 401 {
+            let cred2 = self
+                .manager
+                .force_refresh(cred.generation, &self.app_client_id)
+                .await?;
+            if cred2.generation == cred.generation {
+                drop(self.manager.clear().await);
+                return Err(AppError::ReauthorizationRequired(
+                    "refresh did not produce new generation".into(),
+                ));
+            }
+            let resp2 = self
+                .http
+                .patch(url)
+                .bearer_auth(cred2.access_token.expose_secret())
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .json(&body)
+                .send()
+                .await
+                .map_err(map_http_err)?;
+            if resp2.status().as_u16() == 401 {
+                drop(self.manager.clear().await);
+                return Err(AppError::ReauthorizationRequired(
+                    "second 401 on patch".into(),
                 ));
             }
             return Ok(resp2);
