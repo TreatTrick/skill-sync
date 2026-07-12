@@ -21,7 +21,6 @@ fn modified_time(path: &Path) -> Option<String> {
 // ---- 新 vault scanner：三个固定 namespace root ----
 
 /// 新 scanner 的扫描结果：skills（非碰撞）+ warnings + 每个 root 的状态 + 本地碰撞。
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ScanResult {
     pub skills: Vec<Skill>,
@@ -30,7 +29,7 @@ pub(crate) struct ScanResult {
     pub collisions: Vec<ScanCollision>,
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl ScanResult {
     pub(crate) fn skill_ids(&self) -> Vec<String> {
         // 保留扫描插入顺序（固定 root 顺序 Agents/Codex/ClaudeCode，root 内按 folder_name 排序）。
@@ -47,7 +46,6 @@ impl ScanResult {
 }
 
 /// 单个固定 root 的扫描状态。root 不存在或不可读时只记录状态，不推断删除。
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ScanRootStatus {
     pub namespace: SkillNamespace,
@@ -58,7 +56,6 @@ pub(crate) struct ScanRootStatus {
     pub error: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ScanCollisionKind {
@@ -66,7 +63,6 @@ pub(crate) enum ScanCollisionKind {
     FoldedFolderName,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ScanCollision {
     pub namespace: SkillNamespace,
@@ -80,7 +76,6 @@ pub(crate) struct ScanCollision {
 /// 跳过 `.skill-sync-staging` / `.skill-sync-rollback` / `.skill-sync-trash`；无合法
 /// `SKILL.md` 的目录跳过且不递归。同 namespace 的 normalized id 或 folded folder
 /// collision 返回结构化 `ScanCollision` 并把涉及项排除出 skills。
-#[allow(dead_code)]
 pub(crate) fn scan_fixed_roots(home: &Path) -> Result<ScanResult> {
     let roots = fixed_skill_roots(home);
     let mut skills = Vec::new();

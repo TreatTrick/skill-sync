@@ -1,5 +1,4 @@
 // 本地 vault store：用本地文件系统模拟远端 GitHub vault。Task 8 接入前为 dead code，整模块 allow。
-#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::fs;
@@ -18,7 +17,6 @@ use crate::vault_manifest::VaultManifest;
 
 const MANIFEST_FILE: &str = "manifest.json";
 const COMMIT_MARKER: &str = ".local-vault-commit";
-const LOCAL_BRANCH: &str = "local";
 
 /// 空仓库的初始 commit 标识（40 个 0，模拟 git null SHA）。
 const INITIAL_COMMIT_SHA: &str = "0000000000000000000000000000000000000000";
@@ -97,7 +95,6 @@ fn read_manifest_blocking(vault_dir: &Path, device_id: &str) -> Result<RemoteSna
     Ok(RemoteSnapshot {
         manifest,
         commit_sha,
-        branch: LOCAL_BRANCH.into(),
     })
 }
 

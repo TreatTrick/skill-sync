@@ -12,15 +12,12 @@ use crate::ignore::is_ignored;
 use crate::portable_path::{normalize, validate_portable_path, validate_portable_paths};
 
 /// 待打包的单个 skill 输入。
-#[allow(dead_code)] // Task 8/9 接入 build_plan/apply_plan 后使用
 #[derive(Debug, Clone)]
 pub(crate) struct SkillPackInput {
-    pub skill_id: String,
     pub source_path: PathBuf,
 }
 
 /// 打包选项：资源 limit 与用户全局 ignore。
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct PackOptions {
     pub limits: LimitsConfig,
@@ -28,29 +25,21 @@ pub(crate) struct PackOptions {
 }
 
 /// 已打包 skill 的 canonical zip 描述。`zip_path` 指向 task dir 内的临时文件。
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PackedSkill {
-    pub skill_id: String,
     pub hash: String,
     pub zip_path: PathBuf,
     pub zip_size: u64,
-    pub file_count: usize,
-    pub unpacked_size: u64,
-    pub ignored_files: usize,
-    pub ignored_bytes: u64,
     pub warnings: Vec<PackWarning>,
 }
 
 /// 疑似密钥/Token warning；只记录相对路径与类型，不含原文，避免 Debug 泄露。
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PackWarning {
     pub relative_path: String,
     pub kind: SecretWarningKind,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SecretWarningKind {
     PrivateKey,
@@ -59,14 +48,11 @@ pub(crate) enum SecretWarningKind {
 }
 
 /// 单个 skill 打包被阻止的原因。
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PackBlocked {
-    pub skill_id: String,
     pub reason: String,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) enum PackOutcome {
     Packed(PackedSkill),
@@ -101,9 +87,8 @@ impl Drop for PackTaskDir {
 
 /// 一批打包结果：同时持有 task dir 与 outcomes，返回时 zip 仍存在；
 /// batch drop 时统一清理临时目录。
-#[allow(dead_code)]
 pub(crate) struct PackBatch {
-    pub task_dir: PackTaskDir,
+    pub _task_dir: PackTaskDir,
     pub outcomes: Vec<PackOutcome>,
 }
 
@@ -112,7 +97,6 @@ pub(crate) struct SkillPacker;
 impl SkillPacker {
     /// 批量打包。task dir 在函数入口创建；任一 systemic 错误经 `?` 提前返回时，
     /// RAII 自动清理 task dir。成功则把 task dir 移入 PackBatch 由调用方持有。
-    #[allow(dead_code)]
     pub(crate) fn pack_batch(
         inputs: &[SkillPackInput],
         options: &PackOptions,
@@ -123,16 +107,11 @@ impl SkillPacker {
             let outcome = pack_one(input, options, &task_dir)?;
             outcomes.push(outcome);
         }
-        Ok(PackBatch { task_dir, outcomes })
+        Ok(PackBatch {
+            _task_dir: task_dir,
+            outcomes,
+        })
     }
-}
-
-/// 解包报告：实际写入的文件数与累计字节。
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) struct UnpackReport {
-    pub file_count: usize,
-    pub unpacked_size: u64,
 }
 
 fn pack_one(
@@ -145,20 +124,11 @@ fn pack_one(
         .file_name()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
-    let blocked = |reason: String| {
-        PackOutcome::Blocked(PackBlocked {
-            skill_id: input.skill_id.clone(),
-            reason,
-        })
-    };
+    let blocked = |reason: String| PackOutcome::Blocked(PackBlocked { reason });
 
     let walk = collect_skill_entries(&input.source_path, &folder, options)?;
-    let (mut entries, ignored_files, ignored_bytes) = match walk {
-        WalkResult::Ok {
-            entries,
-            ignored_files,
-            ignored_bytes,
-        } => (entries, ignored_files, ignored_bytes),
+    let mut entries = match walk {
+        WalkResult::Ok { entries } => entries,
         WalkResult::Blocked(reason) => return Ok(blocked(reason)),
     };
 
@@ -186,50 +156,25 @@ fn pack_one(
         )));
     }
     let hash = format!("sha256:{}", hex::encode(Sha256::digest(&zip_bytes)));
-    let file_count = entries.len();
-    let unpacked_size: u64 = entries.iter().map(|(_, c)| c.len() as u64).sum();
 
     Ok(PackOutcome::Packed(PackedSkill {
-        skill_id: input.skill_id.clone(),
         hash,
         zip_path,
         zip_size,
-        file_count,
-        unpacked_size,
-        ignored_files,
-        ignored_bytes,
         warnings,
     }))
 }
 
 enum WalkResult {
-    Ok {
-        entries: Vec<(String, Vec<u8>)>,
-        ignored_files: usize,
-        ignored_bytes: u64,
-    },
+    Ok { entries: Vec<(String, Vec<u8>)> },
     Blocked(String),
 }
 
 fn collect_skill_entries(source: &Path, folder: &str, options: &PackOptions) -> Result<WalkResult> {
     let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
-    let mut ignored_files = 0usize;
-    let mut ignored_bytes = 0u64;
-    match walk_dir(
-        source,
-        source,
-        folder,
-        options,
-        &mut entries,
-        &mut ignored_files,
-        &mut ignored_bytes,
-    )? {
+    match walk_dir(source, source, folder, options, &mut entries)? {
         Some(reason) => Ok(WalkResult::Blocked(reason)),
-        None => Ok(WalkResult::Ok {
-            entries,
-            ignored_files,
-            ignored_bytes,
-        }),
+        None => Ok(WalkResult::Ok { entries }),
     }
 }
 
@@ -240,8 +185,6 @@ fn walk_dir(
     folder: &str,
     options: &PackOptions,
     entries: &mut Vec<(String, Vec<u8>)>,
-    ignored_files: &mut usize,
-    ignored_bytes: &mut u64,
 ) -> Result<Option<String>> {
     let Ok(read_dir) = fs::read_dir(current) else {
         return Ok(Some(format!(
@@ -265,22 +208,12 @@ fn walk_dir(
             if is_ignored(&dir_rel, &options.user_ignore) {
                 continue;
             }
-            if let Some(reason) = walk_dir(
-                root,
-                &path,
-                folder,
-                options,
-                entries,
-                ignored_files,
-                ignored_bytes,
-            )? {
+            if let Some(reason) = walk_dir(root, &path, folder, options, entries)? {
                 return Ok(Some(reason));
             }
         } else if meta.is_file() {
             let file_rel = format!("{folder}/{rel}");
             if is_ignored(&file_rel, &options.user_ignore) {
-                *ignored_files += 1;
-                *ignored_bytes += meta.len();
                 continue;
             }
             if entries.len() + 1 > options.limits.max_skill_files {
@@ -425,12 +358,11 @@ fn write_canonical_zip(zip_path: &Path, entries: &[(String, Vec<u8>)]) -> Result
 /// 重复/folded collision（`ZipArchive` 会静默去重同名 entry，故必须自行解析），
 /// 再用 `ZipArchive` + 限量 reader 流式校验实际字节（不信任 header）。
 /// 任一失败清空 task temp，正式 target 不变。
-#[allow(dead_code)]
 pub(crate) fn unpack_skill(
     zip_path: &Path,
     task_target: &Path,
     limits: &LimitsConfig,
-) -> Result<UnpackReport> {
+) -> Result<()> {
     let zip_bytes = fs::read(zip_path)?;
     if zip_bytes.len() as u64 > limits.max_skill_zip_bytes {
         return clear_and_block(
@@ -459,6 +391,9 @@ pub(crate) fn unpack_skill(
         }
         if r.method != 8 {
             return clear_and_block(task_target, "non-deflated entry not allowed".into());
+        }
+        if r.creator_system != 3 {
+            return clear_and_block(task_target, "non-canonical creator system".into());
         }
         if (r.mod_time, r.mod_date) != (0, 33) {
             return clear_and_block(task_target, "non-canonical timestamp".into());
@@ -499,7 +434,6 @@ pub(crate) fn unpack_skill(
         return clear_and_block(task_target, "central directory mismatch".into());
     }
     let mut actual_total: u64 = 0;
-    let mut file_count = 0usize;
     for (i, name) in names.iter().enumerate() {
         let mut zf = archive.by_index(i).map_err(zip_err)?;
         let target_path = task_target.join(name);
@@ -529,18 +463,13 @@ pub(crate) fn unpack_skill(
         if exceeded {
             return clear_and_block(task_target, "actual bytes exceed unpacked limit".into());
         }
-        file_count += 1;
     }
-    Ok(UnpackReport {
-        file_count,
-        unpacked_size: actual_total,
-    })
+    Ok(())
 }
 
 /// 原始 central directory 条目（直接解析字节，不受 `ZipArchive` 去重影响）。
 pub(crate) struct RawCdEntry {
     pub name: String,
-    #[allow(dead_code)] // 仅 inspect_zip 测试读取；Task 9 接入后生产使用
     pub creator_system: u8,
     pub method: u16,
     pub mod_time: u16,
@@ -616,7 +545,7 @@ fn find_eocd(bytes: &[u8]) -> Option<usize> {
 }
 
 /// 清空 task temp 内所有内容并以 `Blocked` 返回，保证正式 target 不残留。
-fn clear_and_block(task_target: &Path, reason: String) -> Result<UnpackReport> {
+fn clear_and_block(task_target: &Path, reason: String) -> Result<()> {
     if let Ok(entries) = fs::read_dir(task_target) {
         for e in entries.flatten() {
             let path = e.path();
@@ -683,7 +612,6 @@ mod tests {
 
     fn pack_input(path: &Path) -> SkillPackInput {
         SkillPackInput {
-            skill_id: "test:demo".into(),
             source_path: path.to_path_buf(),
         }
     }
@@ -988,8 +916,7 @@ mod tests {
         let batch = pack_batch_single(skill.path(), &test_limits()).unwrap();
         let packed = packed_of(&batch);
         let target = tempfile::tempdir().unwrap();
-        let report = unpack_skill(&packed.zip_path, target.path(), &test_limits()).unwrap();
-        assert_eq!(report.file_count, 2);
+        unpack_skill(&packed.zip_path, target.path(), &test_limits()).unwrap();
         assert_eq!(
             fs::read_to_string(target.path().join("SKILL.md")).unwrap(),
             "name: demo"

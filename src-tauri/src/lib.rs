@@ -16,6 +16,7 @@ mod github_repository;
 mod github_store;
 mod ignore;
 mod local_apply;
+#[cfg(test)]
 mod local_vault_store;
 mod logging;
 mod pack;

@@ -1,5 +1,4 @@
 // GitHub vault store：通过共享 authenticated client 读写已验证的 vault。
-#![allow(dead_code)]
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -20,20 +19,14 @@ use crate::vault_manifest::VaultManifest;
 pub(crate) struct GitHubVaultStore {
     api: Arc<GithubAuthenticatedClient>,
     repository: GithubRepositoryContext,
-    device_id: String,
 }
 
 impl GitHubVaultStore {
     pub(crate) fn new(
         api: Arc<GithubAuthenticatedClient>,
         repository: GithubRepositoryContext,
-        device_id: String,
     ) -> Self {
-        Self {
-            api,
-            repository,
-            device_id,
-        }
+        Self { api, repository }
     }
 }
 
@@ -56,7 +49,6 @@ impl RemoteStore for GitHubVaultStore {
         Ok(RemoteSnapshot {
             manifest,
             commit_sha,
-            branch: self.repository.branch.clone(),
         })
     }
 
@@ -424,13 +416,11 @@ mod tests {
             api,
             GithubRepositoryContext {
                 installation_id: cfg.installation_id,
-                repository_id: cfg.repository_id,
                 owner: cfg.owner,
                 repo: cfg.repo,
                 branch: cfg.branch,
                 head_sha: "head".into(),
             },
-            "device-test".into(),
         )
     }
 
@@ -468,7 +458,6 @@ mod tests {
 
         let snapshot = store(&server).await.fetch_manifest().await.unwrap();
         assert_eq!(snapshot.commit_sha, "head");
-        assert_eq!(snapshot.branch, "main");
         assert_eq!(snapshot.manifest.updated_by, "device-test");
     }
 
@@ -784,13 +773,11 @@ mod tests {
             api,
             GithubRepositoryContext {
                 installation_id: cfg.installation_id,
-                repository_id: cfg.repository_id,
                 owner: cfg.owner,
                 repo: cfg.repo,
                 branch: cfg.branch,
                 head_sha: "head".into(),
             },
-            "device-test".into(),
         )
     }
 

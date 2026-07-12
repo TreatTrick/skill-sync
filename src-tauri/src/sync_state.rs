@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
+#[cfg(test)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use crate::errors::{AppError, Result};
 use crate::skill::SkillNamespace;
 
 const STATE_FILE_NAME: &str = "sync_state.json";
+#[cfg(test)]
 const HISTORY_DIR_NAME: &str = "history";
 
 /// 远端 vault 的稳定 identity：provider 常量 + installation/repository/branch + commit SHA。
@@ -42,7 +44,6 @@ pub(crate) struct SyncState {
 }
 
 impl SyncState {
-    #[allow(dead_code)]
     pub(crate) fn empty(remote: RemoteIdentity) -> Self {
         Self {
             remote,
@@ -61,7 +62,6 @@ impl SyncState {
 
     /// 普通 sync 的只读入口：installation/repository/branch 任一不一致即 blocked，
     /// 不移动或保存任何文件。
-    #[allow(dead_code)]
     pub(crate) fn load_and_validate(config_dir: &Path, remote: &RemoteIdentity) -> Result<Self> {
         let state = Self::load_from(config_dir)?;
         if state.remote.installation_id != remote.installation_id
@@ -76,7 +76,7 @@ impl SyncState {
     }
 
     /// Onboarding 显式切换远端时调用：把旧 state 原子归档到 history，再写入空 base。
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn rebind_remote(config_dir: &Path, remote: RemoteIdentity) -> Result<Self> {
         let path = config_dir.join(STATE_FILE_NAME);
         if path.exists() {
@@ -105,22 +105,7 @@ impl SyncState {
         durable_replace(&target, &bytes)
     }
 
-    // load/save 由后续 task 的 Tauri command 调用，本任务暂无调用方。
-    #[allow(dead_code)]
-    pub(crate) fn load() -> Result<Self> {
-        let dir = crate::config::AppConfig::config_dir()
-            .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
-        Self::load_from(&dir)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn save(&self) -> Result<()> {
-        let dir = crate::config::AppConfig::config_dir()
-            .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
-        self.save_to(&dir)
-    }
-
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn remove_skill(&mut self, skill_id: &str) {
         self.skills.remove(skill_id);
     }

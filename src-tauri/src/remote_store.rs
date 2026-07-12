@@ -1,5 +1,4 @@
 // 远端 vault 适配器 trait 与 DTO。Task 8/10 接入前为 dead code，整模块 allow。
-#![allow(dead_code)]
 
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
@@ -7,13 +6,11 @@ use sha2::{Digest, Sha256};
 use crate::errors::{AppError, Result};
 use crate::vault_manifest::VaultManifest;
 
-/// 远端 vault 的只读 snapshot：解析后的 manifest + 当前 commit SHA + 分支。
-#[allow(dead_code)] // branch 由 Task 10 github_store 填充真实分支
+/// 远端 vault 的只读 snapshot：解析后的 manifest + 当前 commit SHA。
 #[derive(Debug, Clone)]
 pub(crate) struct RemoteSnapshot {
     pub manifest: VaultManifest,
     pub commit_sha: String,
-    pub branch: String,
 }
 
 /// 待写入远端的 blob：path 必须由 `expected_hash` 推导，bytes 的 SHA-256 必须等于 `expected_hash`。
@@ -25,7 +22,6 @@ pub(crate) struct BlobWrite {
 }
 
 /// 一次远端提交：base commit、新 blob、next manifest 与 commit message。
-#[allow(dead_code)] // commit_message 由 Task 10 github_store 用作真实提交信息
 #[derive(Debug, Clone)]
 pub(crate) struct RemoteChanges {
     pub base_commit_sha: String,

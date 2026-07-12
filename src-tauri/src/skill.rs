@@ -80,7 +80,6 @@ pub(crate) fn normalize_skill_name(name: &str) -> String {
 }
 
 /// 由 namespace 与原始 name 构造 canonical skill id `<namespace>:<normalized-name>`。
-#[allow(dead_code)] // Task 8 build_plan 接入非测试调用方后使用
 pub(crate) fn skill_id(namespace: SkillNamespace, name: &str) -> String {
     format!(
         "{}:{}",

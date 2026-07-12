@@ -1,6 +1,5 @@
 // 新 vault sync plan DTO 与决策模型及其唯一实现入口。
 // 前端 schema 与 Tauri boundary 复用本模块的 GitHub Vault 模型。
-#![allow(dead_code)]
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -899,7 +898,6 @@ pub(crate) async fn build_plan<S: RemoteStore>(
         .skills
         .iter()
         .map(|s| SkillPackInput {
-            skill_id: s.id.clone(),
             source_path: PathBuf::from(&s.source_path),
         })
         .collect();
@@ -987,7 +985,7 @@ pub(crate) struct PreparedSyncPlan {
     pub packed: BTreeMap<String, PackedLocal>,
     pub manifest: VaultManifest,
     pub expected_commit: String,
-    pub batch: crate::pack::PackBatch,
+    pub _batch: crate::pack::PackBatch,
 }
 
 /// 重新 fetch + scan + pack + merge，返回 PreparedSyncPlan。`home` 注入用于测试。
@@ -1014,7 +1012,6 @@ async fn prepare_plan<S: RemoteStore>(
         .skills
         .iter()
         .map(|s| SkillPackInput {
-            skill_id: s.id.clone(),
             source_path: PathBuf::from(&s.source_path),
         })
         .collect();
@@ -1098,7 +1095,7 @@ async fn prepare_plan<S: RemoteStore>(
         packed,
         manifest: snapshot.manifest,
         expected_commit: snapshot.commit_sha,
-        batch,
+        _batch: batch,
     })
 }
 
@@ -1159,7 +1156,6 @@ struct DownloadItem {
 struct DeleteLocalItem {
     skill_id: String,
     entry_ns: SkillNamespace,
-    entry_folder: String,
 }
 
 /// 下载目标：base 存在则用 state.namespace/relative_dir（update），否则用 entry.namespace/folder_name（remote-new）。
@@ -1471,7 +1467,6 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
                 delete_local_items.push(DeleteLocalItem {
                     skill_id: entry.skill_id.clone(),
                     entry_ns: entry.namespace,
-                    entry_folder: entry.folder_name.clone(),
                 });
             }
             _ => {}
@@ -1521,7 +1516,6 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
                 delete_local_items.push(DeleteLocalItem {
                     skill_id: skill_id.clone(),
                     entry_ns: conflict.namespace,
-                    entry_folder: conflict.folder_name.clone(),
                 });
             }
             SyncDecision::Skip => {}
@@ -1811,7 +1805,6 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
 }
 
 /// 批量上传：重新生成计划，选择匹配 skill_id 的 upload 动作后 apply。
-#[allow(dead_code)]
 pub(crate) async fn upload_skills<S: RemoteStore>(
     skill_ids: &[String],
     config: &AppConfig,
@@ -1833,7 +1826,6 @@ pub(crate) async fn upload_skills<S: RemoteStore>(
 }
 
 /// 批量下载：重新生成计划，选择匹配 skill_id 的 download 动作后 apply。
-#[allow(dead_code)]
 pub(crate) async fn download_skills<S: RemoteStore>(
     skill_ids: &[String],
     config: &AppConfig,
@@ -2742,7 +2734,6 @@ mod tests {
     enum CommitMode {
         #[default]
         Ok,
-        RemoteChanged,
         OutcomeUnknown,
         DefiniteError,
     }
@@ -2792,7 +2783,6 @@ mod tests {
             Ok(RemoteSnapshot {
                 manifest: self.manifest.clone(),
                 commit_sha: self.commit.clone(),
-                branch: "local".into(),
             })
         }
         async fn fetch_blob(&self, path: &str, _expected: &str) -> Result<Vec<u8>> {
@@ -2841,7 +2831,6 @@ mod tests {
                 CommitMode::Ok => Ok(RemoteCommit {
                     commit_sha: format!("commit-{count}"),
                 }),
-                CommitMode::RemoteChanged => Err(AppError::RemoteChanged("remote changed".into())),
                 CommitMode::OutcomeUnknown => Err(AppError::RemoteOutcomeUnknown {
                     base_commit_sha: self.commit.clone(),
                     candidate_commit_sha: "candidate".into(),
@@ -2891,7 +2880,6 @@ mod tests {
         make_skill(pack_home.path(), ns, folder, name);
         let source = namespace_root(pack_home.path(), ns).unwrap().join(folder);
         let inputs = vec![SkillPackInput {
-            skill_id: skill_id(ns, name),
             source_path: source,
         }];
         let batch = SkillPacker::pack_batch(

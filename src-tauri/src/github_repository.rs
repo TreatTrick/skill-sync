@@ -1,7 +1,6 @@
 // GitHub App installation discovery、repo 状态分类与显式 vault 初始化。
 // 所有 GitHub 请求通过共享 GithubAuthenticatedClient（401 强制刷新 + 单次重放）。
 // Task 11 核心实现：分页 discovery、状态分类、Contents API 初始化。
-#![allow(dead_code)]
 
 use std::sync::Arc;
 
@@ -60,7 +59,6 @@ pub(crate) struct GithubRepositorySelection {
 #[derive(Debug, Clone)]
 pub(crate) struct GithubRepositoryContext {
     pub installation_id: u64,
-    pub repository_id: u64,
     pub owner: String,
     pub repo: String,
     pub branch: String,
@@ -344,7 +342,6 @@ impl GithubRepositoryService {
         }
         Ok(GithubRepositoryContext {
             installation_id: repo.installation_id,
-            repository_id: repo.repository_id,
             owner: remote.owner.clone(),
             repo: remote.repo.clone(),
             branch: remote.branch.clone(),

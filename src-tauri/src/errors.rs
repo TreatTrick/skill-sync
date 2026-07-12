@@ -25,36 +25,27 @@ pub(crate) enum AppError {
     Vault(String),
     // RemoteChanged / RemoteOutcomeUnknown / Auth / RecoveryPending 在 Task 6/9/10 才被构造，
     // Task 3 阶段暂未使用，故标注 allow(dead_code)；Vault / Blocked 本任务即使用。
-    #[allow(dead_code)]
     #[error("remote changed: {0}")]
     RemoteChanged(String),
-    #[allow(dead_code)]
     #[error("remote outcome unknown (base={base_commit_sha}, candidate={candidate_commit_sha})")]
     RemoteOutcomeUnknown {
         base_commit_sha: String,
         candidate_commit_sha: String,
     },
-    #[allow(dead_code)]
     #[error("auth error: {0}")]
     Auth(String),
     #[error("blocked: {0}")]
     Blocked(String),
-    #[allow(dead_code)]
     #[error("recovery pending: {0}")]
     RecoveryPending(String),
-    #[allow(dead_code)]
     #[error("credential persistence failed: {0}")]
     CredentialPersistenceFailed(String),
-    #[allow(dead_code)]
     #[error("reauthorization required: {0}")]
     ReauthorizationRequired(String),
-    #[allow(dead_code)]
     #[error("rate limited: retry after {retry_after:?}")]
     RateLimited { retry_after: Option<String> },
-    #[allow(dead_code)]
     #[error("vault state changed: {0}")]
     VaultStateChanged(String),
-    #[allow(dead_code)]
     #[error("vault state changed: {message}")]
     VaultStateChangedWithCheck {
         message: String,

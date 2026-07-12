@@ -1,5 +1,4 @@
 // 远端 vault manifest DTO 与校验。Task 8/10 接入前，非测试构建中为 dead code，整模块 allow。
-#![allow(dead_code)]
 
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;

@@ -1,6 +1,5 @@
 // GitHub App Device Flow 授权与 refresh。不发送 client secret / OAuth scope。
 // 内部 token 用 secrecy::SecretString，禁止 Debug 输出明文。
-#![allow(dead_code)]
 
 use chrono::{Duration, Utc};
 use secrecy::{ExposeSecret, SecretString};
@@ -75,10 +74,6 @@ impl GithubAuthClient {
             web_base_url,
             api_base_url,
         })
-    }
-
-    pub(crate) fn public_config(&self) -> &GithubAppPublicConfig {
-        &self.public_config
     }
 
     /// 启动 Device Flow：只发送 client_id，不发送 scope。

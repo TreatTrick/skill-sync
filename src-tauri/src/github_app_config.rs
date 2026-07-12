@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 // GitHub App 公开配置：client_id / slug 可以安全地随桌面应用发布。
 
 const GITHUB_APP_CLIENT_ID: &str = "Iv23lif3tCgfnQjxjl9U";
@@ -34,6 +33,7 @@ impl GithubAppPublicConfig {
     }
 
     /// 公开字段名（用于断言不含 private key / client secret）。
+    #[cfg(test)]
     pub(crate) fn public_field_names() -> [&'static str; 2] {
         ["client_id", "slug"]
     }

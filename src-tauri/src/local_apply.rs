@@ -1,6 +1,5 @@
 // 本地 apply 事务：同盘 staging/replace/trash、durable state 写入、versioned journal 与恢复。
 // Task 9 核心实现：journal 持久化与幂等 resume 简化（主要覆盖 StateSaving 恢复）。
-#![allow(dead_code)]
 
 use std::fs;
 use std::io::Write;

@@ -110,7 +110,6 @@ impl Default for LimitsConfig {
 impl LimitsConfig {
     /// 拒绝任一 pack/unpack limit 为 0，并要求单文件上限不超过总上限。
     /// `max_auto_delete` 为 0 表示“任何删除都触发护栏”，是合法的严格配置，不拒绝。
-    #[allow(dead_code)]
     pub(crate) fn validate(&self) -> Result<()> {
         if self.max_skill_zip_bytes == 0
             || self.max_skill_files == 0

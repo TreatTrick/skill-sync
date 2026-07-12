@@ -96,8 +96,6 @@ impl AppRuntime {
 pub(crate) enum CredentialStatus {
     Disconnected,
     Valid,
-    #[allow(dead_code)]
-    Refreshing,
     ReauthorizationRequired,
 }
 
@@ -851,7 +849,7 @@ async fn load_store_and_state(
     .await?;
     let context = runtime.repository.validate_for_side_effect(&remote).await?;
     Ok((
-        GitHubVaultStore::new(runtime.client.clone(), context, config.device_id.clone()),
+        GitHubVaultStore::new(runtime.client.clone(), context),
         state,
     ))
 }
@@ -1246,7 +1244,6 @@ mod tests {
         RemoteSnapshot {
             manifest,
             commit_sha: sha.into(),
-            branch: "main".into(),
         }
     }
 

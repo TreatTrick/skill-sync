@@ -2,7 +2,6 @@
 // 单飞刷新的 GithubCredentialManager，以及共享 GithubAuthenticatedClient（401 强制刷新 + 单次重放）。
 // 不给 GithubCredential/SecretString 派生 Serialize；keyring 内部用私有 StoredGithubCredential
 // 作为唯一 JSON 边界，只在 blocking closure 内 ExposeSecret 转换。
-#![allow(dead_code)]
 
 use std::sync::Arc;
 
@@ -16,6 +15,7 @@ use uuid::Uuid;
 use crate::errors::{AppError, Result};
 use crate::github_auth::GithubAuthClient;
 
+#[cfg(test)]
 const SCHEMA: u32 = 1;
 const ACCESS_SKEW_SECS: i64 = 300;
 const KEYRING_SERVICE: &str = "skill-sync";
@@ -94,10 +94,12 @@ pub(crate) trait CredentialStore: Send + Sync {
 }
 
 /// 内存 store（测试用）：默认运行的完整授权与轮换测试使用它。
+#[cfg(test)]
 pub(crate) struct InMemoryCredentialStore {
     inner: Arc<Mutex<Option<GithubCredential>>>,
 }
 
+#[cfg(test)]
 impl InMemoryCredentialStore {
     pub(crate) fn new() -> Self {
         Self {
@@ -106,6 +108,7 @@ impl InMemoryCredentialStore {
     }
 }
 
+#[cfg(test)]
 #[async_trait]
 impl CredentialStore for InMemoryCredentialStore {
     async fn load(&self) -> Result<Option<GithubCredential>> {
