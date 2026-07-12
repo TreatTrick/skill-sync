@@ -33,7 +33,7 @@ export const uploadSkills = async (
 ): Promise<ApplySyncResponse> => {
   const parsedSkillIds = skillIdsSchema.parse(skillIds)
   const raw = await invokeCmd<unknown>('upload_skills', {
-    skill_ids: parsedSkillIds,
+    skillIds: parsedSkillIds,
   })
   return applySyncResponseSchema.parse(raw)
 }
@@ -43,7 +43,7 @@ export const downloadSkills = async (
 ): Promise<ApplySyncResponse> => {
   const parsedSkillIds = skillIdsSchema.parse(skillIds)
   const raw = await invokeCmd<unknown>('download_skills', {
-    skill_ids: parsedSkillIds,
+    skillIds: parsedSkillIds,
   })
   return applySyncResponseSchema.parse(raw)
 }
@@ -53,7 +53,7 @@ export const resumeSyncRecovery = async (
 ): Promise<ApplySyncResponse> => {
   const parsedTaskId = z.string().min(1).parse(taskId)
   const raw = await invokeCmd<unknown>('resume_sync_recovery', {
-    task_id: parsedTaskId,
+    taskId: parsedTaskId,
   })
   return applySyncResponseSchema.parse(raw)
 }

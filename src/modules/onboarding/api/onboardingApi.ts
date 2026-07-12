@@ -87,7 +87,7 @@ export const pollGithubDeviceFlow = async (
 ): Promise<DeviceFlowPoll> => {
   const payload = deviceFlowPollPayloadSchema.parse(
     await invokeCmd<unknown>('poll_github_device_flow', {
-      device_code: deviceCode,
+      deviceCode,
       interval,
     }),
   )
@@ -116,7 +116,7 @@ export const listInstallationRepositories = async (
     .nonnegative()
     .parse(installationId)
   const raw = await invokeCmd<unknown>('list_installation_repositories', {
-    installation_id: parsedInstallationId,
+    installationId: parsedInstallationId,
   })
   return z
     .array(z.unknown())

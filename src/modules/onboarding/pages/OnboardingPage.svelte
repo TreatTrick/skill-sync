@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation'
 
   import { getAppState } from '@/modules/settings'
-  import { errorMessage, isWorkspaceReady, SkillSyncError } from '@/shared/lib'
+  import { errorMessage, isWorkspaceReady, openPath, SkillSyncError } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { useQueryClient, createQuery } from '@tanstack/svelte-query'
   import {
@@ -145,6 +145,15 @@
       }
     }
     message = errorMessage(error)
+  }
+
+  const openExternal = async (event: MouseEvent, url: string): Promise<void> => {
+    event.preventDefault()
+    try {
+      await openPath(url)
+    } catch (error) {
+      setError(error)
+    }
   }
 
   const loadAppInfo = async (): Promise<void> => {
@@ -446,7 +455,13 @@
           <div class="grid gap-3 border border-border bg-surface p-4">
             <p class="text-sm text-muted-foreground">{t('github.deviceCodeLabel')}</p>
             <code class="text-2xl font-bold tracking-widest text-strong-foreground">{deviceFlow.user_code}</code>
-            <a class="inline-flex items-center gap-2 text-sm text-primary underline" href={deviceFlow.verification_uri} rel="noreferrer" target="_blank">
+            <a
+              class="inline-flex items-center gap-2 text-sm text-primary underline"
+              href={deviceFlow?.verification_uri ?? ''}
+              onclick={(event) => void openExternal(event, deviceFlow?.verification_uri ?? '')}
+              rel="noreferrer"
+              target="_blank"
+            >
               {t('github.openVerification')} <ExternalLink class="size-4" />
             </a>
             {#if deviceExpiresAt}
@@ -468,7 +483,13 @@
           {stage === 'repository_scope_blocked' ? t('github.adjustScope') : t('github.installDescription')}
         </p>
         {#if appInfo?.install_url}
-          <a class="inline-flex items-center gap-2 text-sm text-primary underline" href={appInfo.install_url} rel="noreferrer" target="_blank">
+          <a
+            class="inline-flex items-center gap-2 text-sm text-primary underline"
+            href={appInfo?.install_url ?? ''}
+            onclick={(event) => void openExternal(event, appInfo?.install_url ?? '')}
+            rel="noreferrer"
+            target="_blank"
+          >
             {t('github.installApp')} <ExternalLink class="size-4" />
           </a>
         {/if}
@@ -522,7 +543,13 @@
         <h2 class="font-bold text-destructive">{t('github.invalidManifest')}</h2>
         <p class="text-sm text-muted-foreground">{t('github.invalidManifestDescription')}</p>
         {#if remote}
-          <a class="inline-flex items-center gap-2 text-sm text-primary underline" href={`https://github.com/${remote.owner}/${remote.repo}`} rel="noreferrer" target="_blank">
+          <a
+            class="inline-flex items-center gap-2 text-sm text-primary underline"
+            href={`https://github.com/${remote?.owner ?? ''}/${remote?.repo ?? ''}`}
+            onclick={(event) => void openExternal(event, `https://github.com/${remote?.owner ?? ''}/${remote?.repo ?? ''}`)}
+            rel="noreferrer"
+            target="_blank"
+          >
             {t('github.openRepository')} <ExternalLink class="size-4" />
           </a>
         {/if}

@@ -28,6 +28,6 @@ export const disconnectGithub = async (
     .nonnegative()
     .parse(expectedRepositoryId)
   await invokeCmd('disconnect_github', {
-    expected_repository_id: repositoryId,
+    expectedRepositoryId: repositoryId,
   })
 }
