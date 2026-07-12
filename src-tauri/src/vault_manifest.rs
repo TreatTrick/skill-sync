@@ -67,7 +67,7 @@ impl VaultManifest {
                 "unsupported manifest schema: {schema}"
             )));
         }
-        let mut folder_collision: HashSet<String> = HashSet::new();
+        let mut folder_collision: HashSet<(SkillNamespace, String)> = HashSet::new();
         for (key, skill) in &self.skills {
             if key != &skill.id {
                 return Err(AppError::Vault(format!(
@@ -77,7 +77,7 @@ impl VaultManifest {
             }
             validate_skill_entry(skill)?;
             let collision = folder_collision_key(&skill.folder_name);
-            if !folder_collision.insert(collision.clone()) {
+            if !folder_collision.insert((skill.namespace, collision.clone())) {
                 return Err(AppError::Vault(format!(
                     "manifest folder_name collision: {collision:?}"
                 )));
@@ -252,6 +252,60 @@ mod tests {
     fn manifest_valid_parses_successfully() {
         let json = manifest_with("codex:ponytail", valid_skill_value());
         assert!(VaultManifest::parse_validated(json.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn manifest_allows_same_folder_name_in_different_namespaces() {
+        let mut codex_skill = valid_skill_value();
+        codex_skill["id"] = serde_json::json!("codex:shared");
+        codex_skill["name"] = serde_json::json!("shared");
+        codex_skill["folder_name"] = serde_json::json!("shared");
+
+        let mut claude_skill = valid_skill_value();
+        claude_skill["id"] = serde_json::json!("claude-code:shared");
+        claude_skill["name"] = serde_json::json!("shared");
+        claude_skill["namespace"] = serde_json::json!("claude-code");
+        claude_skill["folder_name"] = serde_json::json!("shared");
+
+        let manifest = serde_json::json!({
+            "schema": 1,
+            "updated_at": "",
+            "updated_by": "device-a",
+            "skills": {
+                "codex:shared": codex_skill,
+                "claude-code:shared": claude_skill,
+            },
+        });
+        let json = serde_json::to_string(&manifest).unwrap();
+
+        let result = VaultManifest::parse_validated(json.as_bytes());
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn manifest_rejects_same_folder_name_in_one_namespace() {
+        let mut first_skill = valid_skill_value();
+        first_skill["id"] = serde_json::json!("codex:shared-a");
+        first_skill["name"] = serde_json::json!("shared-a");
+        first_skill["folder_name"] = serde_json::json!("Shared");
+
+        let mut second_skill = valid_skill_value();
+        second_skill["id"] = serde_json::json!("codex:shared-b");
+        second_skill["name"] = serde_json::json!("shared-b");
+        second_skill["folder_name"] = serde_json::json!("shared");
+
+        let manifest = serde_json::json!({
+            "schema": 1,
+            "updated_at": "",
+            "updated_by": "device-a",
+            "skills": {
+                "codex:shared-a": first_skill,
+                "codex:shared-b": second_skill,
+            },
+        });
+        let json = serde_json::to_string(&manifest).unwrap();
+
+        assert!(VaultManifest::parse_validated(json.as_bytes()).is_err());
     }
 
     #[test]
