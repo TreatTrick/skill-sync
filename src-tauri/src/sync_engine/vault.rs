@@ -2738,17 +2738,13 @@ mod tests {
 
     use std::sync::{Arc, Mutex};
 
+    #[derive(Default)]
     enum CommitMode {
+        #[default]
         Ok,
         RemoteChanged,
         OutcomeUnknown,
         DefiniteError,
-    }
-
-    impl Default for CommitMode {
-        fn default() -> Self {
-            CommitMode::Ok
-        }
     }
 
     /// commit_changes 期间的文件系统突变，用于验证 journal 持久化失败传播。
@@ -2817,13 +2813,13 @@ mod tests {
                 match self.mutation {
                     JournalMutation::BreakClearOnDefiniteError => {
                         let path = crate::local_apply::journal_path(dir);
-                        let _ = std::fs::remove_file(&path);
-                        let _ = std::fs::create_dir(&path);
+                        drop(std::fs::remove_file(&path));
+                        drop(std::fs::create_dir(&path));
                         return Err(AppError::Vault("definite commit error".into()));
                     }
                     JournalMutation::BreakSaveOnUnknown => {
-                        let _ = std::fs::remove_dir_all(dir);
-                        let _ = std::fs::File::create(dir);
+                        drop(std::fs::remove_dir_all(dir));
+                        drop(std::fs::File::create(dir));
                         return Err(AppError::RemoteOutcomeUnknown {
                             base_commit_sha: self.commit.clone(),
                             candidate_commit_sha: "candidate".into(),
@@ -2831,8 +2827,8 @@ mod tests {
                     }
                     JournalMutation::BreakStateSavingOnSuccess => {
                         let path = crate::local_apply::journal_path(dir);
-                        let _ = std::fs::remove_file(&path);
-                        let _ = std::fs::create_dir(&path);
+                        drop(std::fs::remove_file(&path));
+                        drop(std::fs::create_dir(&path));
                         return Ok(RemoteCommit {
                             commit_sha: "candidate".into(),
                         });
@@ -3696,7 +3692,7 @@ mod tests {
         let captured = store.captured_manifest.lock().unwrap().clone().unwrap();
         let expected_hash = format!(
             "sha256:{}",
-            hex::encode(Sha256::digest(&captured.validated_bytes().unwrap()))
+            hex::encode(Sha256::digest(captured.validated_bytes().unwrap()))
         );
         assert_eq!(
             journal.next_manifest_hash.as_deref(),

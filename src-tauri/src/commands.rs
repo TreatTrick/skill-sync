@@ -381,7 +381,7 @@ fn reconcile_remote_journal(
     }
     if let Some(intended) = &journal.next_manifest_hash {
         if let Ok(bytes) = snapshot.manifest.validated_bytes() {
-            let fetched = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
+            let fetched = format!("sha256:{}", hex::encode(Sha256::digest(bytes)));
             if &fetched == intended {
                 return RemoteRecoveryDecision::Published {
                     commit_sha: snapshot.commit_sha.clone(),
@@ -1275,7 +1275,7 @@ mod tests {
         let manifest = VaultManifest::empty("d");
         let hash = format!(
             "sha256:{}",
-            hex::encode(Sha256::digest(&manifest.validated_bytes().unwrap()))
+            hex::encode(Sha256::digest(manifest.validated_bytes().unwrap()))
         );
         let journal = rec_journal(Some("base"), Some("candidate"), Some(&hash), "base");
         let snapshot = snap("other", manifest);

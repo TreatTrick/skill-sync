@@ -256,6 +256,8 @@ impl GitHubVaultStore {
     }
 
     fn contents_path(&self, path: &str, reference: &str) -> String {
+        // 静态 URL 解析不可失败；用 Url 仅为了正确编码 ref 查询参数。
+        #[allow(clippy::expect_used)]
         let mut url = reqwest::Url::parse("https://api.github.com").expect("static URL is valid");
         url.set_path(&format!("{}/contents/{}", self.repository_prefix(), path));
         url.query_pairs_mut().append_pair("ref", reference);
