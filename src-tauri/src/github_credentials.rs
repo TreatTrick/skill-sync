@@ -319,6 +319,23 @@ impl GithubAuthenticatedClient {
         })
     }
 
+    /// 测试专用构造：注入预构建的 reqwest::Client（如短超时 client 以触发传输错误）。
+    /// 生产构造不变。
+    #[cfg(test)]
+    pub(crate) fn new_with_client(
+        manager: Arc<GithubCredentialManager>,
+        app_client_id: String,
+        api_base_url: reqwest::Url,
+        http: reqwest::Client,
+    ) -> Self {
+        Self {
+            manager,
+            http,
+            app_client_id,
+            api_base_url,
+        }
+    }
+
     pub(crate) async fn get_path(&self, path: &str) -> Result<reqwest::Response> {
         let url = self.resolve_path(path)?;
         self.get(url.as_str()).await

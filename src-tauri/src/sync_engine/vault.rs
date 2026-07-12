@@ -1271,8 +1271,16 @@ async fn execute_download<S: RemoteStore>(
     Ok(())
 }
 
-fn persist_recovery(config_dir: &Path, task_id: &str, phase: &str, working: &SyncState) {
-    let bytes = serde_json::to_vec(working).unwrap_or_default();
+fn save_recovery_journal(
+    config_dir: &Path,
+    task_id: &str,
+    phase: &str,
+    working: &SyncState,
+    completed_action_ids: Vec<String>,
+    pending_action_ids: Vec<String>,
+) -> Result<()> {
+    let bytes = serde_json::to_vec(working)
+        .map_err(|e| AppError::Vault(format!("state serialize failed: {e}")))?;
     let journal = ApplyJournal {
         schema: 1,
         task_id: task_id.into(),
@@ -1280,8 +1288,12 @@ fn persist_recovery(config_dir: &Path, task_id: &str, phase: &str, working: &Syn
         remote_candidate: None,
         next_state_hash: format!("sha256:{}", hex::encode(Sha256::digest(&bytes))),
         next_state_bytes: bytes,
+        remote_base: None,
+        next_manifest_hash: None,
+        completed_action_ids,
+        pending_action_ids,
     };
-    drop(save_journal(config_dir, &journal));
+    save_journal(config_dir, &journal)
 }
 
 fn cleanup_task_artifacts(home: &Path, task_id: &str) -> bool {
@@ -1525,6 +1537,10 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         }
     }
 
+    // 已完成本地副作用（download / local-delete）与待远端发布（upload / delete-remote）的 action ID。
+    let mut completed_action_ids: Vec<String> = Vec::new();
+    let mut pending_action_ids: Vec<String> = Vec::new();
+
     // 下载（stage/verify/commit）
     for dl in &download_items {
         execute_download(store, dl, &working, home, &task_id, &config.limits).await?;
@@ -1540,6 +1556,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
             },
         );
         applied.push(dl.skill_id.clone());
+        completed_action_ids.push(dl.skill_id.clone());
     }
 
     // 删本地（trash）
@@ -1550,7 +1567,14 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         let trash = trash_dir(&root, &task_id, &folder);
         if target.exists() {
             if let Err(e) = move_to_trash(&target, &trash) {
-                persist_recovery(config_dir, &task_id, "trash_move_failed", &working);
+                save_recovery_journal(
+                    config_dir,
+                    &task_id,
+                    "trash_move_failed",
+                    &working,
+                    applied.clone(),
+                    vec![dl.skill_id.clone()],
+                )?;
                 return Ok(ApplySyncResponse::RecoveryRequired {
                     recovery: RecoveryInfo {
                         task_id: task_id.clone(),
@@ -1564,6 +1588,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
             }
         }
         applied.push(dl.skill_id.clone());
+        completed_action_ids.push(dl.skill_id.clone());
         working.skills.remove(&dl.skill_id);
     }
 
@@ -1593,6 +1618,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
             },
         );
         applied.push(up.skill_id.clone());
+        pending_action_ids.push(up.skill_id.clone());
         working.skills.insert(
             up.skill_id.clone(),
             SkillSyncState {
@@ -1610,49 +1636,11 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     for id in &delete_remote_ids {
         next_manifest.skills.remove(id);
         applied.push(id.clone());
+        pending_action_ids.push(id.clone());
         working.skills.remove(id);
     }
 
-    // 远端提交（uploads + delete_remote 合并一次）
-    let remote_commit: Option<String> = if !uploads.is_empty() || !delete_remote_ids.is_empty() {
-        let changes = RemoteChanges {
-            base_commit_sha: prepared.expected_commit.clone(),
-            blobs,
-            next_manifest: next_manifest.clone(),
-            commit_message: "skill-sync: apply".into(),
-        };
-        persist_recovery(config_dir, &task_id, "remote_committing", &working);
-        match store.commit_changes(changes).await {
-            Ok(c) => Some(c.commit_sha),
-            Err(AppError::RemoteChanged(_)) => {
-                drop(clear_journal(config_dir));
-                return Ok(ApplySyncResponse::PlanChanged {
-                    reason: PlanChangeReason::RemoteChanged,
-                    latest_plan: Box::new(prepared.plan),
-                });
-            }
-            Err(AppError::RemoteOutcomeUnknown {
-                base_commit_sha,
-                candidate_commit_sha,
-            }) => {
-                return Ok(ApplySyncResponse::RecoveryRequired {
-                    recovery: RecoveryInfo {
-                        task_id: task_id.clone(),
-                        phase: RecoveryPhase::RemoteOutcomeUnknown,
-                        remote_commit: Some(candidate_commit_sha),
-                        completed_action_ids: applied.clone(),
-                        pending_action_ids: Vec::new(),
-                        message: format!("remote outcome unknown (base={base_commit_sha})"),
-                    },
-                });
-            }
-            Err(e) => return Err(e),
-        }
-    } else {
-        None
-    };
-
-    // adoptions / removals（始终应用，不依赖 selected）
+    // adoptions / removals（纯状态转移，移到远端提交之前，确保预期状态完整）
     for adoption in &plan.base_adoptions {
         let entry = plan
             .entries
@@ -1685,11 +1673,93 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         state_updated.push(id.clone());
     }
 
+    // 远端提交（uploads + delete_remote 合并一次）。先持久化完整预期状态再发起提交；
+    // working.remote.commit_sha 暂留 base，直到拿到 candidate。
+    let remote_commit: Option<String> = if !uploads.is_empty() || !delete_remote_ids.is_empty() {
+        let base_commit = prepared.expected_commit.clone();
+        // 预期状态的 remote.commit_sha 暂留 base，直到拿到 candidate。
+        working.remote.commit_sha = base_commit.clone();
+        let intended_manifest_hash = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(&next_manifest.validated_bytes()?))
+        );
+        let intended_state_bytes = serde_json::to_vec(&working)
+            .map_err(|e| AppError::Vault(format!("state serialize failed: {e}")))?;
+        let intended_state_hash = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(&intended_state_bytes))
+        );
+        let journal = ApplyJournal {
+            schema: 1,
+            task_id: task_id.clone(),
+            phase: "remote_committing".into(),
+            remote_candidate: None,
+            remote_base: Some(base_commit.clone()),
+            next_manifest_hash: Some(intended_manifest_hash.clone()),
+            completed_action_ids: completed_action_ids.clone(),
+            pending_action_ids: pending_action_ids.clone(),
+            next_state_hash: intended_state_hash.clone(),
+            next_state_bytes: intended_state_bytes.clone(),
+        };
+        save_journal(config_dir, &journal)?;
+
+        let changes = RemoteChanges {
+            base_commit_sha: base_commit.clone(),
+            blobs,
+            next_manifest: next_manifest.clone(),
+            commit_message: "skill-sync: apply".into(),
+        };
+        match store.commit_changes(changes).await {
+            Ok(c) => Some(c.commit_sha),
+            Err(AppError::RemoteChanged(_)) => {
+                clear_journal(config_dir)?;
+                return Ok(ApplySyncResponse::PlanChanged {
+                    reason: PlanChangeReason::RemoteChanged,
+                    latest_plan: Box::new(prepared.plan),
+                });
+            }
+            Err(AppError::RemoteOutcomeUnknown {
+                candidate_commit_sha,
+                ..
+            }) => {
+                let journal = ApplyJournal {
+                    schema: 1,
+                    task_id: task_id.clone(),
+                    phase: "remote_outcome_unknown".into(),
+                    remote_candidate: Some(candidate_commit_sha.clone()),
+                    remote_base: Some(base_commit.clone()),
+                    next_manifest_hash: Some(intended_manifest_hash.clone()),
+                    completed_action_ids: completed_action_ids.clone(),
+                    pending_action_ids: pending_action_ids.clone(),
+                    next_state_hash: intended_state_hash.clone(),
+                    next_state_bytes: intended_state_bytes.clone(),
+                };
+                save_journal(config_dir, &journal)?;
+                return Ok(ApplySyncResponse::RecoveryRequired {
+                    recovery: RecoveryInfo {
+                        task_id: task_id.clone(),
+                        phase: RecoveryPhase::RemoteOutcomeUnknown,
+                        remote_commit: Some(candidate_commit_sha),
+                        completed_action_ids: completed_action_ids.clone(),
+                        pending_action_ids: pending_action_ids.clone(),
+                        message: format!("remote outcome unknown (base={base_commit})"),
+                    },
+                });
+            }
+            Err(e) => {
+                clear_journal(config_dir)?;
+                return Err(e);
+            }
+        }
+    } else {
+        None
+    };
+
     working.remote.commit_sha = remote_commit
         .clone()
         .unwrap_or_else(|| prepared.expected_commit.clone());
 
-    // 保存 sync_state（durable）；先写 journal 以便 StateSaveFailed 恢复
+    // 保存 sync_state（durable）；先写 state_saving journal 以便 StateSaveFailed 恢复
     let next_state_bytes = serde_json::to_vec(&working)
         .map_err(|e| AppError::Vault(format!("state serialize failed: {e}")))?;
     let journal = ApplyJournal {
@@ -1699,6 +1769,10 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         remote_candidate: remote_commit.clone(),
         next_state_hash: format!("sha256:{}", hex::encode(Sha256::digest(&next_state_bytes))),
         next_state_bytes,
+        remote_base: None,
+        next_manifest_hash: None,
+        completed_action_ids: Vec::new(),
+        pending_action_ids: Vec::new(),
     };
     save_journal(config_dir, &journal)?;
     let state_to_save = working.clone();
@@ -1719,7 +1793,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
             },
         });
     }
-    drop(clear_journal(config_dir));
+    clear_journal(config_dir)?;
 
     if !cleanup_task_artifacts(home, &task_id) {
         warnings.push("cleanup_pending".into());
@@ -2668,6 +2742,26 @@ mod tests {
         Ok,
         RemoteChanged,
         OutcomeUnknown,
+        DefiniteError,
+    }
+
+    impl Default for CommitMode {
+        fn default() -> Self {
+            CommitMode::Ok
+        }
+    }
+
+    /// commit_changes 期间的文件系统突变，用于验证 journal 持久化失败传播。
+    #[derive(Default)]
+    enum JournalMutation {
+        #[default]
+        None,
+        /// 把 apply-transaction.json 替换为目录后返回 definite error，使 clear_journal 失败。
+        BreakClearOnDefiniteError,
+        /// 把 config dir 替换为文件后返回 OutcomeUnknown，使 unknown-phase save_journal 失败。
+        BreakSaveOnUnknown,
+        /// 把 apply-transaction.json 替换为目录后返回 success，使 state_saving save_journal 失败。
+        BreakStateSavingOnSuccess,
     }
 
     struct ApplyMockStore {
@@ -2676,6 +2770,24 @@ mod tests {
         blobs: HashMap<String, Vec<u8>>,
         commit_count: Arc<Mutex<usize>>,
         commit_mode: CommitMode,
+        captured_manifest: Arc<Mutex<Option<VaultManifest>>>,
+        config_dir: Option<PathBuf>,
+        mutation: JournalMutation,
+    }
+
+    impl Default for ApplyMockStore {
+        fn default() -> Self {
+            Self {
+                manifest: VaultManifest::empty("d"),
+                commit: "commit-1".into(),
+                blobs: HashMap::new(),
+                commit_count: Arc::new(Mutex::new(0)),
+                commit_mode: CommitMode::Ok,
+                captured_manifest: Arc::new(Mutex::new(None)),
+                config_dir: None,
+                mutation: JournalMutation::None,
+            }
+        }
     }
 
     #[async_trait::async_trait]
@@ -2693,20 +2805,52 @@ mod tests {
                 .cloned()
                 .ok_or_else(|| AppError::Vault(format!("blob not found: {path}")))
         }
-        async fn commit_changes(&self, _changes: RemoteChanges) -> Result<RemoteCommit> {
-            match self.commit_mode {
-                CommitMode::Ok => {
-                    let mut c = self.commit_count.lock().unwrap();
-                    *c += 1;
-                    Ok(RemoteCommit {
-                        commit_sha: format!("commit-{}", *c),
-                    })
+        async fn commit_changes(&self, changes: RemoteChanges) -> Result<RemoteCommit> {
+            let count = {
+                let mut c = self.commit_count.lock().unwrap();
+                *c += 1;
+                *c
+            };
+            *self.captured_manifest.lock().unwrap() = Some(changes.next_manifest.clone());
+
+            if let Some(dir) = &self.config_dir {
+                match self.mutation {
+                    JournalMutation::BreakClearOnDefiniteError => {
+                        let path = crate::local_apply::journal_path(dir);
+                        let _ = std::fs::remove_file(&path);
+                        let _ = std::fs::create_dir(&path);
+                        return Err(AppError::Vault("definite commit error".into()));
+                    }
+                    JournalMutation::BreakSaveOnUnknown => {
+                        let _ = std::fs::remove_dir_all(dir);
+                        let _ = std::fs::File::create(dir);
+                        return Err(AppError::RemoteOutcomeUnknown {
+                            base_commit_sha: self.commit.clone(),
+                            candidate_commit_sha: "candidate".into(),
+                        });
+                    }
+                    JournalMutation::BreakStateSavingOnSuccess => {
+                        let path = crate::local_apply::journal_path(dir);
+                        let _ = std::fs::remove_file(&path);
+                        let _ = std::fs::create_dir(&path);
+                        return Ok(RemoteCommit {
+                            commit_sha: "candidate".into(),
+                        });
+                    }
+                    JournalMutation::None => {}
                 }
+            }
+
+            match self.commit_mode {
+                CommitMode::Ok => Ok(RemoteCommit {
+                    commit_sha: format!("commit-{count}"),
+                }),
                 CommitMode::RemoteChanged => Err(AppError::RemoteChanged("remote changed".into())),
                 CommitMode::OutcomeUnknown => Err(AppError::RemoteOutcomeUnknown {
                     base_commit_sha: self.commit.clone(),
                     candidate_commit_sha: "candidate".into(),
                 }),
+                CommitMode::DefiniteError => Err(AppError::Vault("definite commit error".into())),
             }
         }
     }
@@ -2814,6 +2958,7 @@ mod tests {
             blobs: HashMap::new(),
             commit_count: Arc::new(Mutex::new(0)),
             commit_mode: CommitMode::Ok,
+            ..Default::default()
         }
     }
 
@@ -2870,6 +3015,7 @@ mod tests {
             blobs,
             commit_count: Arc::new(Mutex::new(0)),
             commit_mode: CommitMode::Ok,
+            ..Default::default()
         };
         let config = apply_config();
         let mut state = apply_state();
@@ -3078,6 +3224,7 @@ mod tests {
             blobs,
             commit_count: Arc::new(Mutex::new(0)),
             commit_mode: CommitMode::Ok,
+            ..Default::default()
         };
         let config = apply_config();
         let mut state = apply_state();
@@ -3379,6 +3526,7 @@ mod tests {
             blobs,
             commit_count: Arc::new(Mutex::new(0)),
             commit_mode: CommitMode::Ok,
+            ..Default::default()
         };
         let config = apply_config();
         let mut state = apply_state();
@@ -3463,6 +3611,219 @@ mod tests {
         .await
         .unwrap_err();
         assert!(matches!(err, AppError::Blocked(_)));
+    }
+
+    /// 构造单 upload apply 场景：本地有 codex:demo，远端空 manifest。
+    async fn single_upload_request(
+        home: &Path,
+        store: &ApplyMockStore,
+    ) -> (AppConfig, SyncState, ApplySyncRequest) {
+        make_skill(home, Codex, "demo", "demo");
+        let config = apply_config();
+        let state = apply_state();
+        let prepared = prepare_plan(&config, &state, store, home).await.unwrap();
+        let plan = prepared.plan.clone();
+        drop(prepared);
+        let req = apply_request(
+            &plan,
+            vec![action_id_of(&plan, "codex:demo")],
+            HashMap::new(),
+            false,
+        );
+        (config, state, req)
+    }
+
+    #[tokio::test]
+    async fn definite_commit_error_clears_journal_and_preserves_error() {
+        let home = temp_home();
+        let store = ApplyMockStore {
+            manifest: VaultManifest::empty("d"),
+            commit_mode: CommitMode::DefiniteError,
+            ..Default::default()
+        };
+        let (config, mut state, req) = single_upload_request(home.path(), &store).await;
+        let cfgdir = tempfile::tempdir().unwrap();
+        let err = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(err, AppError::Vault(msg) if msg.contains("definite commit error")));
+        assert_eq!(*store.commit_count.lock().unwrap(), 1);
+        assert!(crate::local_apply::load_pending(cfgdir.path()).is_none());
+    }
+
+    #[tokio::test]
+    async fn unknown_outcome_persists_complete_recovery_evidence() {
+        let home = temp_home();
+        let store = ApplyMockStore {
+            manifest: VaultManifest::empty("d"),
+            commit_mode: CommitMode::OutcomeUnknown,
+            ..Default::default()
+        };
+        let (config, mut state, req) = single_upload_request(home.path(), &store).await;
+        let cfgdir = tempfile::tempdir().unwrap();
+        let resp = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap();
+        let recovery = match resp {
+            ApplySyncResponse::RecoveryRequired { recovery } => recovery,
+            _ => panic!("expected RecoveryRequired"),
+        };
+        assert_eq!(recovery.phase, RecoveryPhase::RemoteOutcomeUnknown);
+        assert_eq!(recovery.remote_commit.as_deref(), Some("candidate"));
+        assert_eq!(recovery.completed_action_ids, Vec::<String>::new());
+        assert_eq!(recovery.pending_action_ids, vec!["codex:demo".to_string()]);
+
+        let journal = crate::local_apply::load_pending(cfgdir.path()).expect("journal retained");
+        assert_eq!(journal.phase, "remote_outcome_unknown");
+        assert_eq!(journal.remote_candidate.as_deref(), Some("candidate"));
+        assert_eq!(journal.remote_base.as_deref(), Some("commit-1"));
+        assert_eq!(journal.completed_action_ids, Vec::<String>::new());
+        assert_eq!(journal.pending_action_ids, vec!["codex:demo".to_string()]);
+        let captured = store.captured_manifest.lock().unwrap().clone().unwrap();
+        let expected_hash = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(&captured.validated_bytes().unwrap()))
+        );
+        assert_eq!(
+            journal.next_manifest_hash.as_deref(),
+            Some(expected_hash.as_str())
+        );
+        let intended: SyncState = serde_json::from_slice(&journal.next_state_bytes).unwrap();
+        assert!(intended.skills.contains_key("codex:demo"));
+        assert_eq!(intended.remote.commit_sha, "commit-1");
+    }
+
+    #[tokio::test]
+    async fn initial_journal_save_failure_skips_remote_commit() {
+        let home = temp_home();
+        let store = ApplyMockStore {
+            manifest: VaultManifest::empty("d"),
+            commit_mode: CommitMode::DefiniteError,
+            ..Default::default()
+        };
+        let (config, mut state, req) = single_upload_request(home.path(), &store).await;
+        let cfgdir = tempfile::tempdir().unwrap();
+        // config_dir 指向一个文件 -> save_journal(create_dir_all) 失败
+        let bad_config_dir = cfgdir.path().join("config-file");
+        std::fs::write(&bad_config_dir, b"x").unwrap();
+        let _ = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            &bad_config_dir,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(*store.commit_count.lock().unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn clear_failure_on_definite_error_propagates_and_retains_journal_path() {
+        let home = temp_home();
+        let cfgdir = tempfile::tempdir().unwrap();
+        let store = ApplyMockStore {
+            manifest: VaultManifest::empty("d"),
+            commit_mode: CommitMode::DefiniteError,
+            config_dir: Some(cfgdir.path().to_path_buf()),
+            mutation: JournalMutation::BreakClearOnDefiniteError,
+            ..Default::default()
+        };
+        let (config, mut state, req) = single_upload_request(home.path(), &store).await;
+        let err = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap_err();
+        // clear_journal 失败 -> 返回持久化错误（Io），而非原始 definite error
+        assert!(matches!(err, AppError::Io(_)));
+        // journal 路径仍存在（现在是目录）
+        let journal_path = crate::local_apply::journal_path(cfgdir.path());
+        assert!(journal_path.exists() && journal_path.is_dir());
+    }
+
+    #[tokio::test]
+    async fn unknown_save_failure_wins_over_recovery_response() {
+        let home = temp_home();
+        let cfgdir = tempfile::tempdir().unwrap();
+        let store = ApplyMockStore {
+            manifest: VaultManifest::empty("d"),
+            commit_mode: CommitMode::OutcomeUnknown,
+            config_dir: Some(cfgdir.path().to_path_buf()),
+            mutation: JournalMutation::BreakSaveOnUnknown,
+            ..Default::default()
+        };
+        let (config, mut state, req) = single_upload_request(home.path(), &store).await;
+        let err = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap_err();
+        // unknown-phase save_journal 失败 -> 持久化错误胜出，而非 RecoveryRequired
+        assert!(matches!(err, AppError::Io(_)));
+        // config dir 现在是文件 -> sync_state 未保存
+        assert!(cfgdir.path().is_file());
+        assert!(!cfgdir.path().join("sync_state.json").exists());
+    }
+
+    #[tokio::test]
+    async fn state_saving_failure_after_success_retains_base_state_and_evidence() {
+        let home = temp_home();
+        let cfgdir = tempfile::tempdir().unwrap();
+        let store = ApplyMockStore {
+            manifest: VaultManifest::empty("d"),
+            commit_mode: CommitMode::Ok,
+            config_dir: Some(cfgdir.path().to_path_buf()),
+            mutation: JournalMutation::BreakStateSavingOnSuccess,
+            ..Default::default()
+        };
+        let (config, mut state, req) = single_upload_request(home.path(), &store).await;
+        let err = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap_err();
+        // state_saving save_journal 失败 -> 持久化错误
+        assert!(matches!(err, AppError::Io(_)));
+        // 远端提交发生了一次
+        assert_eq!(*store.commit_count.lock().unwrap(), 1);
+        // 本机 state 仍在 base（未更新为 candidate）
+        assert_eq!(state.remote.commit_sha, "c");
+        // sync_state 未落盘
+        assert!(!cfgdir.path().join("sync_state.json").exists());
+        // recovery evidence 未被静默清除（journal 路径仍是目录）
+        let journal_path = crate::local_apply::journal_path(cfgdir.path());
+        assert!(journal_path.exists() && journal_path.is_dir());
     }
 
     #[tokio::test]

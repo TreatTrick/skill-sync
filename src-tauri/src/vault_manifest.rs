@@ -60,6 +60,15 @@ impl VaultManifest {
         Ok(manifest)
     }
 
+    /// 序列化自身并通过现有 parser 校验，返回确定性字节。
+    /// 同时用于 GitHub commit preflight 与预期 next_manifest 的 SHA-256。
+    pub(crate) fn validated_bytes(&self) -> Result<Vec<u8>> {
+        let bytes = serde_json::to_vec(self)
+            .map_err(|e| AppError::Vault(format!("manifest serialize failed: {e}")))?;
+        VaultManifest::parse_validated(&bytes)?;
+        Ok(bytes)
+    }
+
     fn validate(&self) -> Result<()> {
         if self.schema != SCHEMA_VERSION {
             let schema = self.schema;

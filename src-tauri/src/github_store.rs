@@ -93,9 +93,9 @@ impl RemoteStore for GitHubVaultStore {
                 )));
             }
         }
-        let manifest_bytes = serde_json::to_vec(&changes.next_manifest)
-            .map_err(|e| AppError::Vault(format!("serialize next manifest: {e}")))?;
-        VaultManifest::parse_validated(&manifest_bytes)
+        let manifest_bytes = changes
+            .next_manifest
+            .validated_bytes()
             .map_err(|_| AppError::Vault("next manifest is invalid".into()))?;
 
         let current_head = self.fetch_head().await?;
@@ -211,18 +211,21 @@ impl RemoteStore for GitHubVaultStore {
                         "branch update rejected because remote changed".into(),
                     ));
                 }
-                if !response.status().is_success() {
-                    return Err(response_error(response, "update branch ref").await);
+                if response.status().is_success() {
+                    return Ok(RemoteCommit {
+                        commit_sha: candidate_sha,
+                    });
                 }
-                Ok(RemoteCommit {
-                    commit_sha: candidate_sha,
-                })
-            }
-            Err(AppError::Auth(_)) => {
-                self.resolve_unknown_update(&changes.base_commit_sha, &candidate_sha)
+                // 其他不成功 PATCH 响应：转换为原始错误后按不可变 HEAD 裁决。
+                let original = response_error(response, "update branch ref").await;
+                self.reconcile_update(&changes.base_commit_sha, &candidate_sha, original)
                     .await
             }
-            Err(error) => Err(error),
+            Err(error) => {
+                // 传输错误：按不可变 HEAD 裁决（candidate=成功，base=原始错误，其他=RemoteChanged）。
+                self.reconcile_update(&changes.base_commit_sha, &candidate_sha, error)
+                    .await
+            }
         }
     }
 }
@@ -265,18 +268,19 @@ impl GitHubVaultStore {
         required_string(&body, "/object/sha", "branch head sha")
     }
 
-    async fn resolve_unknown_update(
+    /// PATCH 结果不明时按不可变 HEAD 裁决：candidate=已发布成功，base=未发布（返回原始错误），
+    /// 其他 HEAD=远端被他人改动，HEAD 不可读=RemoteOutcomeUnknown。
+    async fn reconcile_update(
         &self,
         base_commit_sha: &str,
         candidate_sha: &str,
+        original_error: AppError,
     ) -> Result<RemoteCommit> {
         match self.fetch_head().await {
             Ok(head) if head == candidate_sha => Ok(RemoteCommit {
                 commit_sha: candidate_sha.to_string(),
             }),
-            Ok(head) if head == base_commit_sha => Err(AppError::RemoteChanged(
-                "branch update outcome is unknown; candidate was not published".into(),
-            )),
+            Ok(head) if head == base_commit_sha => Err(original_error),
             Ok(head) => Err(AppError::RemoteChanged(format!(
                 "branch update outcome is unknown; current head is {head}"
             ))),
@@ -357,6 +361,7 @@ mod tests {
     use chrono::{Duration, Utc};
     use secrecy::SecretString;
     use sha2::Digest;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use uuid::Uuid;
     use wiremock::matchers::{body_json, method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -660,81 +665,204 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn unknown_update_outcome_accepts_candidate_head() {
-        let server = MockServer::start().await;
+    async fn mount_head(server: &MockServer, sha: &str) {
         Mock::given(method("GET"))
             .and(path("/repos/owner/vault/git/ref/heads/main"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "object": { "sha": "candidate" }
+                "object": { "sha": sha }
+            })))
+            .mount(server)
+            .await;
+    }
+
+    /// 5xx PATCH 响应经 response_error 转换后的原始错误。
+    fn response_error_5xx() -> AppError {
+        AppError::Vault("update branch ref failed with status 503 Server Error".into())
+    }
+
+    /// 传输错误（如超时）经 map_http_err 转换后的原始错误。
+    fn transport_error() -> AppError {
+        AppError::Auth("http error: timeout".into())
+    }
+
+    #[tokio::test]
+    async fn reconcile_candidate_head_succeeds_for_response_and_transport_errors() {
+        for original in [response_error_5xx(), transport_error()] {
+            let server = MockServer::start().await;
+            mount_head(&server, "candidate").await;
+            let result = store(&server)
+                .await
+                .reconcile_update("base", "candidate", original)
+                .await
+                .unwrap();
+            assert_eq!(result.commit_sha, "candidate");
+        }
+    }
+
+    #[tokio::test]
+    async fn reconcile_base_head_returns_original_error_for_both_error_types() {
+        let server = MockServer::start().await;
+        mount_head(&server, "base").await;
+        let vault_store = store(&server).await;
+
+        let result = vault_store
+            .reconcile_update("base", "candidate", response_error_5xx())
+            .await;
+        assert!(matches!(result, Err(AppError::Vault(msg)) if msg.contains("503")));
+
+        let result = vault_store
+            .reconcile_update("base", "candidate", transport_error())
+            .await;
+        assert!(matches!(result, Err(AppError::Auth(msg)) if msg == "http error: timeout"));
+    }
+
+    #[tokio::test]
+    async fn reconcile_other_head_returns_remote_changed_for_both_error_types() {
+        let server = MockServer::start().await;
+        mount_head(&server, "other").await;
+        let vault_store = store(&server).await;
+        for original in [response_error_5xx(), transport_error()] {
+            let result = vault_store
+                .reconcile_update("base", "candidate", original)
+                .await;
+            assert!(matches!(result, Err(AppError::RemoteChanged(_))));
+        }
+    }
+
+    #[tokio::test]
+    async fn reconcile_unreadable_head_returns_outcome_unknown_for_both_error_types() {
+        for original in [response_error_5xx(), transport_error()] {
+            let server = MockServer::start().await;
+            let result = store(&server)
+                .await
+                .reconcile_update("base", "candidate", original)
+                .await;
+            assert!(matches!(
+                result,
+                Err(AppError::RemoteOutcomeUnknown {
+                    base_commit_sha,
+                    candidate_commit_sha
+                }) if base_commit_sha == "base" && candidate_commit_sha == "candidate"
+            ));
+        }
+    }
+
+    async fn store_with_client(server: &MockServer, http: reqwest::Client) -> GitHubVaultStore {
+        let credential_store = Arc::new(InMemoryCredentialStore::new());
+        let auth = Arc::new(
+            GithubAuthClient::new_with_urls(
+                GithubAppPublicConfig::new("Iv1.test", "skill-sync").unwrap(),
+                reqwest::Url::parse(&server.uri()).unwrap(),
+                reqwest::Url::parse(&format!("{}/api/", server.uri())).unwrap(),
+            )
+            .unwrap(),
+        );
+        let manager = Arc::new(GithubCredentialManager::new(credential_store, auth));
+        manager
+            .save_initial(&GithubCredential {
+                schema: 1,
+                generation: Uuid::new_v4(),
+                access_token: SecretString::new("token".into()),
+                refresh_token: SecretString::new("refresh".into()),
+                access_expires_at: Utc::now() + Duration::hours(1),
+                refresh_expires_at: Utc::now() + Duration::days(1),
+                github_login: "octocat".into(),
+                app_client_id: "Iv1.test".into(),
+            })
+            .await
+            .unwrap();
+        let api = Arc::new(GithubAuthenticatedClient::new_with_client(
+            manager,
+            "Iv1.test".into(),
+            reqwest::Url::parse(&format!("{}/", server.uri())).unwrap(),
+            http,
+        ));
+        let cfg = remote();
+        GitHubVaultStore::new(
+            api,
+            GithubRepositoryContext {
+                installation_id: cfg.installation_id,
+                repository_id: cfg.repository_id,
+                owner: cfg.owner,
+                repo: cfg.repo,
+                branch: cfg.branch,
+                head_sha: "head".into(),
+            },
+            "device-test".into(),
+        )
+    }
+
+    /// 完整 commit_changes 传输测试：注入短超时 client，PATCH 响应延迟超过超时 -> 传输错误 ->
+    /// 走 reconciliation；两次 preflight HEAD 读返回 base，reconciliation 读返回 candidate，
+    /// 证明真实 PATCH 传输失败能到达 reconciliation 并按 HEAD 结果裁决。
+    #[tokio::test]
+    async fn commit_changes_reconciles_transport_failure_to_candidate_head() {
+        let server = MockServer::start().await;
+        let head_reads = Arc::new(AtomicUsize::new(0));
+        let head_reads_clone = head_reads.clone();
+        Mock::given(method("GET"))
+            .and(path("/repos/owner/vault/git/ref/heads/main"))
+            .respond_with(move |_request: &wiremock::Request| {
+                let count = head_reads_clone.fetch_add(1, Ordering::SeqCst);
+                let sha = if count < 2 { "base" } else { "candidate" };
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "object": { "sha": sha }
+                }))
+            })
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/repos/owner/vault/git/commits/base"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "tree": { "sha": "base-tree" }
             })))
             .mount(&server)
             .await;
+        Mock::given(method("POST"))
+            .and(path("/repos/owner/vault/git/blobs"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "sha": "manifest-blob"
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/repos/owner/vault/git/trees"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "sha": "candidate-tree"
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/repos/owner/vault/git/commits"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "sha": "candidate"
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("PATCH"))
+            .and(path("/repos/owner/vault/git/refs/heads/main"))
+            .respond_with(
+                ResponseTemplate::new(200).set_delay(std::time::Duration::from_millis(500)),
+            )
+            .mount(&server)
+            .await;
 
-        let result = store(&server)
-            .await
-            .resolve_unknown_update("base", "candidate")
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(50))
+            .build()
+            .unwrap();
+        let vault_store = store_with_client(&server, http).await;
+        let result = vault_store
+            .commit_changes(RemoteChanges {
+                base_commit_sha: "base".into(),
+                blobs: vec![],
+                next_manifest: VaultManifest::empty("device-test"),
+                commit_message: "sync".into(),
+            })
             .await
             .unwrap();
         assert_eq!(result.commit_sha, "candidate");
-    }
-
-    #[tokio::test]
-    async fn unknown_update_outcome_with_base_head_is_retryable_remote_change() {
-        let server = MockServer::start().await;
-        Mock::given(method("GET"))
-            .and(path("/repos/owner/vault/git/ref/heads/main"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "object": { "sha": "base" }
-            })))
-            .mount(&server)
-            .await;
-
-        let result = store(&server)
-            .await
-            .resolve_unknown_update("base", "candidate")
-            .await;
-        assert!(matches!(
-            result,
-            Err(crate::errors::AppError::RemoteChanged(_))
-        ));
-    }
-
-    #[tokio::test]
-    async fn unknown_update_outcome_with_other_head_is_remote_changed() {
-        let server = MockServer::start().await;
-        Mock::given(method("GET"))
-            .and(path("/repos/owner/vault/git/ref/heads/main"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "object": { "sha": "other" }
-            })))
-            .mount(&server)
-            .await;
-
-        let result = store(&server)
-            .await
-            .resolve_unknown_update("base", "candidate")
-            .await;
-        assert!(matches!(
-            result,
-            Err(crate::errors::AppError::RemoteChanged(_))
-        ));
-    }
-
-    #[tokio::test]
-    async fn unknown_update_outcome_without_ref_evidence_is_recovery_error() {
-        let server = MockServer::start().await;
-        let result = store(&server)
-            .await
-            .resolve_unknown_update("base", "candidate")
-            .await;
-        assert!(matches!(
-            result,
-            Err(crate::errors::AppError::RemoteOutcomeUnknown {
-                base_commit_sha,
-                candidate_commit_sha
-            }) if base_commit_sha == "base" && candidate_commit_sha == "candidate"
-        ));
+        assert_eq!(head_reads.load(Ordering::SeqCst), 3);
     }
 
     async fn mount_commit_pipeline(server: &MockServer, update_status: u16) {

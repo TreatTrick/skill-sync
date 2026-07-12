@@ -112,6 +112,19 @@ pub(crate) struct ApplyJournal {
     pub remote_candidate: Option<String>,
     pub next_state_bytes: Vec<u8>,
     pub next_state_hash: String,
+    /// 远端 base commit（remote_committing/remote_outcome_unknown 证据）。
+    /// 旧 schema-1 journal 缺省为 None。
+    #[serde(default)]
+    pub remote_base: Option<String>,
+    /// 预期 next_manifest 的确定性 SHA-256。
+    #[serde(default)]
+    pub next_manifest_hash: Option<String>,
+    /// 已完成本地副作用的 action（skill）ID。
+    #[serde(default)]
+    pub completed_action_ids: Vec<String>,
+    /// 待远端发布的 action（skill）ID。
+    #[serde(default)]
+    pub pending_action_ids: Vec<String>,
 }
 
 pub(crate) fn journal_path(config_dir: &Path) -> PathBuf {
@@ -163,4 +176,51 @@ pub(crate) fn recover_pending(config_dir: &Path) -> Result<Option<ApplyJournal>>
         return Ok(None);
     }
     Ok(Some(journal))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn journal_reads_schema_one_fixture_without_evidence_fields() {
+        // 旧 schema-1 journal 不含新增证据字段；#[serde(default)] 保证可读。
+        let fixture = serde_json::json!({
+            "schema": 1,
+            "task_id": "t-legacy",
+            "phase": "state_saving",
+            "remote_candidate": null,
+            "next_state_bytes": Vec::<u8>::new(),
+            "next_state_hash": "sha256:legacy",
+        });
+        let bytes = serde_json::to_vec(&fixture).unwrap();
+        let journal: ApplyJournal = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(journal.task_id, "t-legacy");
+        assert_eq!(journal.remote_base, None);
+        assert_eq!(journal.next_manifest_hash, None);
+        assert!(journal.completed_action_ids.is_empty());
+        assert!(journal.pending_action_ids.is_empty());
+    }
+
+    #[test]
+    fn journal_roundtrips_recovery_evidence_fields() {
+        let journal = ApplyJournal {
+            schema: 1,
+            task_id: "t".into(),
+            phase: "remote_outcome_unknown".into(),
+            remote_candidate: Some("candidate".into()),
+            next_state_bytes: vec![1, 2, 3],
+            next_state_hash: "sha256:abc".into(),
+            remote_base: Some("base".into()),
+            next_manifest_hash: Some("sha256:manifest".into()),
+            completed_action_ids: vec!["codex:done".into()],
+            pending_action_ids: vec!["codex:pending".into()],
+        };
+        let bytes = serde_json::to_vec(&journal).unwrap();
+        let back: ApplyJournal = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(back.remote_base.as_deref(), Some("base"));
+        assert_eq!(back.next_manifest_hash.as_deref(), Some("sha256:manifest"));
+        assert_eq!(back.completed_action_ids, vec!["codex:done".to_string()]);
+        assert_eq!(back.pending_action_ids, vec!["codex:pending".to_string()]);
+    }
 }
