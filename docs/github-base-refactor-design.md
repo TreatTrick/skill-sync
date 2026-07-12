@@ -461,7 +461,7 @@ V1 使用一个由项目维护者注册、可供普通用户安装的 GitHub App
 - 开启 user-to-server token expiration。Device Flow token 默认 access token 8 小时、refresh token 6 个月；桌面端负责轮换。
 - 安装页面引导用户选择 `Only select repositories`，且 V1 只接受授权结果中总计一个可访问 repository。
 
-GitHub App client id 和 app slug 是公开标识，不是 secret。它们通过 release build 环境变量 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` 与 `SKILL_SYNC_GITHUB_APP_SLUG` 注入编译产物；Rust 使用 `option_env!`/build script 生成只读 `GithubAppPublicConfig`，运行时不读取环境变量。测试注入独立配置。release workflow 在打包前校验两项非空，缺失即失败；App private key、client secret 永远不进入源码、CI artifact 或桌面包。V1 只支持 `github.com`，不增加 GitHub Enterprise Server endpoint 配置。
+GitHub App client id 和 app slug 是公开标识，不是 secret，直接内置在只读 `GithubAppPublicConfig` 中随应用发布。`build.rs` 不读取或注入运行时环境变量；App private key、client secret 永远不进入源码、CI artifact 或桌面包。V1 只支持 `github.com`，不增加 GitHub Enterprise Server endpoint 配置。
 
 ### GitHub App Device Flow 与 token 轮换
 
@@ -987,7 +987,7 @@ src-tauri/src/
 ### 阶段 4：接入 GitHubVaultStore
 
 - 注册并记录 GitHub App 的固定权限、Device Flow、token expiration 与安装说明。
-- release build 注入公开 client id/app slug，缺失时阻止正式打包；不打包 private key/client secret。
+- 应用直接内置公开 client id/app slug；不打包 private key/client secret。
 - 实现 GitHub App Device Flow、access/refresh credential keyring 存储和无 client secret 自动刷新。
 - 实现 installation/repository 枚举并强制 V1 单仓库边界。
 - 增加区分 unauthorized/installation/repo/empty/branch/manifest 的状态探测。
@@ -1054,7 +1054,7 @@ Rust 优先测试：
 - 下载验证 manifest size == actual compressed bytes、manifest hash == actual bytes hash，再执行 canonical archive/resource validation。
 - 下载解包后验证根级 `SKILL.md`、metadata 与 manifest skill identity；失败不触碰正式 target。
 - sync_state round trip。
-- release build 缺少 GitHub App client id 或 slug 时在打包前失败；测试构造函数可注入公开配置，运行时不读取环境变量。
+- Debug、测试和 release 都使用同一份内置公开 GitHub App client id/app slug，运行时不读取环境变量。
 - Device Flow 不发送 OAuth `scope`，正确处理 pending/slow_down/expired/denied；成功响应把 access/refresh token 与过期时间一次写入 credential store。
 - access token 临近过期时自动刷新；Device Flow refresh 请求只发送 client id/refresh token，不发送 client secret；并发调用只发生一次刷新并原子保存轮换后的 refresh token。
 - 未过期 token 收到 401 时按 generation 强制单飞刷新并只重放一次；并发 401 只轮换一次，第二次 401 清 credential。manifest/blob/commit 路径分别覆盖该行为。

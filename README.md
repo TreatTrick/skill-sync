@@ -39,7 +39,7 @@ Project-level directories and user-configured roots are outside V1. Deletes are 
 
 ## GitHub App
 
-The release must provide a public GitHub App client id and slug at build time. The App needs only Contents read/write and Metadata read-only permissions. Its installation must use selected repositories and contain exactly one Vault repository. Users can adjust or revoke the installation from GitHub; the app never stores a client secret or private key.
+The app includes the public GitHub App client id and slug. The App needs only Contents read/write and Metadata read-only permissions. Its installation must use selected repositories and contain exactly one Vault repository. Users can adjust or revoke the installation from GitHub; the app never stores a client secret or private key.
 
 Maintainers should follow [GitHub App setup](docs/github-app-setup.md). Users can start with the Onboarding screen after installing the app.
 
@@ -56,7 +56,7 @@ npm run tauri dev
 npm run tauri build
 ```
 
-The release workflow injects only the public GitHub App client id and slug through repository variables. See the maintainer checklist before producing an installer.
+The release workflow uses the same built-in public App configuration. See the maintainer checklist before producing an installer.
 
 ## Development Checks
 

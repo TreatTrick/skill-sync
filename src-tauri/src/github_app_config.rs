@@ -1,6 +1,8 @@
 #![allow(dead_code)]
-// GitHub App 公开构建配置：编译时注入的 client_id / slug。
-// 生产代码不得调用 std::env::var（build.rs 通过 cargo:rustc-env 注入，env! 编译期读取）。
+// GitHub App 公开配置：client_id / slug 可以安全地随桌面应用发布。
+
+const GITHUB_APP_CLIENT_ID: &str = "Iv23lif3tCgfnQjxjl9U";
+const GITHUB_APP_SLUG: &str = "tt-skills-sync";
 
 use crate::errors::{AppError, Result};
 
@@ -26,17 +28,9 @@ impl GithubAppPublicConfig {
         })
     }
 
-    /// 编译时注入的配置。debug/test 构建未注入时返回 `NotConfigured`，release 由 build.rs 保证非空。
+    /// 返回随应用发布的公开配置。
     pub(crate) fn embedded() -> Result<Self> {
-        let client_id = env!("SKILL_SYNC_GITHUB_APP_CLIENT_ID");
-        let slug = env!("SKILL_SYNC_GITHUB_APP_SLUG");
-        if client_id.is_empty() || slug.is_empty() {
-            return Err(AppError::NotConfigured(
-                "github app public config not embedded (set SKILL_SYNC_GITHUB_APP_CLIENT_ID/SLUG at build)"
-                    .into(),
-            ));
-        }
-        Self::new(client_id, slug)
+        Self::new(GITHUB_APP_CLIENT_ID, GITHUB_APP_SLUG)
     }
 
     /// 公开字段名（用于断言不含 private key / client secret）。
@@ -60,5 +54,15 @@ mod tests {
     fn public_config_contains_no_private_key_or_client_secret_fields() {
         let fields = GithubAppPublicConfig::public_field_names();
         assert_eq!(fields, ["client_id", "slug"]);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_build_embeds_the_demo_github_app() {
+        let config =
+            GithubAppPublicConfig::embedded().expect("debug app config should be embedded");
+
+        assert_eq!(config.client_id, "Iv23lif3tCgfnQjxjl9U");
+        assert_eq!(config.slug, "tt-skills-sync");
     }
 }

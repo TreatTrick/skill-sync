@@ -1709,23 +1709,15 @@ fn public_config_contains_no_private_key_or_client_secret_fields() {
 }
 ```
 
-`GithubAppPublicConfig { client_id, slug }` 只接受编译时值，另提供 test constructor。生产代码不得调用 `std::env::var`。`build.rs` 读取 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` / `SKILL_SYNC_GITHUB_APP_SLUG` 并以 `cargo:rustc-env` 注入；普通 debug/test 构建可返回明确 `GithubAppNotConfigured`，release workflow 必须在 `tauri-action` 前检查 GitHub repository variables 非空并传入 build env，缺失直接失败。
+`GithubAppPublicConfig { client_id, slug }` 直接内置项目维护者的公开值，生产代码和 `build.rs` 不读取环境变量。Debug、test 和 release 使用同一份公开配置；App private key、client secret 永不进入源码或构建流程。
 
 ```rust
 fn main() {
-    for key in ["SKILL_SYNC_GITHUB_APP_CLIENT_ID", "SKILL_SYNC_GITHUB_APP_SLUG"] {
-        println!("cargo:rerun-if-env-changed={key}");
-        let value = std::env::var(key).unwrap_or_default();
-        if std::env::var("PROFILE").as_deref() == Ok("release") && value.trim().is_empty() {
-            panic!("missing required release build variable: {key}");
-        }
-        println!("cargo:rustc-env={key}={value}");
-    }
     tauri_build::build();
 }
 ```
 
-release workflow 在 validate step 与 `tauri-action` env 都传 `${{ vars.SKILL_SYNC_GITHUB_APP_CLIENT_ID }}` / `${{ vars.SKILL_SYNC_GITHUB_APP_SLUG }}`。它们是公开 repository variables，不是 GitHub secrets；现有 `GITHUB_TOKEN` 仍只用于发布 release artifact。
+release workflow 不需要注入 GitHub App 配置；现有 `GITHUB_TOKEN` 仍只用于发布 release artifact。
 
 - [x] **Step 2: 写 Device Flow 请求与状态测试**
 
@@ -2174,7 +2166,7 @@ pending_recovery: recoveryInfoSchema.nullable(),
 
 `recoveryInfoSchema` 与 Task 7 Rust DTO 一致，放在共享 schema 中供 AppState 和 Task 16 的 Apply response 复用；不得为两个入口定义会漂移的重复 schema。
 
-保留现有 `AppState.configured`，但把语义收紧为“本机已经通过 `bind_github_vault` 建立完整 Ready Vault binding”。它与 `GithubAppInfo.configured` 不同：后者只表示 release build 注入了公开 client id/app slug。前端路由门禁不得用 `GithubAppInfo.configured` 或单独的 `github_authorized` 提前解锁工作区。
+保留现有 `AppState.configured`，但把语义收紧为“本机已经通过 `bind_github_vault` 建立完整 Ready Vault binding”。它与 `GithubAppInfo.configured` 不同：后者只表示应用内置了公开 client id/app slug。前端路由门禁不得用 `GithubAppInfo.configured` 或单独的 `github_authorized` 提前解锁工作区。
 
 - [x] **Step 2: 添加 Device Flow schema**
 
@@ -2788,9 +2780,9 @@ Expected: 只有历史上下文或明确非 MVP 注记保留。
 
 - [x] **Step 2: 更新文档**
 
-README 和开发文档说明 V1 唯一 provider 是 GitHub App Device Flow，private repo vault 使用 `manifest.json` + `blobs/sha256`，不需要 OAuth App/PAT/Git/SSH/SaaS backend。说明 installation 必须只授权一个 vault repo、token 只进 keyring且自动刷新、空 repo/缺 manifest 会在显式确认后创建初始化 commit，以及三个固定 namespace/root、advisory 删除、本地 trash、blob 不 GC。用户流程必须说明：未完成 Ready Vault binding 时应用只有逐步 Onboarding；bind 成功后才进入只含 Sync / Settings 两个 Tab 的工作区。
+README 和开发文档说明 V1 唯一 provider 是 GitHub App Device Flow，公开 client id/app slug 已内置，private repo vault 使用 `manifest.json` + `blobs/sha256`，不需要 OAuth App/PAT/Git/SSH/SaaS backend。说明 installation 必须只授权一个 vault repo、token 只进 keyring且自动刷新、空 repo/缺 manifest 会在显式确认后创建初始化 commit，以及三个固定 namespace/root、advisory 删除、本地 trash、blob 不 GC。用户流程必须说明：未完成 Ready Vault binding 时应用只有逐步 Onboarding；bind 成功后才进入只含 Sync / Settings 两个 Tab 的工作区。
 
-删除仍以有效指南口吻推荐 SSH/HTTPS/PAT 的 `docs/ssh-setup.md`。`docs/github-app-setup.md` 给维护者完整 release checklist：注册可安装 GitHub App；开启 Device Flow 和 expiring user tokens；Repository permissions 仅 Contents read/write + Metadata read-only；无 account/org permissions、events/webhook；记录公开 client id/app slug；在 GitHub Actions repository variables 配置 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` / `SKILL_SYNC_GITHUB_APP_SLUG`；在打包前实际打开并核对 `https://github.com/apps/<slug>/installations/new`；确认 release artifact 不含 private key/client secret；用 keyring 中的测试 App credential 和 disposable empty private repo 运行 `SKILL_SYNC_GITHUB_INTEGRATION=1 SKILL_SYNC_GITHUB_EMPTY_TEST_REPO=<owner/repo> cargo test --manifest-path src-tauri/Cargo.toml github_empty_repo_initialization -- --ignored --nocapture`。给普通用户说明授权、Only select repositories、唯一 vault repo、installation 调整与撤销方式。
+删除仍以有效指南口吻推荐 SSH/HTTPS/PAT 的 `docs/ssh-setup.md`。维护者 release checklist：注册可安装 GitHub App；开启 Device Flow 和 expiring user tokens；Repository permissions 仅 Contents read/write + Metadata read-only；无 account/org permissions、events/webhook；确认源码内置公开 client id/app slug；在打包前实际打开并核对 `https://github.com/apps/<slug>/installations/new`；确认 release artifact 不含 private key/client secret；用 keyring 中的测试 App credential 和 disposable empty private repo 运行 `SKILL_SYNC_GITHUB_INTEGRATION=1 SKILL_SYNC_GITHUB_EMPTY_TEST_REPO=<owner/repo> cargo test --manifest-path src-tauri/Cargo.toml github_empty_repo_initialization -- --ignored --nocapture`。给普通用户说明授权、Only select repositories、唯一 vault repo、installation 调整与撤销方式。
 
 - [x] **Step 3: 全量验证**
 
@@ -2806,7 +2798,7 @@ npm run lint
 npm run build
 ```
 
-Expected: tests/build checks all pass；禁止项 `rg` 无产品代码命中，release workflow 只注入公开 App client id/slug。
+Expected: tests/build checks all pass；禁止项 `rg` 无产品代码命中，release workflow 不注入 App client id/slug。
 
 - [ ] **Step 4: 手动烟测**
 
@@ -2846,7 +2838,7 @@ git commit -m "docs: update github vault behavior"
 - 不要保留 Git CLI fallback。
 - 不要增加 OAuth App、PAT、HTTPS、SSH、Git URL 或 GitHub Enterprise provider fallback。
 - GitHub App Device Flow 不发送 OAuth scope；App private key/client secret 不得进入桌面端、源码或 release artifact。
-- 公开 client id/app slug 只在构建时注入；正式 release 缺失必须失败，运行时不读环境变量。
+- 公开 client id/app slug 直接内置；所有构建都可直接启动 Onboarding，运行时不读环境变量。
 - access/refresh token 与过期时间只作为单个 keyring credential 保存；刷新轮换写入失败必须重新授权，不能使用部分 credential。
 - installation/repository 枚举必须穷尽分页并 fail closed；总计非唯一 repo 或 repository_selection=all 时禁止任何远端副作用。
 - 前端工作区门禁只在完整 Ready binding 和有效/刷新中 credential 下开放；`GithubAppInfo.configured` 或 Device Flow authorized 不得单独解锁。Onboarding 不进入 authenticated navigation，bind 后导航严格只有 Sync / Settings。

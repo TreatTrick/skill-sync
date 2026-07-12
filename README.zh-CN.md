@@ -39,7 +39,7 @@ V1 扫描三个固定的用户级目录：
 
 ## GitHub App
 
-release 构建时必须注入公开的 GitHub App client id 和 slug。App 只需要 Contents read/write 与 Metadata read-only 权限。installation 必须使用 selected repositories，并且只包含一个 Vault 仓库。用户可以在 GitHub 中调整或撤销 installation；应用不会保存 client secret 或 private key。
+应用内置公开的 GitHub App client id 和 slug。App 只需要 Contents read/write 与 Metadata read-only 权限。installation 必须使用 selected repositories，并且只包含一个 Vault 仓库。用户可以在 GitHub 中调整或撤销 installation；应用不会保存 client secret 或 private key。
 
 维护者请阅读 [GitHub App 配置清单](docs/github-app-setup.md)，普通用户安装 App 后直接按 Onboarding 操作即可。
 
@@ -56,7 +56,7 @@ npm run tauri dev
 npm run tauri build
 ```
 
-release workflow 只通过 repository variables 注入公开 GitHub App client id 和 slug。生成安装包前请完成维护者清单中的核对。
+release workflow 使用同一份内置的公开 App 配置。生成安装包前请完成维护者清单中的核对。
 
 ## 开发检查
 
