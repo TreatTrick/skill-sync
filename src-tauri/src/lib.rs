@@ -3,6 +3,8 @@
     deny(clippy::expect_used, clippy::panic, clippy::unwrap_used)
 )]
 
+use tauri::Manager;
+
 mod commands;
 mod config;
 mod detect;
@@ -15,6 +17,7 @@ mod github_store;
 mod ignore;
 mod local_apply;
 mod local_vault_store;
+mod logging;
 mod pack;
 mod portable_path;
 mod remote_store;
@@ -35,7 +38,28 @@ pub fn run() {
         }
     };
     tauri::Builder::default()
+        .plugin(logging::plugin())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            match app.path().app_log_dir() {
+                Ok(log_dir) => match logging::cleanup_old_logs(&log_dir) {
+                    Ok(removed) => log::info!(
+                        target: "skill-sync",
+                        "log cleanup completed removed_files={removed}"
+                    ),
+                    Err(error) => log::warn!(
+                        target: "skill-sync",
+                        "log cleanup failed error={error}"
+                    ),
+                },
+                Err(error) => log::warn!(
+                    target: "skill-sync",
+                    "log directory unavailable error={error}"
+                ),
+            }
+            log::info!(target: "skill-sync", "application started");
+            Ok(())
+        })
         .manage(runtime)
         .invoke_handler(tauri::generate_handler![
             commands::get_app_state,

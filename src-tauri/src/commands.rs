@@ -21,6 +21,7 @@ use crate::github_repository::{
 };
 use crate::github_store::GitHubVaultStore;
 use crate::local_apply::{load_pending, recover_pending};
+use crate::logging;
 use crate::remote_store::RemoteStore;
 use crate::sync_engine::vault::{
     self, ApplyResult, ApplySyncRequest, ApplySyncResponse, RecoveryInfo, RecoveryPhase, SyncPlan,
@@ -41,6 +42,12 @@ pub(crate) struct AppRuntime {
     pub(crate) credentials: Arc<GithubCredentialManager>,
     pub(crate) client: Arc<GithubAuthenticatedClient>,
     pub(crate) repository: Arc<GithubRepositoryService>,
+}
+
+fn log_command_result<T>(command: &str, result: Result<T>) -> Result<T> {
+    result.inspect_err(|error| {
+        logging::log_app_error(command, error);
+    })
 }
 
 impl AppRuntime {
@@ -143,7 +150,7 @@ pub(crate) struct BindGithubVaultRequest {
 
 #[tauri::command]
 pub(crate) async fn get_app_state(state: State<'_, AppRuntime>) -> Result<AppState> {
-    get_app_state_impl(&state).await
+    log_command_result("get_app_state", get_app_state_impl(&state).await)
 }
 
 pub(crate) async fn get_app_state_impl(runtime: &AppRuntime) -> Result<AppState> {
@@ -210,7 +217,7 @@ pub(crate) async fn get_app_state_impl(runtime: &AppRuntime) -> Result<AppState>
 
 #[tauri::command]
 pub(crate) async fn save_config(state: State<'_, AppRuntime>, config: AppConfig) -> Result<()> {
-    save_config_impl(&state, config).await
+    log_command_result("save_config", save_config_impl(&state, config).await)
 }
 
 pub(crate) async fn save_config_impl(runtime: &AppRuntime, config: AppConfig) -> Result<()> {
@@ -224,7 +231,7 @@ pub(crate) async fn save_config_impl(runtime: &AppRuntime, config: AppConfig) ->
 
 #[tauri::command]
 pub(crate) async fn scan_skills(state: State<'_, AppRuntime>) -> Result<ScanResult> {
-    scan_skills_impl(&state).await
+    log_command_result("scan_skills", scan_skills_impl(&state).await)
 }
 
 pub(crate) async fn scan_skills_impl(runtime: &AppRuntime) -> Result<ScanResult> {
@@ -237,7 +244,7 @@ pub(crate) async fn scan_skills_impl(runtime: &AppRuntime) -> Result<ScanResult>
 
 #[tauri::command]
 pub(crate) async fn get_sync_plan(state: State<'_, AppRuntime>) -> Result<SyncPlan> {
-    get_sync_plan_impl(&state).await
+    log_command_result("get_sync_plan", get_sync_plan_impl(&state).await)
 }
 
 pub(crate) async fn get_sync_plan_impl(runtime: &AppRuntime) -> Result<SyncPlan> {
@@ -253,7 +260,10 @@ pub(crate) async fn apply_sync_plan(
     state: State<'_, AppRuntime>,
     request: ApplySyncRequest,
 ) -> Result<ApplySyncResponse> {
-    apply_sync_plan_impl(&state, request).await
+    log_command_result(
+        "apply_sync_plan",
+        apply_sync_plan_impl(&state, request).await,
+    )
 }
 
 pub(crate) async fn apply_sync_plan_impl(
@@ -282,7 +292,10 @@ pub(crate) async fn resume_sync_recovery(
     state: State<'_, AppRuntime>,
     task_id: String,
 ) -> Result<ApplySyncResponse> {
-    resume_sync_recovery_impl(&state, task_id).await
+    log_command_result(
+        "resume_sync_recovery",
+        resume_sync_recovery_impl(&state, task_id).await,
+    )
 }
 
 pub(crate) async fn resume_sync_recovery_impl(
@@ -322,19 +335,21 @@ pub(crate) async fn resume_sync_recovery_impl(
 
 #[tauri::command]
 pub(crate) fn open_path(path: String) -> Result<()> {
-    open_path_platform(&path)
+    log_command_result("open_path", open_path_platform(&path))
 }
 
 #[tauri::command]
 pub(crate) async fn start_github_device_flow(
     state: State<'_, AppRuntime>,
 ) -> Result<DeviceFlowStart> {
-    if !state.app_configured {
-        return Err(AppError::NotConfigured(
+    let result = if !state.app_configured {
+        Err(AppError::NotConfigured(
             "github app public config is not embedded".into(),
-        ));
-    }
-    state.auth.start().await
+        ))
+    } else {
+        state.auth.start().await
+    };
+    log_command_result("start_github_device_flow", result)
 }
 
 #[tauri::command]
@@ -343,34 +358,39 @@ pub(crate) async fn poll_github_device_flow(
     device_code: String,
     _interval: u64,
 ) -> Result<GithubDeviceFlowPollResponse> {
-    match state.auth.poll(&device_code).await? {
-        InternalPollResult::Pending { interval } => {
-            Ok(GithubDeviceFlowPollResponse::Pending { interval })
-        }
-        InternalPollResult::SlowDown { interval } => {
-            Ok(GithubDeviceFlowPollResponse::SlowDown { interval })
-        }
-        InternalPollResult::Denied => Ok(GithubDeviceFlowPollResponse::Denied),
-        InternalPollResult::Success {
-            access_token,
-            refresh_token,
-            access_expires_in,
-            refresh_token_expires_in,
-        } => {
-            let credential = state
-                .auth
-                .build_credential(
-                    access_token,
-                    refresh_token,
-                    access_expires_in,
-                    refresh_token_expires_in,
-                )
-                .await?;
-            let github_user = credential.github_login.clone();
-            state.credentials.save_initial(&credential).await?;
-            Ok(GithubDeviceFlowPollResponse::Authorized { github_user })
+    let result = async {
+        match state.auth.poll(&device_code).await {
+            Ok(InternalPollResult::Pending { interval }) => {
+                Ok(GithubDeviceFlowPollResponse::Pending { interval })
+            }
+            Ok(InternalPollResult::SlowDown { interval }) => {
+                Ok(GithubDeviceFlowPollResponse::SlowDown { interval })
+            }
+            Ok(InternalPollResult::Denied) => Ok(GithubDeviceFlowPollResponse::Denied),
+            Ok(InternalPollResult::Success {
+                access_token,
+                refresh_token,
+                access_expires_in,
+                refresh_token_expires_in,
+            }) => {
+                let credential = state
+                    .auth
+                    .build_credential(
+                        access_token,
+                        refresh_token,
+                        access_expires_in,
+                        refresh_token_expires_in,
+                    )
+                    .await?;
+                let github_user = credential.github_login.clone();
+                state.credentials.save_initial(&credential).await?;
+                Ok(GithubDeviceFlowPollResponse::Authorized { github_user })
+            }
+            Err(error) => Err(error),
         }
     }
+    .await;
+    log_command_result("poll_github_device_flow", result)
 }
 
 #[tauri::command]
@@ -391,7 +411,10 @@ pub(crate) fn get_github_app_info(state: State<'_, AppRuntime>) -> GithubAppInfo
 pub(crate) async fn list_github_installations(
     state: State<'_, AppRuntime>,
 ) -> Result<Vec<serde_json::Value>> {
-    list_json(&state.client, "/user/installations").await
+    log_command_result(
+        "list_github_installations",
+        list_json(&state.client, "/user/installations").await,
+    )
 }
 
 #[tauri::command]
@@ -399,18 +422,24 @@ pub(crate) async fn list_installation_repositories(
     state: State<'_, AppRuntime>,
     installation_id: u64,
 ) -> Result<Vec<serde_json::Value>> {
-    list_json(
-        &state.client,
-        &format!("/user/installations/{installation_id}/repositories"),
+    log_command_result(
+        "list_installation_repositories",
+        list_json(
+            &state.client,
+            &format!("/user/installations/{installation_id}/repositories"),
+        )
+        .await,
     )
-    .await
 }
 
 #[tauri::command]
 pub(crate) async fn discover_single_github_repository(
     state: State<'_, AppRuntime>,
 ) -> Result<GithubRepositoryDiscovery> {
-    state.repository.discover_single_repository().await
+    log_command_result(
+        "discover_single_github_repository",
+        state.repository.discover_single_repository().await,
+    )
 }
 
 #[tauri::command]
@@ -418,7 +447,10 @@ pub(crate) async fn list_github_repository_branches(
     state: State<'_, AppRuntime>,
     remote: RemoteConfig,
 ) -> Result<Vec<String>> {
-    state.repository.list_branches(&remote).await
+    log_command_result(
+        "list_github_repository_branches",
+        state.repository.list_branches(&remote).await,
+    )
 }
 
 #[tauri::command]
@@ -426,9 +458,13 @@ pub(crate) async fn check_github_vault(
     state: State<'_, AppRuntime>,
     remote: RemoteConfig,
 ) -> Result<GithubVaultCheck> {
-    let _gate = state.gate.inner.read().await;
-    ensure_preview_has_no_pending_recovery().await?;
-    state.repository.check_vault(&remote).await
+    let result = async {
+        let _gate = state.gate.inner.read().await;
+        ensure_preview_has_no_pending_recovery().await?;
+        state.repository.check_vault(&remote).await
+    }
+    .await;
+    log_command_result("check_github_vault", result)
 }
 
 #[tauri::command]
@@ -436,9 +472,13 @@ pub(crate) async fn initialize_github_vault(
     state: State<'_, AppRuntime>,
     request: InitializeGithubVaultRequest,
 ) -> Result<GithubVaultCheck> {
-    let _gate = state.gate.inner.write().await;
-    ensure_no_pending_recovery().await?;
-    state.repository.initialize_vault(request).await
+    let result = async {
+        let _gate = state.gate.inner.write().await;
+        ensure_no_pending_recovery().await?;
+        state.repository.initialize_vault(request).await
+    }
+    .await;
+    log_command_result("initialize_github_vault", result)
 }
 
 #[tauri::command]
@@ -446,7 +486,10 @@ pub(crate) async fn bind_github_vault(
     state: State<'_, AppRuntime>,
     request: BindGithubVaultRequest,
 ) -> Result<GithubVaultCheck> {
-    bind_github_vault_impl(&state, request).await
+    log_command_result(
+        "bind_github_vault",
+        bind_github_vault_impl(&state, request).await,
+    )
 }
 
 pub(crate) async fn bind_github_vault_impl(
@@ -551,69 +594,77 @@ pub(crate) async fn disconnect_github(
     state: State<'_, AppRuntime>,
     expected_repository_id: u64,
 ) -> Result<()> {
-    let _gate = state.gate.inner.write().await;
-    ensure_no_pending_recovery().await?;
-    let config = load_config().await?;
-    let remote = config
-        .remote
-        .as_ref()
-        .ok_or_else(|| AppError::NotConfigured("github vault is not bound".into()))?;
-    if remote.repository_id != expected_repository_id {
-        return Err(AppError::Blocked("repository identity mismatch".into()));
-    }
-    let config_dir = config_dir()?;
-    let (previous_config, previous_state, next_config) = run_blocking({
-        let config_dir = config_dir.clone();
-        let config = config.clone();
-        move || {
-            let previous_config = std::fs::read(
-                AppConfig::config_path()
-                    .ok_or_else(|| AppError::Config("cannot determine config path".into()))?,
-            )
-            .ok();
-            let previous_state = std::fs::read(config_dir.join("sync_state.json")).ok();
-            let mut next_config = config;
-            next_config.remote = None;
-            let next_config = serde_yaml::to_string(&next_config)
-                .map(|text| text.into_bytes())
-                .map_err(|e| AppError::Config(e.to_string()))?;
-            Ok((previous_config, previous_state, next_config))
+    let result = async {
+        let _gate = state.gate.inner.write().await;
+        ensure_no_pending_recovery().await?;
+        let config = load_config().await?;
+        let remote = config
+            .remote
+            .as_ref()
+            .ok_or_else(|| AppError::NotConfigured("github vault is not bound".into()))?;
+        if remote.repository_id != expected_repository_id {
+            return Err(AppError::Blocked("repository identity mismatch".into()));
         }
-    })
-    .await?;
-    let history = previous_state
-        .clone()
-        .map(|bytes| (format!("history/disconnect-{}.json", Uuid::new_v4()), bytes));
-    run_blocking(move || {
-        VaultBindingStore::commit_bytes(
-            &config_dir,
-            previous_config,
-            previous_state,
-            next_config,
-            None,
-            history,
-        )
-    })
-    .await?;
-    drop(state.credentials.clear().await);
-    Ok(())
+        let config_dir = config_dir()?;
+        let (previous_config, previous_state, next_config) = run_blocking({
+            let config_dir = config_dir.clone();
+            let config = config.clone();
+            move || {
+                let previous_config = std::fs::read(
+                    AppConfig::config_path()
+                        .ok_or_else(|| AppError::Config("cannot determine config path".into()))?,
+                )
+                .ok();
+                let previous_state = std::fs::read(config_dir.join("sync_state.json")).ok();
+                let mut next_config = config;
+                next_config.remote = None;
+                let next_config = serde_yaml::to_string(&next_config)
+                    .map(|text| text.into_bytes())
+                    .map_err(|e| AppError::Config(e.to_string()))?;
+                Ok((previous_config, previous_state, next_config))
+            }
+        })
+        .await?;
+        let history = previous_state
+            .clone()
+            .map(|bytes| (format!("history/disconnect-{}.json", Uuid::new_v4()), bytes));
+        run_blocking(move || {
+            VaultBindingStore::commit_bytes(
+                &config_dir,
+                previous_config,
+                previous_state,
+                next_config,
+                None,
+                history,
+            )
+        })
+        .await?;
+        drop(state.credentials.clear().await);
+        Ok(())
+    }
+    .await;
+    log_command_result("disconnect_github", result)
 }
 
 #[tauri::command]
 pub(crate) async fn list_remote_skills(
     state: State<'_, AppRuntime>,
 ) -> Result<Vec<crate::vault_manifest::VaultSkill>> {
-    let _gate = state.gate.inner.read().await;
-    ensure_preview_has_no_pending_recovery().await?;
-    let config = load_config().await?;
-    let (store, _) = load_store_and_state(&state, &config).await?;
-    Ok(store
-        .fetch_manifest()
-        .await?
-        .manifest
-        .skills
-        .into_values()
-        .collect())
+    let result = async {
+        let _gate = state.gate.inner.read().await;
+        ensure_preview_has_no_pending_recovery().await?;
+        let config = load_config().await?;
+        let (store, _) = load_store_and_state(&state, &config).await?;
+        Ok(store
+            .fetch_manifest()
+            .await?
+            .manifest
+            .skills
+            .into_values()
+            .collect())
+    }
+    .await;
+    log_command_result("list_remote_skills", result)
 }
 
 #[tauri::command]
@@ -621,7 +672,7 @@ pub(crate) async fn upload_skills(
     state: State<'_, AppRuntime>,
     skill_ids: Vec<String>,
 ) -> Result<ApplySyncResponse> {
-    batch_sync(&state, skill_ids, true).await
+    log_command_result("upload_skills", batch_sync(&state, skill_ids, true).await)
 }
 
 #[tauri::command]
@@ -629,7 +680,10 @@ pub(crate) async fn download_skills(
     state: State<'_, AppRuntime>,
     skill_ids: Vec<String>,
 ) -> Result<ApplySyncResponse> {
-    batch_sync(&state, skill_ids, false).await
+    log_command_result(
+        "download_skills",
+        batch_sync(&state, skill_ids, false).await,
+    )
 }
 
 async fn batch_sync(

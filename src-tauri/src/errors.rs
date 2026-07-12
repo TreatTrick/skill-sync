@@ -125,15 +125,21 @@ impl Serialize for AppError {
     }
 }
 
-fn redact_sensitive(message: &str) -> String {
+pub(crate) fn redact_sensitive(message: &str) -> String {
     let mut redacted = message.to_string();
     for marker in [
         "access_token=",
         "refresh_token=",
         "access_token:",
         "refresh_token:",
+        "device_code=",
+        "user_code=",
+        "device_code:",
+        "user_code:",
         "\"access_token\":\"",
         "\"refresh_token\":\"",
+        "\"device_code\":\"",
+        "\"user_code\":\"",
         "token=",
         "token:",
         "client_secret=",
