@@ -2118,7 +2118,7 @@ assert_send(get_sync_plan_impl(...));
 assert_send(apply_sync_plan_impl(...));
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src-tauri/src/commands.rs src-tauri/src/lib.rs src-tauri/src/config.rs src-tauri/src/detect.rs src-tauri/src/sync_engine.rs src-tauri/src/skill.rs src-tauri/src/vault_binding.rs src-tauri/tests/fixtures/config-v1.yaml
@@ -2138,7 +2138,7 @@ git commit -m "refactor: route commands through github vault"
 - Modify: `src/modules/settings/api/configApi.ts`
 - Modify: `src/modules/onboarding/api/onboardingApi.ts`
 
-- [ ] **Step 1: 更新 AppState schema**
+- [x] **Step 1: 更新 AppState schema**
 
 移除 `git_available` / `git_version`，新增：
 
@@ -2176,7 +2176,7 @@ pending_recovery: recoveryInfoSchema.nullable(),
 
 保留现有 `AppState.configured`，但把语义收紧为“本机已经通过 `bind_github_vault` 建立完整 Ready Vault binding”。它与 `GithubAppInfo.configured` 不同：后者只表示 release build 注入了公开 client id/app slug。前端路由门禁不得用 `GithubAppInfo.configured` 或单独的 `github_authorized` 提前解锁工作区。
 
-- [ ] **Step 2: 添加 Device Flow schema**
+- [x] **Step 2: 添加 Device Flow schema**
 
 ```ts
 export const deviceFlowStartSchema = z.object({
@@ -2196,7 +2196,7 @@ export const deviceFlowPollSchema = z.object({
 
 `slow_down` 时页面用响应中的新 `interval` 安排下一次 poll，不能继续使用 start response 的旧间隔。
 
-- [ ] **Step 3: 添加其余 API 函数**
+- [x] **Step 3: 添加其余 API 函数**
 
 ```ts
 export const startGithubDeviceFlow = async (): Promise<DeviceFlowStart>;
@@ -2260,7 +2260,7 @@ export const appErrorSchema = z.object({
 
 `SkillSyncError` 保留 `retryAfter` 和 `latestCheck: unknown`；`invokeCmd` 必须先用 `appErrorSchema.safeParse(raw)`，不能用 type assertion 丢字段。Onboarding 捕获 `vault_state_changed` 时再用 `githubVaultCheckSchema.parse(error.latestCheck)`，捕获 `rate_limited` 时使用 retryAfter。
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run:
 
@@ -2272,7 +2272,7 @@ npm run build
 
 Expected: schemas compile，现有页面仍通过 typecheck；不要在本任务提前改变 ApplyResult schema 或 `applySyncPlan` 的调用签名。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/shared/schemas src/modules/settings src/modules/onboarding src/modules/sync
@@ -2291,15 +2291,15 @@ git commit -m "feat: add github vault frontend contracts"
 - Modify: `src/shared/i18n/locales/zh-CN.json`
 - Modify: `src/shared/i18n/locales/en-US.json`
 
-- [ ] **Step 1: 更新 route config**
+- [x] **Step 1: 更新 route config**
 
 删除 `/app/backups` 和 `/app/conflicts`。`appRoutes` authenticated navigation 只保留 `/app/sync` 与 `/app/settings`；`/app/onboarding` 的 Svelte route 继续存在，但不进入 `appRoutes`、侧边栏或任何工作区 Tab。`DEFAULT_ROUTE_PATH` 仍为 `/app/sync`，未绑定状态的条件跳转由 Task 17 的根路由和 `/app` layout gate 处理。
 
-- [ ] **Step 2: 删除模块和路由文件**
+- [x] **Step 2: 删除模块和路由文件**
 
 使用 `apply_patch` 删除 backups/conflicts module folders 与 route files。
 
-- [ ] **Step 3: 清理 locale route keys**
+- [x] **Step 3: 清理 locale route keys**
 
 删除或停止使用：
 
@@ -2311,7 +2311,7 @@ git commit -m "feat: add github vault frontend contracts"
 
 冲突文案如仍被 Sync 弹窗使用，迁移到 `sync.conflictDetail.*`。
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run:
 
@@ -2325,7 +2325,7 @@ npm run build
 
 Expected: `rg` no matches；i18n 与 typecheck pass；`appRoutes` 只包含 Sync / Settings，Onboarding route 文件仍存在但不是导航项。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src
