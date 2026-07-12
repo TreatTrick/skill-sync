@@ -15,6 +15,7 @@
       "skip": "Skip",
       "view": "View"
     },
+    "appStateLoadError": "Could not load app state: {{message}}",
     "brandMark": "S",
     "more": "More",
     "status": {
