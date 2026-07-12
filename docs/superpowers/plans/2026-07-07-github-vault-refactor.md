@@ -2346,7 +2346,7 @@ git commit -m "refactor: remove standalone conflict and backup pages"
 - Modify: `src/shared/i18n/locales/zh-CN.json`
 - Modify: `src/shared/i18n/locales/en-US.json`
 
-- [ ] **Step 1: 添加筛选 helper**
+- [x] **Step 1: 添加筛选 helper**
 
 ```ts
 export const SYNC_STATUS_FILTERS = [
@@ -2361,7 +2361,7 @@ export const SYNC_STATUS_FILTERS = [
 
 `deleted` 匹配 `local_deleted` 和 `remote_deleted`。
 
-- [ ] **Step 2: 创建 SyncSkillCard**
+- [x] **Step 2: 创建 SyncSkillCard**
 
 Props:
 
@@ -2377,7 +2377,7 @@ requiresConfirmation?: boolean
 
 `syncStatusSchema` 原子替换为 synced/local_update/remote_update/local_deleted/remote_deleted/both_deleted/conflict/blocked/unknown。`syncPlanSchema` 完整包含 entries/action_id、uploads/downloads/delete_remote/delete_local/conflicts/blocked/warnings、delete_guard_tripped、expected_remote_commit、plan_fingerprint、base_adoptions/base_removals、will_create_commit 和 commit_summary.local_state_updates；同时删除 Task 5 暂留的 host 和其他旧 Git/platform 字段。
 
-- [ ] **Step 3: 创建 ConflictDetailDialog**
+- [x] **Step 3: 创建 ConflictDetailDialog**
 
 Props:
 
@@ -2389,7 +2389,7 @@ onDecision(choice: SyncDecision): void
 
 不做文件级 diff。
 
-- [ ] **Step 4: 冲突决策按 reason 分组**
+- [x] **Step 4: 冲突决策按 reason 分组**
 
 ```ts
 export const syncDecisionSchema = z.enum([
@@ -2426,7 +2426,7 @@ accept_delete -> 本地移入 trash，0 commit
 skip -> 不处理
 ```
 
-- [ ] **Step 5: 更新 Sync 页面**
+- [x] **Step 5: 更新 Sync 页面**
 
 添加搜索框、状态筛选、card grid、delete guard warning、删除项显式确认、commit summary。页面使用本地 `$state` 保存 `selectedActionIds` 与 `deleteGuardAck`：普通上传/下载可以默认选中，删除 action 永不默认选中。
 
@@ -2500,7 +2500,7 @@ applySyncPlan({
 
 任何手动 recheck 或其他 query 更新导致展示中的 `plan_fingerprint` 变化时，同样清空上述三类状态。非删除动作只允许在首次成功加载或用户明确点击 Recheck 后按新 fingerprint 初始化默认选择；`plan_changed` 分支安装 `latest_plan` 时保持选择为空，不能立即重新默认选中。
 
-- [ ] **Step 6: 更新文案**
+- [x] **Step 6: 更新文案**
 
 新增中英文 key：
 

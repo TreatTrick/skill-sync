@@ -115,9 +115,41 @@
     "openFolder": "Open folder"
   },
   "sync": {
-    "applied": "Sync complete: applied {{count}} item(s), backed up {{backups}} item(s).",
+    "applied": "Sync complete: applied {{count}} item(s).",
     "applyError": "Sync failed: {{message}}",
     "applying": "Syncing…",
+    "commitNone": "No GitHub commit will be created",
+    "commitSummary": "Commit summary",
+    "commitSummaryDeleteLocal": "Delete local",
+    "commitSummaryDeleteRemote": "Delete remote",
+    "commitSummaryDownloads": "Downloads",
+    "commitSummaryState": "Local base",
+    "commitSummaryUploads": "Uploads",
+    "commitWillBeCreated": "1 GitHub commit will be created",
+    "confirmDelete": "I confirm these deletions",
+    "conflictDetail": {
+      "choose": "Choose an action"
+    },
+    "conflictReason": {
+      "both_changed": "Both local and remote changed",
+      "local_deleted_remote_changed": "Local was deleted, but remote changed",
+      "remote_deleted_local_changed": "Remote was deleted, but local changed",
+      "same_name_first_seen": "Local and remote differed on first discovery"
+    },
+    "decisions": {
+      "accept_delete": "Confirm local delete",
+      "delete_remote": "Delete remote",
+      "keep_local": "Keep local",
+      "restore_remote": "Restore remote",
+      "skip": "Skip",
+      "use_remote": "Use remote"
+    },
+    "deleteGuard": {
+      "description": "This plan contains many deletions. Confirm that the skill roots are readable and the deletions are expected.",
+      "title": "Unusually many deletions"
+    },
+    "deleteLocal": "Delete local",
+    "deleteRemote": "Delete remote",
     "description": "Review all planned changes before syncing.",
     "direction": {
       "download": "Remote → Local",
@@ -131,10 +163,54 @@
       "uploads": "Will upload"
     },
     "loadError": "Failed to load sync plan: {{message}}",
+    "empty": "No matching sync entries",
+    "emptyDescription": "Adjust the search or status filter and try again.",
+    "filterLabel": "Status filter",
+    "filters": {
+      "all": "All",
+      "conflict": "Conflict",
+      "deleted": "Deleted",
+      "local_update": "Local update",
+      "remote_update": "Remote update",
+      "synced": "Synced"
+    },
+    "entry": {
+      "baseHash": "Base hash",
+      "blocked": "Blocked reason",
+      "delete": "Delete",
+      "folder": "Folder",
+      "localHash": "Local hash",
+      "path": "Path",
+      "remoteHash": "Remote hash"
+    },
+    "localBaseOnly": "Only the local sync base will be saved; no GitHub commit will be created",
+    "localBaseUpdated": "Updated {{count}} local sync base item(s)",
+    "notAvailable": "Unavailable",
     "notConfigured": "No sync repository configured.",
+    "planChanged": "The sync plan changed. Review it again before applying.",
     "recheck": "Recheck",
+    "recoveryCompleted": "Sync recovery completed.",
+    "recoveryCompletedCount": "Completed actions",
+    "recoveryPendingCount": "Pending actions",
+    "recoveryPhase": "Recovery phase",
+    "recoveryRequired": "Sync recovery is required before continuing",
+    "resumeRecovery": "Continue recovery",
+    "searchPlaceholder": "Search name, namespace, or path",
+    "selectAction": "Select {{name}}",
     "skip": "Skip this round",
-    "title": "Sync Preview"
+    "status": {
+      "blocked": "Blocked",
+      "both_deleted": "Deleted on both sides",
+      "conflict": "Conflict",
+      "local_deleted": "Deleted locally",
+      "local_update": "Local update",
+      "remote_deleted": "Deleted remotely",
+      "remote_update": "Remote update",
+      "synced": "Synced",
+      "unknown": "Unknown"
+    },
+    "title": "Sync Preview",
+    "viewConflict": "View conflict details"
   },
   "conflicts": {
     "columns": {

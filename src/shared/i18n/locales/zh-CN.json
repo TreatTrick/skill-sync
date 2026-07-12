@@ -115,9 +115,41 @@
     "openFolder": "打开目录"
   },
   "sync": {
-    "applied": "同步完成：应用 {{count}} 项，备份 {{backups}} 项。",
+    "applied": "同步完成：应用 {{count}} 项。",
     "applyError": "同步失败：{{message}}",
     "applying": "同步中…",
+    "commitNone": "不会产生 GitHub commit",
+    "commitSummary": "提交摘要",
+    "commitSummaryDeleteLocal": "删本地",
+    "commitSummaryDeleteRemote": "删云端",
+    "commitSummaryDownloads": "下载",
+    "commitSummaryState": "本机基线",
+    "commitSummaryUploads": "上传",
+    "commitWillBeCreated": "将创建 1 个 GitHub commit",
+    "confirmDelete": "我确认这些删除操作",
+    "conflictDetail": {
+      "choose": "选择处理方式"
+    },
+    "conflictReason": {
+      "both_changed": "本地和云端都已修改",
+      "local_deleted_remote_changed": "本地已删除，但云端已修改",
+      "remote_deleted_local_changed": "云端已删除，但本地已修改",
+      "same_name_first_seen": "首次发现时本地和云端内容不同"
+    },
+    "decisions": {
+      "accept_delete": "确认删除本地",
+      "delete_remote": "删除云端",
+      "keep_local": "保留本地",
+      "restore_remote": "恢复云端",
+      "skip": "跳过",
+      "use_remote": "使用云端"
+    },
+    "deleteGuard": {
+      "description": "本次计划包含较多删除，请确认 skill root 可读且删除符合预期。",
+      "title": "删除数量异常"
+    },
+    "deleteLocal": "删本地",
+    "deleteRemote": "删云端",
     "description": "执行同步前查看所有计划变更。",
     "direction": {
       "download": "远程 → 本地",
@@ -131,10 +163,54 @@
       "uploads": "将上传"
     },
     "loadError": "加载同步计划失败：{{message}}",
+    "empty": "没有匹配的同步条目",
+    "emptyDescription": "调整搜索或状态筛选后重试。",
+    "filterLabel": "状态筛选",
+    "filters": {
+      "all": "全部",
+      "conflict": "冲突",
+      "deleted": "删除",
+      "local_update": "本地更新",
+      "remote_update": "云端更新",
+      "synced": "已同步"
+    },
+    "entry": {
+      "baseHash": "基线 hash",
+      "blocked": "阻止原因",
+      "delete": "删除",
+      "folder": "目录",
+      "localHash": "本地 hash",
+      "path": "路径",
+      "remoteHash": "云端 hash"
+    },
+    "localBaseOnly": "仅保存本机同步基线，不会产生 GitHub commit",
+    "localBaseUpdated": "已更新 {{count}} 个本机同步基线",
+    "notAvailable": "暂无",
     "notConfigured": "尚未配置同步仓库。",
+    "planChanged": "同步计划已变化，请重新确认",
     "recheck": "重新检查",
+    "recoveryCompleted": "同步恢复已完成。",
+    "recoveryCompletedCount": "已完成动作",
+    "recoveryPendingCount": "待完成动作",
+    "recoveryPhase": "恢复阶段",
+    "recoveryRequired": "上次同步需要恢复后才能继续",
+    "resumeRecovery": "继续恢复",
+    "searchPlaceholder": "搜索名称、namespace 或路径",
+    "selectAction": "选择 {{name}}",
     "skip": "跳过本次",
-    "title": "同步预览"
+    "status": {
+      "blocked": "已阻止",
+      "both_deleted": "双方已删除",
+      "conflict": "冲突",
+      "local_deleted": "本地已删除",
+      "local_update": "本地更新",
+      "remote_deleted": "云端已删除",
+      "remote_update": "云端更新",
+      "synced": "已同步",
+      "unknown": "未知"
+    },
+    "title": "同步预览",
+    "viewConflict": "查看冲突详情"
   },
   "conflicts": {
     "columns": {

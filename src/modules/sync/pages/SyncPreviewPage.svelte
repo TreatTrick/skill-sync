@@ -5,16 +5,16 @@
     AlertTriangle,
     ArrowDownToLine,
     ArrowUpFromLine,
-    CircleCheck,
-    FolderOpen,
+    CheckCircle,
     Package,
     RefreshCw,
     Sparkles,
   } from '@lucide/svelte'
   import type { Component } from 'svelte'
 
-  import { cn, errorMessage, openPath } from '@/shared/lib'
-  import { hostLabel, t } from '@/shared/i18n'
+  import { cn, errorMessage } from '@/shared/lib'
+  import { t } from '@/shared/i18n'
+  import type { RecoveryInfo } from '@/shared/schemas'
   import {
     Badge,
     Button,
@@ -23,32 +23,35 @@
     CardDescription,
     CardHeader,
     CardTitle,
+    Checkbox,
     EmptyState,
+    Input,
     Spinner,
-    StatusBadge,
   } from '@/shared/ui'
-
-  import { applySyncPlan, getSyncPlan } from '../api/syncApi'
-  import type { Conflict, SyncAction } from '../schemas/syncPlan'
-  import { syncDecisions } from '../state/syncDecisions.svelte'
-  import { scanSkills } from '@/modules/skills'
   import { getAppState } from '@/modules/settings'
+  import { scanSkills } from '@/modules/skills'
 
-  const shortHash = (hash: string) =>
-    hash.length > 12 ? hash.slice(0, 12) : hash
-
-  const directionLabel = (direction: string): string =>
-    direction === 'upload'
-      ? t('sync.direction.upload')
-      : direction === 'download'
-        ? t('sync.direction.download')
-        : direction
-
-  const CHOICES = [
-    { key: 'local', labelKey: 'conflicts.keepLocal' },
-    { key: 'remote', labelKey: 'conflicts.useRemote' },
-    { key: 'skip', labelKey: 'conflicts.skip' },
-  ] as const
+  import {
+    applySyncPlan,
+    getSyncPlan,
+    resumeSyncRecovery,
+  } from '../api/syncApi'
+  import ConflictDetailDialog from '../components/ConflictDetailDialog.svelte'
+  import SyncSkillCard from '../components/SyncSkillCard.svelte'
+  import {
+    SYNC_STATUS_FILTERS,
+    isDeleteEntry,
+    matchesEntry,
+    type SyncStatusFilter,
+  } from '../lib/syncStatus'
+  import type {
+    ApplySyncRequest,
+    Conflict,
+    SyncDecision,
+    SyncPlan,
+    SyncSkillEntry,
+  } from '../schemas/syncPlan'
+  import { syncDecisions } from '../state/syncDecisions.svelte'
 
   const queryClient = useQueryClient()
   const appState = createQuery(() => ({
@@ -56,29 +59,155 @@
     queryFn: getAppState,
   }))
   const configured = $derived(appState.data?.configured ?? false)
+  const pendingRecovery = $derived(appState.data?.pending_recovery ?? null)
 
   const scan = createQuery(() => ({
     queryKey: ['scan-skills'],
     queryFn: scanSkills,
-    enabled: configured,
+    enabled: configured && pendingRecovery === null,
   }))
-  const skills = $derived(scan.data?.skills ?? [])
-
   const plan = createQuery(() => ({
     queryKey: ['sync-plan'],
     queryFn: getSyncPlan,
-    enabled: configured,
+    enabled: configured && pendingRecovery === null,
   }))
+
+  let search = $state('')
+  let statusFilter = $state<SyncStatusFilter>('all')
+  let selectedActionIds = $state<string[]>([])
+  let deleteGuardAck = $state(false)
+  let lastFingerprint = $state<string | null>(null)
+  let defaultNextPlan = $state(false)
+  let planNotice = $state('')
   let resultMsg = $state('')
+  let resultStateMsg = $state('')
+  let recoveryOverride = $state<RecoveryInfo | null>(null)
+  let selectedConflict = $state<Conflict | null>(null)
+  let conflictDialogOpen = $state(false)
+
+  const recovery = $derived(
+    recoveryOverride ?? appState.data?.pending_recovery ?? null,
+  )
+  const planData = $derived(plan.data)
+  const skills = $derived(scan.data?.skills ?? [])
+  const visibleEntries = $derived(
+    planData?.entries.filter((entry) =>
+      matchesEntry(entry, search, statusFilter),
+    ) ?? [],
+  )
+  const selectedEntries = $derived(
+    planData?.entries.filter((entry) =>
+      selectedActionIds.includes(entry.action_id),
+    ) ?? [],
+  )
+  const selectedDelete = $derived(selectedEntries.some(isDeleteEntry))
+  const hasDecisions = $derived(
+    Object.keys(syncDecisions.decisions).length > 0,
+  )
+  const hasLocalStateUpdates = $derived(
+    (planData?.base_adoptions.length ?? 0) > 0 ||
+      (planData?.base_removals.length ?? 0) > 0,
+  )
+  const canApply = $derived(
+    planData !== undefined &&
+      !recovery &&
+      (selectedActionIds.length > 0 || hasDecisions || hasLocalStateUpdates) &&
+      (!selectedDelete || !planData.delete_guard_tripped || deleteGuardAck),
+  )
+  const recheckLoading = $derived(plan.isFetching || scan.isFetching)
+
+  const statusFilterLabel = (
+    filter: SyncStatusFilter,
+  ): `sync.filters.${SyncStatusFilter}` => `sync.filters.${filter}`
+
+  const isSelectable = (entry: SyncSkillEntry): boolean =>
+    entry.status === 'local_update' ||
+    entry.status === 'remote_update' ||
+    entry.status === 'local_deleted' ||
+    entry.status === 'remote_deleted'
+
+  const defaultSelectedActionIds = (data: SyncPlan): string[] =>
+    data.entries
+      .filter(
+        (entry) =>
+          isSelectable(entry) &&
+          !isDeleteEntry(entry) &&
+          (entry.status === 'local_update' || entry.status === 'remote_update'),
+      )
+      .map((entry) => entry.action_id)
+
+  $effect(() => {
+    const currentPlan = plan.data
+    const fingerprint = currentPlan?.plan_fingerprint
+    if (!currentPlan || !fingerprint) return
+    if (lastFingerprint === null) {
+      lastFingerprint = fingerprint
+      selectedActionIds = defaultSelectedActionIds(currentPlan)
+      return
+    }
+    if (fingerprint !== lastFingerprint) {
+      lastFingerprint = fingerprint
+      selectedActionIds = defaultNextPlan
+        ? defaultSelectedActionIds(currentPlan)
+        : []
+      defaultNextPlan = false
+      deleteGuardAck = false
+      syncDecisions.clear()
+      planNotice = t('sync.planChanged')
+    }
+  })
+
+  const clearInteractionState = (): void => {
+    selectedActionIds = []
+    deleteGuardAck = false
+    syncDecisions.clear()
+  }
 
   const apply = createMutation(() => ({
-    mutationFn: (vars: Record<string, string>) => applySyncPlan(vars),
-    onSuccess: (data) => {
-      resultMsg = t('sync.applied', {
-        count: data.applied.length,
-        backups: data.backups.length,
-      })
-      syncDecisions.clear()
+    mutationFn: (request: ApplySyncRequest) => applySyncPlan(request),
+    retry: false,
+    onSuccess: (response) => {
+      if (response.status === 'applied') {
+        resultMsg = t('sync.applied', {
+          count: response.result.applied.length,
+        })
+        resultStateMsg = response.result.state_updated.length
+          ? t('sync.localBaseUpdated', {
+              count: response.result.state_updated.length,
+            })
+          : ''
+        recoveryOverride = null
+        clearInteractionState()
+        void queryClient.invalidateQueries({ queryKey: ['sync-plan'] })
+        void queryClient.invalidateQueries({ queryKey: ['app-state'] })
+        return
+      }
+      if (response.status === 'plan_changed') {
+        defaultNextPlan = false
+        queryClient.setQueryData(['sync-plan'], response.latest_plan)
+        clearInteractionState()
+        planNotice = t('sync.planChanged')
+        return
+      }
+      clearInteractionState()
+      recoveryOverride = response.recovery
+    },
+    onError: (error) => {
+      resultMsg = t('sync.applyError', { message: errorMessage(error) })
+    },
+  }))
+
+  const resume = createMutation(() => ({
+    mutationFn: (taskId: string) => resumeSyncRecovery(taskId),
+    retry: false,
+    onSuccess: (response) => {
+      if (response.status === 'recovery_required') {
+        recoveryOverride = response.recovery
+        return
+      }
+      recoveryOverride = null
+      resultMsg = t('sync.recoveryCompleted')
+      void queryClient.invalidateQueries({ queryKey: ['app-state'] })
       void queryClient.invalidateQueries({ queryKey: ['sync-plan'] })
     },
     onError: (error) => {
@@ -86,25 +215,43 @@
     },
   }))
 
-  const planData = $derived(plan.data)
-  const totalActions = $derived(
-    planData
-      ? planData.uploads.length +
-        planData.downloads.length +
-        planData.updates.length +
-        planData.deletes.length
-      : 0,
-  )
-  const conflictCount = $derived(planData?.conflicts.length ?? 0)
-  const isEmpty = $derived(totalActions === 0 && conflictCount === 0)
-  const recheckLoading = $derived(plan.isFetching || scan.isFetching)
-
-  const handleApply = () => {
-    resultMsg = ''
-    apply.mutate(syncDecisions.decisions)
+  const toggleAction = (actionId: string, selected: boolean): void => {
+    selectedActionIds = selected
+      ? [...selectedActionIds, actionId]
+      : selectedActionIds.filter((id) => id !== actionId)
   }
 
-  const handleRecheck = () => {
+  const openConflict = (entry: SyncSkillEntry): void => {
+    selectedConflict =
+      planData?.conflicts.find((conflict) => conflict.skill_id === entry.skill_id) ??
+      null
+    conflictDialogOpen = selectedConflict !== null
+  }
+
+  const handleDecision = (choice: SyncDecision): void => {
+    if (selectedConflict) {
+      syncDecisions.setDecision(selectedConflict.skill_id, choice)
+    }
+  }
+
+  const handleApply = (): void => {
+    if (!planData || !canApply) return
+    resultMsg = ''
+    resultStateMsg = ''
+    apply.mutate({
+      expected_remote_commit: planData.expected_remote_commit,
+      plan_fingerprint: planData.plan_fingerprint,
+      selected_action_ids: [...selectedActionIds],
+      decisions: { ...syncDecisions.decisions },
+      delete_guard_ack: deleteGuardAck,
+    })
+  }
+
+  const handleRecheck = (): void => {
+    defaultNextPlan = true
+    planNotice = ''
+    resultMsg = ''
+    resultStateMsg = ''
     void plan.refetch()
     void scan.refetch()
   }
@@ -116,100 +263,25 @@
   Icon: Component<{ class?: string }>,
   tone: 'neutral' | 'warning' = 'neutral',
 )}
-  <Card class="p-4">
+  <div class="grid gap-2 border border-border bg-surface p-4">
     <div class="flex items-center justify-between gap-3">
       <div class="text-sm font-medium text-muted-foreground">{label}</div>
       <span class={tone === 'warning' ? 'text-warning' : 'text-muted-foreground'}>
         <Icon class="size-4" />
       </span>
     </div>
-    <div
-      class="mt-3 text-3xl font-bold {tone === 'warning'
-        ? 'text-warning'
-        : 'text-strong-foreground'}"
-    >
+    <div class={cn('text-3xl font-bold', tone === 'warning' ? 'text-warning' : 'text-strong-foreground')}>
       {value}
     </div>
-  </Card>
-{/snippet}
-
-{#snippet actionRow(action: SyncAction)}
-  <div class="grid gap-1 rounded-lg border border-border bg-surface p-3 text-sm">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <span class="font-bold text-strong-foreground">{action.name}</span>
-      <Badge variant="secondary">{hostLabel(action.host)}</Badge>
-    </div>
-    <div class="truncate text-xs text-muted-foreground">
-      {directionLabel(action.direction)} · {action.repo_path}
-    </div>
   </div>
 {/snippet}
 
-{#snippet groupSection(title: string, items: SyncAction[])}
-  {#if items.length > 0}
-    <div class="grid gap-2">
-      <h3 class="flex items-center gap-2 text-sm font-bold text-strong-foreground">
-        {title}
-        <Badge variant="secondary">{items.length}</Badge>
-      </h3>
-      <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        {#each items as action (action.skill_id)}
-          {@render actionRow(action)}
-        {/each}
-      </div>
-    </div>
-  {/if}
-{/snippet}
-
-{#snippet conflictCard(conflict: Conflict)}
-  {@const decision = syncDecisions.decisions[conflict.skill_id] ?? ''}
-  <div class="grid gap-2 rounded-lg border border-warning-border bg-warning-muted p-3 text-sm">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <span class="font-bold text-strong-foreground">{conflict.name}</span>
-      <StatusBadge tone="warning">{conflict.reason}</StatusBadge>
-    </div>
-    <div class="grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-      <div class="truncate">
-        {t('conflicts.localHash')}: {shortHash(conflict.local_hash)}
-      </div>
-      <div class="truncate">
-        {t('conflicts.remoteHash')}: {shortHash(conflict.remote_hash)}
-      </div>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      {#each CHOICES as choice (choice.key)}
-        <button
-          class={cn(
-            'h-8 rounded-lg border px-2.5 text-xs font-medium transition-colors',
-            decision === choice.key
-              ? 'border-primary bg-primary-muted text-primary-muted-foreground'
-              : 'border-border bg-surface text-foreground hover:bg-surface-hover',
-          )}
-          onclick={() => syncDecisions.setDecision(conflict.skill_id, choice.key)}
-          type="button"
-        >
-          {t(choice.labelKey)}
-        </button>
-      {/each}
-    </div>
-  </div>
-{/snippet}
-
-{#snippet conflictList(conflicts: Conflict[])}
-  {#if conflicts.length > 0}
-    <div class="grid gap-2">
-      <h3 class="flex items-center gap-2 text-sm font-bold text-strong-foreground">
-        {t('sync.groups.conflicts')}
-        <StatusBadge tone="warning">{conflicts.length}</StatusBadge>
-      </h3>
-      <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        {#each conflicts as conflict (conflict.skill_id)}
-          {@render conflictCard(conflict)}
-        {/each}
-      </div>
-    </div>
-  {/if}
-{/snippet}
+<ConflictDetailDialog
+  bind:open={conflictDialogOpen}
+  conflict={selectedConflict}
+  decision={selectedConflict ? syncDecisions.decisions[selectedConflict.skill_id] ?? '' : ''}
+  onDecision={handleDecision}
+/>
 
 <div class="grid gap-4">
   {#if appState.isLoading}
@@ -222,7 +294,7 @@
         <p class="text-sm text-destructive">{errorMessage(appState.error)}</p>
       </CardContent>
     </Card>
-  {:else if !configured}
+  {:else if !configured && !recovery}
     <Card>
       <EmptyState title={t('dashboard.notConfigured')}>
         {#snippet icon()}
@@ -238,139 +310,156 @@
         {/snippet}
       </EmptyState>
     </Card>
-  {:else}
-    <Card>
-      <CardHeader class="flex-row items-center justify-between space-y-0">
-        <div class="space-y-1.5">
-          <CardTitle>{t('sync.title')}</CardTitle>
-          <CardDescription>{t('sync.description')}</CardDescription>
+  {:else if recovery}
+    <Card class="border-warning-border bg-warning-muted">
+      <CardHeader>
+        <CardTitle>{t('sync.recoveryRequired')}</CardTitle>
+        <CardDescription>{recovery.message}</CardDescription>
+      </CardHeader>
+      <CardContent class="grid gap-3 text-sm">
+        <div class="grid gap-1 text-muted-foreground sm:grid-cols-3">
+          <span>{t('sync.recoveryPhase')}: {recovery.phase}</span>
+          <span>{t('sync.recoveryCompletedCount')}: {recovery.completed_action_ids.length}</span>
+          <span>{t('sync.recoveryPendingCount')}: {recovery.pending_action_ids.length}</span>
         </div>
-        <div class="flex gap-2">
-          <Button loading={recheckLoading} onclick={handleRecheck} variant="outline">
+        <div class="flex justify-end">
+          <Button
+            disabled={resume.isPending}
+            loading={resume.isPending}
+            onclick={() => resume.mutate(recovery.task_id)}
+          >
+            {t('sync.resumeRecovery')}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  {:else}
+    <div class="grid gap-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 class="text-xl font-bold text-strong-foreground">{t('sync.title')}</h1>
+          <p class="text-sm text-muted-foreground">{t('sync.description')}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <Button
+            disabled={recovery !== null}
+            loading={recheckLoading}
+            onclick={handleRecheck}
+            variant="outline"
+          >
             {#snippet icon()}
               <RefreshCw class="size-4" />
             {/snippet}
             {t('sync.recheck')}
           </Button>
-          <Button disabled={isEmpty} loading={apply.isPending} onclick={handleApply}>
-            {apply.isPending ? t('sync.applying') : t('common.actions.apply')}
+          <Button disabled={!canApply} loading={apply.isPending} onclick={handleApply}>
+            {t('common.actions.apply')}
           </Button>
         </div>
-      </CardHeader>
-    </Card>
-
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {@render metric(
-        t('dashboard.metrics.discovered'),
-        skills.length,
-        Package,
-      )}
-      {@render metric(
-        t('dashboard.metrics.toUpload'),
-        planData?.uploads.length ?? 0,
-        ArrowUpFromLine,
-      )}
-      {@render metric(
-        t('dashboard.metrics.toDownload'),
-        planData?.downloads.length ?? 0,
-        ArrowDownToLine,
-      )}
-      {@render metric(
-        t('dashboard.metrics.conflicts'),
-        conflictCount,
-        AlertTriangle,
-        conflictCount > 0 ? 'warning' : 'neutral',
-      )}
-    </div>
-
-    {#if scan.isLoading}
-      <div class="flex justify-center py-12">
-        <Spinner class="size-6" />
       </div>
-    {/if}
 
-    {#if scan.error}
-      <Card>
-        <CardContent class="pt-6 text-sm text-destructive">
-          {errorMessage(scan.error)}
-        </CardContent>
-      </Card>
-    {/if}
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {@render metric(t('dashboard.metrics.discovered'), skills.length, Package)}
+        {@render metric(t('dashboard.metrics.toUpload'), planData?.uploads.length ?? 0, ArrowUpFromLine)}
+        {@render metric(t('dashboard.metrics.toDownload'), planData?.downloads.length ?? 0, ArrowDownToLine)}
+        {@render metric(t('dashboard.metrics.conflicts'), planData?.conflicts.length ?? 0, AlertTriangle, (planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral')}
+      </div>
 
-    <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      {#each skills as skill (skill.id)}
-        <Card class="p-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="grid gap-1">
-              <div class="text-base font-bold text-strong-foreground">
-                {skill.name}
-              </div>
-              <Badge variant="secondary">{hostLabel(skill.host)}</Badge>
-            </div>
-            <StatusBadge tone="success">{t('skills.enabled')}</StatusBadge>
+      {#if planNotice}
+        <div class="border border-warning-border bg-warning-muted p-3 text-sm text-warning">
+          {planNotice}
+        </div>
+      {/if}
+
+      {#if planData?.delete_guard_tripped}
+        <div class="flex items-start gap-3 border border-warning-border bg-warning-muted p-3 text-sm">
+          <AlertTriangle class="mt-0.5 size-4 shrink-0 text-warning" />
+          <div class="grid gap-1">
+            <strong class="text-warning">{t('sync.deleteGuard.title')}</strong>
+            <span class="text-muted-foreground">{t('sync.deleteGuard.description')}</span>
+            <label class="mt-2 flex items-center gap-2 text-foreground">
+              <Checkbox bind:checked={deleteGuardAck} />
+              {t('sync.confirmDelete')}
+            </label>
           </div>
-          <p class="mt-2 text-sm text-muted-foreground">{skill.description}</p>
-          <div
-            class="mt-3 grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2"
-          >
-            <div class="truncate">
-              <span class="text-foreground">{t('skills.columns.path')}:</span>
-              {skill.source_path}
-            </div>
-            <div class="truncate">
-              <span class="text-foreground">{t('skills.columns.modified')}:</span>
-              {skill.modified_at || '—'}
-            </div>
-            <div class="truncate sm:col-span-2">
-              <span class="text-foreground">{t('skills.columns.hash')}:</span>
-              {shortHash(skill.hash)}
-            </div>
-          </div>
-          <div class="mt-3 flex justify-end">
-            <Button
-              onclick={() => void openPath(skill.source_path)}
-              size="sm"
-              variant="outline"
-            >
-              {#snippet icon()}
-                <FolderOpen class="size-3.5" />
-              {/snippet}
-              {t('skills.openFolder')}
-            </Button>
-          </div>
+        </div>
+      {/if}
+
+      <div class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row">
+        <Input bind:value={search} placeholder={t('sync.searchPlaceholder')} />
+        <select
+          aria-label={t('sync.filterLabel')}
+          bind:value={statusFilter}
+          class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:w-52"
+        >
+          {#each SYNC_STATUS_FILTERS as filter (filter)}
+            <option value={filter}>{statusFilterLabel(filter)}</option>
+          {/each}
+        </select>
+      </div>
+
+      {#if plan.isLoading}
+        <div class="flex justify-center py-12">
+          <Spinner class="size-6" />
+        </div>
+      {:else if plan.error}
+        <Card class="border-destructive-border bg-destructive-muted">
+          <CardContent class="pt-6 text-sm text-destructive">
+            {t('sync.loadError', { message: errorMessage(plan.error) })}
+          </CardContent>
         </Card>
-      {/each}
-    </div>
+      {:else if visibleEntries.length === 0}
+        <EmptyState title={t('sync.empty')} description={t('sync.emptyDescription')}>
+          {#snippet icon()}
+            <CheckCircle class="size-10" />
+          {/snippet}
+        </EmptyState>
+      {:else}
+        <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {#each visibleEntries as entry (entry.action_id)}
+            <SyncSkillCard
+              entry={entry}
+              onOpenConflict={entry.conflict_reason ? () => openConflict(entry) : undefined}
+              onToggle={isSelectable(entry) ? (selected) => toggleAction(entry.action_id, selected) : undefined}
+              requiresConfirmation={isDeleteEntry(entry)}
+              selected={selectedActionIds.includes(entry.action_id)}
+            />
+          {/each}
+        </div>
+      {/if}
 
-    {#if plan.isLoading}
-      <div class="flex justify-center py-12">
-        <Spinner class="size-6" />
-      </div>
-    {/if}
+      {#if planData}
+        <div class="grid gap-2 border-t border-border pt-4 text-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-bold text-strong-foreground">{t('sync.commitSummary')}</span>
+            <Badge variant="secondary">
+              {planData.will_create_commit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
+            </Badge>
+          </div>
+          <div class="grid gap-1 text-muted-foreground sm:grid-cols-2 lg:grid-cols-5">
+            <span>{t('sync.commitSummaryUploads')}: {planData.commit_summary.uploads}</span>
+            <span>{t('sync.commitSummaryDownloads')}: {planData.commit_summary.downloads}</span>
+            <span>{t('sync.commitSummaryDeleteRemote')}: {planData.commit_summary.delete_remote}</span>
+            <span>{t('sync.commitSummaryDeleteLocal')}: {planData.commit_summary.delete_local}</span>
+            <span>{t('sync.commitSummaryState')}: {planData.commit_summary.local_state_updates}</span>
+          </div>
+          {#if hasLocalStateUpdates && !planData.will_create_commit}
+            <p class="text-xs text-muted-foreground">{t('sync.localBaseOnly')}</p>
+          {/if}
+        </div>
+      {/if}
 
-    {#if plan.error}
-      <Card class="border-destructive-border bg-destructive-muted">
-        <CardContent class="pt-6 text-sm text-destructive">
-          {t('sync.loadError', { message: errorMessage(plan.error) })}
-        </CardContent>
-      </Card>
-    {/if}
-
-    {#if resultMsg}
-      <Card class="border-success-muted bg-success-muted">
-        <CardContent class="flex items-center gap-2 pt-6 text-sm text-success">
-          <CircleCheck class="size-4 shrink-0" />
+      {#if resultMsg}
+        <div class="flex items-center gap-2 border border-success-muted bg-success-muted p-3 text-sm text-success">
+          <CheckCircle class="size-4 shrink-0" />
           {resultMsg}
-        </CardContent>
-      </Card>
-    {/if}
-
-    {#if planData}
-      {@render groupSection(t('sync.groups.uploads'), planData.uploads)}
-      {@render groupSection(t('sync.groups.downloads'), planData.downloads)}
-      {@render groupSection(t('sync.groups.updates'), planData.updates)}
-      {@render groupSection(t('sync.groups.deletes'), planData.deletes)}
-      {@render conflictList(planData.conflicts)}
-    {/if}
+        </div>
+      {/if}
+      {#if resultStateMsg}
+        <div class="border border-primary-muted bg-primary-muted p-3 text-sm text-primary-muted-foreground">
+          {resultStateMsg}
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
