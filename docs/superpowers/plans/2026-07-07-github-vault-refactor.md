@@ -2524,7 +2524,7 @@ applySyncPlan({
 }
 ```
 
-- [ ] **Step 7: 验证**
+- [x] **Step 7: 自动验证**
 
 ```bash
 npm run lint:responsive
@@ -2538,6 +2538,8 @@ npm run build
 手动验证：删除 action 首次与计划变化后均不选中；Apply 只调用一次且 request 五个字段完整；`applied` 正确读取嵌套 result；`plan_changed` 使用 latest_plan 替换缓存并清空选择、决策和 ack，不触发自动 retry/refetch；`recovery_required` 冻结普通同步且只按 task id resume，不自动重发 Apply；应用以 `AppState.pending_recovery` 启动时直接显示同一恢复面板；分别用 adoption-only 与 removal-only 计划确认 Apply 仍可用、普通选择和 decisions 保持为空、显示 0 commit，并使用 `state_updated` 展示结果。
 
 自动验证已通过；完整交互验收仍需要可运行的 Tauri 窗口和本机同步 fixture。
+
+- [ ] **手动验收**：需要可运行的 Tauri 窗口和本机同步 fixture。
 
 - [x] **Step 8: Commit**
 
@@ -2684,7 +2686,7 @@ claude-code  ~/.claude/skills       resolved path + exists/readable/scan status
 }
 ```
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 自动验证**
 
 ```bash
 npm run lint:responsive
@@ -2698,6 +2700,8 @@ npm run build
 手动验证：首次未授权打开 `/`、`/app`、`/app/sync` 和 `/app/settings` 都只出现无业务导航的 Onboarding，加载期间不闪现 sidebar；向导一次只显示当前步骤与明确进度；Device Flow authorized 后仍停留在 installation/repo/branch/init/bind 引导，不能提前看到业务 Tab。bind 成功后默认进入 Sync，导航严格只有 Sync / Settings；已绑定用户普通访问 `/app/onboarding` 会回到 Sync。GitHub App Device Flow -> install -> 唯一 repo -> branch -> empty/missing manifest 确认初始化 -> ready -> bind 全链路可完成；OAuth/PAT/Git/SSH 控件不存在；多 repo、invalid manifest 和 stale init 均不能越过。Settings 的重新配置通过 `?mode=reconfigure` 进入无导航向导且可取消保留旧 binding；disconnect/reauthorization_required 回到向导并隐藏旧工作区。Settings 不显示 token、不允许编辑 stable IDs。三个 namespace 均显示唯一固定路径；修改旧 hosts/custom_paths 不改变扫描目标；缺失 root 显示 unknown 而不产生删除。
 
 自动验证已通过；完整链路验收需要 GitHub App credential、installation 和 disposable private repository。
+
+- [ ] **手动验收**：需要 GitHub App credential、installation 和 disposable private repository。
 
 - [x] **Step 7: Commit**
 
