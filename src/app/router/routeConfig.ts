@@ -31,5 +31,3 @@ export const appRoutes: AppRouteConfig[] = [
     icon: SettingsIcon,
   },
 ]
-
-export const DEFAULT_ROUTE_PATH = '/app/sync'

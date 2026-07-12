@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const githubVaultStatusSchema = z.enum([
+const githubVaultStatusSchema = z.enum([
   'app_not_installed',
   'repository_forbidden',
   'repository_missing',
@@ -11,8 +11,6 @@ export const githubVaultStatusSchema = z.enum([
   'invalid_manifest',
   'ready',
 ])
-
-export type GithubVaultStatus = z.infer<typeof githubVaultStatusSchema>
 
 export const recoveryInfoSchema = z.object({
   task_id: z.string(),
@@ -40,7 +38,7 @@ export const remoteConfigSchema = z.object({
 
 export type RemoteConfig = z.infer<typeof remoteConfigSchema>
 
-export const limitsConfigSchema = z
+const limitsConfigSchema = z
   .object({
     max_skill_zip_bytes: z.number().int().positive(),
     max_skill_files: z.number().int().positive(),
@@ -57,8 +55,6 @@ export const limitsConfigSchema = z
       path: ['max_single_file_unpacked_bytes'],
     },
   )
-
-export type LimitsConfig = z.infer<typeof limitsConfigSchema>
 
 export const appConfigSchema = z.object({
   version: z.number().int(),
@@ -136,24 +132,12 @@ export const deviceFlowPollSchema = z.object({
 
 export type DeviceFlowPoll = z.infer<typeof deviceFlowPollSchema>
 
-export const githubInstallationSchema = z.object({
-  id: z.number().int().nonnegative(),
-  account_login: z.string(),
-  repository_selection: z.enum(['all', 'selected']),
-})
-
-export type GithubInstallation = z.infer<typeof githubInstallationSchema>
-
-export const githubRepositorySelectionSchema = z.object({
+const githubRepositorySelectionSchema = z.object({
   installation_id: z.number().int().nonnegative(),
   repository_id: z.number().int().nonnegative(),
   owner: z.string(),
   repo: z.string(),
 })
-
-export type GithubRepositorySelection = z.infer<
-  typeof githubRepositorySelectionSchema
->
 
 export const githubRepositorySchema = githubRepositorySelectionSchema.extend({
   default_branch: z.string(),
@@ -197,13 +181,11 @@ export type InitializeGithubVaultRequest = z.infer<
   typeof initializeGithubVaultRequestSchema
 >
 
-export const remoteBindingKeySchema = z.object({
+const remoteBindingKeySchema = z.object({
   installation_id: z.number().int().nonnegative(),
   repository_id: z.number().int().nonnegative(),
   branch: z.string(),
 })
-
-export type RemoteBindingKey = z.infer<typeof remoteBindingKeySchema>
 
 export const bindGithubVaultRequestSchema = z.object({
   remote: remoteConfigSchema,

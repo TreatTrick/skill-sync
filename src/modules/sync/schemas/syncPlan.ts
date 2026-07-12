@@ -4,7 +4,7 @@ import { recoveryInfoSchema } from '@/shared/schemas'
 
 const namespaceSchema = z.enum(['agents', 'codex', 'claude-code'])
 
-export const syncStatusSchema = z.enum([
+const syncStatusSchema = z.enum([
   'synced',
   'local_update',
   'remote_update',
@@ -18,7 +18,7 @@ export const syncStatusSchema = z.enum([
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>
 
-export const conflictReasonSchema = z.enum([
+const conflictReasonSchema = z.enum([
   'same_name_first_seen',
   'both_changed',
   'local_deleted_remote_changed',
@@ -27,11 +27,9 @@ export const conflictReasonSchema = z.enum([
 
 export type ConflictReason = z.infer<typeof conflictReasonSchema>
 
-export const deleteDirectionSchema = z.enum(['delete_local', 'delete_remote'])
+const deleteDirectionSchema = z.enum(['delete_local', 'delete_remote'])
 
-export type DeleteDirection = z.infer<typeof deleteDirectionSchema>
-
-export const syncDecisionSchema = z.enum([
+const syncDecisionSchema = z.enum([
   'keep_local',
   'use_remote',
   'delete_remote',
@@ -42,7 +40,7 @@ export const syncDecisionSchema = z.enum([
 
 export type SyncDecision = z.infer<typeof syncDecisionSchema>
 
-export const syncSkillEntrySchema = z.object({
+const syncSkillEntrySchema = z.object({
   action_id: z.string(),
   skill_id: z.string(),
   name: z.string(),
@@ -63,7 +61,7 @@ export const syncSkillEntrySchema = z.object({
 
 export type SyncSkillEntry = z.infer<typeof syncSkillEntrySchema>
 
-export const conflictSchema = z.object({
+const conflictSchema = z.object({
   skill_id: z.string(),
   name: z.string(),
   namespace: namespaceSchema,
@@ -80,7 +78,7 @@ export const conflictSchema = z.object({
 
 export type Conflict = z.infer<typeof conflictSchema>
 
-export const blockedSkillSchema = z.object({
+const blockedSkillSchema = z.object({
   skill_id: z.string(),
   name: z.string(),
   namespace: namespaceSchema,
@@ -88,9 +86,7 @@ export const blockedSkillSchema = z.object({
   reason: z.string(),
 })
 
-export type BlockedSkill = z.infer<typeof blockedSkillSchema>
-
-export const commitSummarySchema = z.object({
+const commitSummarySchema = z.object({
   uploads: z.number().int().nonnegative(),
   downloads: z.number().int().nonnegative(),
   delete_remote: z.number().int().nonnegative(),
@@ -98,14 +94,10 @@ export const commitSummarySchema = z.object({
   local_state_updates: z.number().int().nonnegative(),
 })
 
-export type CommitSummary = z.infer<typeof commitSummarySchema>
-
-export const baseAdoptionSchema = z.object({
+const baseAdoptionSchema = z.object({
   skill_id: z.string(),
   hash: z.string(),
 })
-
-export type BaseAdoption = z.infer<typeof baseAdoptionSchema>
 
 export const syncPlanSchema = z.object({
   entries: z.array(syncSkillEntrySchema),
@@ -127,14 +119,12 @@ export const syncPlanSchema = z.object({
 
 export type SyncPlan = z.infer<typeof syncPlanSchema>
 
-export const applyResultSchema = z.object({
+const applyResultSchema = z.object({
   applied: z.array(z.string()),
   state_updated: z.array(z.string()),
   warnings: z.array(z.string()),
   remote_commit: z.string().nullable(),
 })
-
-export type ApplyResult = z.infer<typeof applyResultSchema>
 
 export const applySyncRequestSchema = z.object({
   expected_remote_commit: z.string(),

@@ -7,7 +7,6 @@ import {
   deviceFlowPollSchema,
   deviceFlowStartSchema,
   githubAppInfoSchema,
-  githubInstallationSchema,
   githubRepositoryDiscoverySchema,
   githubRepositorySchema,
   githubVaultCheckSchema,
@@ -18,7 +17,6 @@ import {
   type DeviceFlowPoll,
   type DeviceFlowStart,
   type GithubAppInfo,
-  type GithubInstallation,
   type GithubRepository,
   type GithubRepositoryDiscovery,
   type GithubVaultCheck,
@@ -32,13 +30,6 @@ const deviceFlowPollPayloadSchema = z.object({
   interval: z.number().int().nonnegative().optional(),
 })
 
-const githubInstallationPayloadSchema = z.object({
-  id: z.number().int().nonnegative(),
-  account_login: z.string().optional(),
-  account: z.object({ login: z.string() }).optional(),
-  repository_selection: z.enum(['all', 'selected']),
-})
-
 const githubRepositoryPayloadSchema = z.object({
   installation_id: z.number().int().nonnegative().optional(),
   repository_id: z.number().int().nonnegative().optional(),
@@ -49,15 +40,6 @@ const githubRepositoryPayloadSchema = z.object({
   default_branch: z.string(),
   private: z.boolean(),
 })
-
-const normalizeGithubInstallation = (value: unknown): GithubInstallation => {
-  const payload = githubInstallationPayloadSchema.parse(value)
-  return githubInstallationSchema.parse({
-    id: payload.id,
-    account_login: payload.account_login ?? payload.account?.login,
-    repository_selection: payload.repository_selection,
-  })
-}
 
 const normalizeGithubRepository = (
   value: unknown,
@@ -99,13 +81,6 @@ export const pollGithubDeviceFlow = async (
 
 export const getGithubAppInfo = async (): Promise<GithubAppInfo> =>
   githubAppInfoSchema.parse(await invokeCmd<unknown>('get_github_app_info'))
-
-export const listGithubInstallations = async (): Promise<
-  GithubInstallation[]
-> => {
-  const raw = await invokeCmd<unknown>('list_github_installations')
-  return z.array(z.unknown()).parse(raw).map(normalizeGithubInstallation)
-}
 
 export const listInstallationRepositories = async (
   installationId: number,

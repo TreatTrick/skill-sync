@@ -21,7 +21,7 @@ export const isDeleteEntry = (entry: SyncSkillEntry): boolean =>
   entry.status === 'local_deleted' ||
   entry.status === 'remote_deleted'
 
-export const matchesStatusFilter = (
+const matchesStatusFilter = (
   status: SyncStatus,
   filter: SyncStatusFilter,
 ): boolean => {
@@ -32,10 +32,7 @@ export const matchesStatusFilter = (
   return status === filter
 }
 
-export const matchesSearch = (
-  entry: SyncSkillEntry,
-  search: string,
-): boolean => {
+const matchesSearch = (entry: SyncSkillEntry, search: string): boolean => {
   const query = search.trim().toLocaleLowerCase()
   if (!query) return true
   return [

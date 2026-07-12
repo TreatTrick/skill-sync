@@ -1,18 +1,13 @@
 export {
-  appErrorSchema,
   appStateSchema,
   bindGithubVaultRequestSchema,
   deviceFlowPollSchema,
   deviceFlowStartSchema,
   githubAppInfoSchema,
-  githubInstallationSchema,
   githubRepositoryDiscoverySchema,
   githubRepositorySchema,
-  githubRepositorySelectionSchema,
   githubVaultCheckSchema,
-  githubVaultStatusSchema,
   initializeGithubVaultRequestSchema,
-  remoteBindingKeySchema,
   remoteConfigSchema,
 } from '@/shared/schemas'
 
@@ -22,12 +17,9 @@ export type {
   DeviceFlowPoll,
   DeviceFlowStart,
   GithubAppInfo,
-  GithubInstallation,
   GithubRepository,
   GithubRepositoryDiscovery,
-  GithubRepositorySelection,
   GithubVaultCheck,
   InitializeGithubVaultRequest,
-  RemoteBindingKey,
   RemoteConfig,
 } from '@/shared/schemas'

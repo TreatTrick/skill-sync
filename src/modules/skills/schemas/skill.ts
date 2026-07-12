@@ -39,7 +39,4 @@ export const scanResultSchema = z.object({
   collisions: z.array(scanCollisionSchema),
 })
 
-export type Skill = z.infer<typeof skillSchema>
-export type ScanRootStatus = z.infer<typeof scanRootStatusSchema>
-export type ScanCollision = z.infer<typeof scanCollisionSchema>
 export type ScanResult = z.infer<typeof scanResultSchema>

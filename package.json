@@ -55,7 +55,6 @@
     "husky": "8.0.1",
     "knip": "^6.26.0",
     "lint-staged": "^17.0.8",
-    "mode-watcher": "^1.1.0",
     "prettier": "^3.9.4",
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.1",

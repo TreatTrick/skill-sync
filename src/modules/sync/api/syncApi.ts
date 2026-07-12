@@ -11,8 +11,6 @@ import {
   type SyncPlan,
 } from '../schemas/syncPlan'
 
-const skillIdsSchema = z.array(z.string())
-
 export const getSyncPlan = async (): Promise<SyncPlan> => {
   const raw = await invokeCmd<unknown>('get_sync_plan')
   return syncPlanSchema.parse(raw)
@@ -24,26 +22,6 @@ export const applySyncPlan = async (
   const parsedRequest = applySyncRequestSchema.parse(request)
   const raw = await invokeCmd<unknown>('apply_sync_plan', {
     request: parsedRequest,
-  })
-  return applySyncResponseSchema.parse(raw)
-}
-
-export const uploadSkills = async (
-  skillIds: string[],
-): Promise<ApplySyncResponse> => {
-  const parsedSkillIds = skillIdsSchema.parse(skillIds)
-  const raw = await invokeCmd<unknown>('upload_skills', {
-    skillIds: parsedSkillIds,
-  })
-  return applySyncResponseSchema.parse(raw)
-}
-
-export const downloadSkills = async (
-  skillIds: string[],
-): Promise<ApplySyncResponse> => {
-  const parsedSkillIds = skillIdsSchema.parse(skillIds)
-  const raw = await invokeCmd<unknown>('download_skills', {
-    skillIds: parsedSkillIds,
   })
   return applySyncResponseSchema.parse(raw)
 }
