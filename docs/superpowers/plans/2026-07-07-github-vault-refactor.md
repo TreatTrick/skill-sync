@@ -2537,7 +2537,7 @@ npm run build
 
 手动验证：删除 action 首次与计划变化后均不选中；Apply 只调用一次且 request 五个字段完整；`applied` 正确读取嵌套 result；`plan_changed` 使用 latest_plan 替换缓存并清空选择、决策和 ack，不触发自动 retry/refetch；`recovery_required` 冻结普通同步且只按 task id resume，不自动重发 Apply；应用以 `AppState.pending_recovery` 启动时直接显示同一恢复面板；分别用 adoption-only 与 removal-only 计划确认 Apply 仍可用、普通选择和 decisions 保持为空、显示 0 commit，并使用 `state_updated` 展示结果。
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/modules/sync src/shared/i18n/locales
