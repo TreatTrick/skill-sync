@@ -1,72 +1,20 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<svg width="512" height="512" viewBox="166 166 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">Skill Sync icon</title>
-  <desc id="desc">A desktop app icon showing skill nodes orbiting a central sync core.</desc>
+  <desc id="desc">A sync icon with two arrows around a central core.</desc>
   <defs>
-    <radialGradient id="ambient" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(166 116) rotate(54) scale(382)">
-      <stop stop-color="#2DD4BF" stop-opacity="0.34"/>
-      <stop offset="0.48" stop-color="#60A5FA" stop-opacity="0.14"/>
-      <stop offset="1" stop-color="#0B1120" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="borderGradient" x1="72" y1="54" x2="440" y2="458" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2DD4BF"/>
-      <stop offset="0.58" stop-color="#38BDF8"/>
-      <stop offset="1" stop-color="#A78BFA"/>
-    </linearGradient>
-    <linearGradient id="orbitTop" x1="180" y1="64" x2="440" y2="386" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2DD4BF"/>
-      <stop offset="1" stop-color="#60A5FA"/>
-    </linearGradient>
-    <linearGradient id="orbitBottom" x1="72" y1="126" x2="332" y2="448" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#60A5FA"/>
-      <stop offset="1" stop-color="#A78BFA"/>
-    </linearGradient>
     <linearGradient id="coreAccent" x1="202" y1="200" x2="314" y2="314" gradientUnits="userSpaceOnUse">
       <stop stop-color="#14B8A6"/>
       <stop offset="0.58" stop-color="#38BDF8"/>
       <stop offset="1" stop-color="#8B5CF6"/>
     </linearGradient>
-    <filter id="softShadow" x="44" y="44" width="424" height="424" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#020617" flood-opacity="0.34"/>
-    </filter>
-    <filter id="nodeShadow" x="80" y="76" width="352" height="352" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#020617" flood-opacity="0.28"/>
-    </filter>
   </defs>
 
-  <rect x="32" y="32" width="448" height="448" rx="112" fill="#0B1120"/>
-  <rect x="35" y="35" width="442" height="442" rx="109" stroke="url(#borderGradient)" stroke-opacity="0.55" stroke-width="6"/>
-  <circle cx="256" cy="256" r="224" fill="url(#ambient)"/>
-  <path d="M87 256C87 163 163 87 256 87C347 87 421 158 425 248" stroke="#1E293B" stroke-width="28" stroke-linecap="round"/>
-  <path d="M425 256C425 349 349 425 256 425C165 425 91 354 87 264" stroke="#172033" stroke-width="28" stroke-linecap="round"/>
-
-  <path d="M256 76C356 76 437 157 437 257C437 307 417 352 386 384" stroke="url(#orbitTop)" stroke-width="18" stroke-linecap="round"/>
-  <path d="M384 384L392 343L424 370" stroke="#60A5FA" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M256 436C156 436 75 355 75 255C75 205 95 160 126 128" stroke="url(#orbitBottom)" stroke-width="18" stroke-linecap="round"/>
-  <path d="M128 128L120 169L88 142" stroke="#A78BFA" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <g filter="url(#nodeShadow)">
-    <g>
-      <rect x="98" y="104" width="72" height="72" rx="22" fill="#0F2A31" stroke="#2DD4BF" stroke-width="6"/>
-      <path d="M119 130H149M119 150H140" stroke="#BFF7EE" stroke-width="8" stroke-linecap="round"/>
-    </g>
-    <g>
-      <rect x="342" y="112" width="72" height="72" rx="22" fill="#0D2440" stroke="#38BDF8" stroke-width="6"/>
-      <path d="M363 137H393M363 157H384" stroke="#D9F3FF" stroke-width="8" stroke-linecap="round"/>
-    </g>
-    <g>
-      <rect x="220" y="374" width="72" height="72" rx="22" fill="#211A3B" stroke="#A78BFA" stroke-width="6"/>
-      <path d="M241 399H271M241 419H262" stroke="#EEE7FF" stroke-width="8" stroke-linecap="round"/>
-    </g>
-  </g>
-
-  <g filter="url(#softShadow)">
-    <rect x="166" y="166" width="180" height="180" rx="52" fill="#F8FAFC"/>
-    <rect x="190" y="190" width="132" height="132" rx="36" fill="#E8EEF7"/>
-    <circle cx="256" cy="256" r="28" fill="url(#coreAccent)"/>
-    <path d="M218 236C218 218 232 206 253 206H292" stroke="#0F172A" stroke-width="15" stroke-linecap="round"/>
-    <path d="M286 190L306 206L286 222" stroke="#0F172A" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M294 276C294 294 280 306 259 306H220" stroke="#0F172A" stroke-width="15" stroke-linecap="round"/>
-    <path d="M226 290L206 306L226 322" stroke="#0F172A" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="256" cy="256" r="10" fill="#F8FAFC"/>
-  </g>
+  <rect x="166" y="166" width="180" height="180" rx="52" fill="#F8FAFC"/>
+  <rect x="190" y="190" width="132" height="132" rx="36" fill="#E8EEF7"/>
+  <circle cx="256" cy="256" r="28" fill="url(#coreAccent)"/>
+  <path d="M218 236C218 218 232 206 253 206H292" stroke="#0F172A" stroke-width="15" stroke-linecap="round"/>
+  <path d="M286 190L306 206L286 222" stroke="#0F172A" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M294 276C294 294 280 306 259 306H220" stroke="#0F172A" stroke-width="15" stroke-linecap="round"/>
+  <path d="M226 290L206 306L226 322" stroke="#0F172A" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="10" fill="#F8FAFC"/>
 </svg>
