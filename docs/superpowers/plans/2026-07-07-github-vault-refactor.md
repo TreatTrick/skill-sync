@@ -4,7 +4,7 @@
 
 **Goal:** 将当前 Git CLI / 本地中转仓库同步模型替换为 GitHub App Device Flow 授权的单仓库 GitHub API vault：`manifest.json` + content-addressed skill zip blobs + 本机 `sync_state` + 双向同步 + A-lite 删除传播。
 
-**Architecture:** Svelte 前端只负责展示、筛选、用户决策和调用 Tauri commands；本地文件读写、canonical zip、hash、GitHub API、三方比较、删除护栏、覆盖保护全部在 Rust。V1 唯一产品远端使用 GitHub App user token；GitHub 授权/credential 轮换、repository discovery/初始化和 steady-state store 分模块实现，空仓库初始化不混入 `RemoteStore` 的常规 commit 语义。
+**Architecture:** Svelte 前端只负责认证门禁、渐进式 Onboarding、展示、筛选、用户决策和调用 Tauri commands；未完成 Ready Vault binding 时只渲染 Onboarding，完成后工作区导航只包含 Sync / Settings。本地文件读写、canonical zip、hash、GitHub API、三方比较、删除护栏、覆盖保护全部在 Rust。V1 唯一产品远端使用 GitHub App user token；GitHub 授权/credential 轮换、repository discovery/初始化和 steady-state store 分模块实现，空仓库初始化不混入 `RemoteStore` 的常规 commit 语义。
 
 **Tech Stack:** Tauri 2, Rust 1.77+, Svelte 5, SvelteKit static SPA, TypeScript strict, Zod, i18next, Tailwind CSS v4, GitHub App Device Flow, GitHub REST Contents/Git Database APIs.
 
@@ -47,6 +47,7 @@
 - AppConfig 与 SyncState 均绑定 `installation_id + repository_id + branch`；远端 identity 变化不能复用旧 base。
 - repo/branch/manifest 状态精确区分；invalid manifest 不覆盖，rate limit 不伪装成权限或不存在。
 - empty repo / missing manifest 只在 Onboarding 显式确认后由 Contents API 初始化；有 HEAD 后稳态更新使用 Git Database API。
+- Device Flow authorized 只是 Onboarding 的一个步骤；App installation、唯一 repo、branch、Ready manifest 和本机 bind 全部完成前不得显示业务导航。绑定完成后 authenticated navigation 严格只有 Sync / Settings，Onboarding 只作为隐藏引导路由。
 - RemoteStore、SyncEngine 远端调用链和同步相关 Tauri commands 统一 async；阻塞文件/CPU 工作只通过 `tauri::async_runtime::spawn_blocking` 执行，不使用 reqwest blocking client、自建 runtime 或 block_on。
 
 最终验证命令：
@@ -113,6 +114,9 @@ Modify:
 - `src/modules/onboarding/api/onboardingApi.ts`
 - `src/modules/onboarding/pages/OnboardingPage.svelte`
 - `src/app/router/routeConfig.ts`
+- `src/routes/+page.svelte`
+- `src/routes/app/+page.svelte`
+- `src/routes/app/+layout.svelte`
 - `src/shared/i18n/locales/zh-CN.json`
 - `src/shared/i18n/locales/en-US.json`
 - `src/shared/schemas/apiResponse.ts`
@@ -2170,6 +2174,8 @@ pending_recovery: recoveryInfoSchema.nullable(),
 
 `recoveryInfoSchema` 与 Task 7 Rust DTO 一致，放在共享 schema 中供 AppState 和 Task 16 的 Apply response 复用；不得为两个入口定义会漂移的重复 schema。
 
+保留现有 `AppState.configured`，但把语义收紧为“本机已经通过 `bind_github_vault` 建立完整 Ready Vault binding”。它与 `GithubAppInfo.configured` 不同：后者只表示 release build 注入了公开 client id/app slug。前端路由门禁不得用 `GithubAppInfo.configured` 或单独的 `github_authorized` 提前解锁工作区。
+
 - [ ] **Step 2: 添加 Device Flow schema**
 
 ```ts
@@ -2287,7 +2293,7 @@ git commit -m "feat: add github vault frontend contracts"
 
 - [ ] **Step 1: 更新 route config**
 
-删除 `/app/backups` 和 `/app/conflicts`，保留 `/app/sync`、`/app/settings`、`/app/onboarding`。
+删除 `/app/backups` 和 `/app/conflicts`。`appRoutes` authenticated navigation 只保留 `/app/sync` 与 `/app/settings`；`/app/onboarding` 的 Svelte route 继续存在，但不进入 `appRoutes`、侧边栏或任何工作区 Tab。`DEFAULT_ROUTE_PATH` 仍为 `/app/sync`，未绑定状态的条件跳转由 Task 17 的根路由和 `/app` layout gate 处理。
 
 - [ ] **Step 2: 删除模块和路由文件**
 
@@ -2317,7 +2323,7 @@ npm run lint
 npm run build
 ```
 
-Expected: `rg` no matches；i18n 与 typecheck pass。
+Expected: `rg` no matches；i18n 与 typecheck pass；`appRoutes` 只包含 Sync / Settings，Onboarding route 文件仍存在但不是导航项。
 
 - [ ] **Step 5: Commit**
 
@@ -2549,6 +2555,10 @@ git commit -m "feat: consolidate sync status ui"
 - Delete: `src/modules/onboarding/content/ssh-setup-prompt.md`
 - Modify: `src/modules/settings/pages/SettingsPage.svelte`
 - Modify: `src/modules/settings/schemas/config.ts`
+- Modify: `src/app/router/routeConfig.ts`
+- Modify: `src/routes/+page.svelte`
+- Modify: `src/routes/app/+page.svelte`
+- Modify: `src/routes/app/+layout.svelte`
 - Modify: `src/shared/i18n/locales/zh-CN.json`
 - Modify: `src/shared/i18n/locales/en-US.json`
 
@@ -2575,6 +2585,8 @@ type OnboardingStage =
 
 Device Flow 局部状态保存 device code、user code、verification URI、expires_at 和当前 interval。离开页面/组件销毁时停止 poll timer；重新进入根据 expires_at 恢复或重新申请 code。前端状态和 query cache 永不保存 access/refresh token。
 
+页面使用单列、单当前步骤的渐进式向导。为 stage 映射稳定的 step number/title，显示“第 N/5 步”和原生或等价的可访问进度；每次只渲染当前步骤需要的说明与操作，已完成步骤只显示简短完成状态，不能把 Device Flow、installation、repo、branch 和初始化控件一次堆在同一页面。`authorized` 只推进到 installation discovery，不设置 workspace ready。
+
 - [ ] **Step 3: 添加连接、轮询和 repo 检测**
 
 实现以下单一路径，不提供 OAuth/PAT/Git/SSH 切换：
@@ -2585,11 +2597,32 @@ Device Flow 局部状态保存 device code、user code、verification URI、expi
 4. single_repository 后用 stable installation/repository id 构造临时 remote，列出已有 branches。empty repo 使用 repository default branch/name fallback `main` 作为待初始化 branch；非空 repo 只能选择 API 返回的 branch。
 5. `checkGithubVault()`：ready 才完成；empty_repository/missing_manifest 展示“将创建 GitHub commit”的显式确认；branch_missing 回到 branch 选择；invalid_manifest 只显示校验错误和打开仓库按钮；rate_limited 显示 retry_after；unavailable/forbidden/missing 使用不同文案。
 6. 用户确认后调用 `initializeGithubVault(expected status/head/manifest sha)`。VaultStateChanged 用 latest check 替换页面状态并要求重新确认，不自动重试 PUT；initialize 返回 ready 仍不写本机 binding。
-7. 对原本 ready 或初始化后 ready 的 check 调用 `bindGithubVault`。首次绑定 confirm_rebind=false；若 AppState 已绑定不同 stable identity，先展示会归档旧 base 的切换确认，并携带 AppState 当前 installation id + repository id + branch 组成的 expected previous binding。bind 成功返回新 AppState 后才进入 Sync；同 repo branch 被另一窗口切换等 stale binding 必须刷新状态并重新确认，失败/恢复中保持 Onboarding。
+7. 对原本 ready 或初始化后 ready 的 check 调用 `bindGithubVault`。首次绑定 confirm_rebind=false；若 AppState 已绑定不同 stable identity，先展示会归档旧 base 的切换确认，并携带 AppState 当前 installation id + repository id + branch 组成的 expected previous binding。bind 成功返回 `configured=true` 的新 AppState 后才进入 Sync 并显示工作区导航；同 repo branch 被另一窗口切换等 stale binding 必须刷新状态并重新确认，失败/恢复中保持无业务导航的 Onboarding。
 
-在 Step 5 手动验收中逐项覆盖以上状态迁移、poll timer 清理、install 后 recheck、单 repo blocked、初始化确认、invalid manifest 不出现初始化按钮、rate limit、stale initialize 不自动重试，以及浏览器 devtools/query state 中没有 token；当前仓库没有前端 test runner，本任务不额外引入一套测试框架。
+在 Step 6 手动验收中逐项覆盖以上状态迁移、单当前步骤和进度、poll timer 清理、install 后 recheck、单 repo blocked、初始化确认、invalid manifest 不出现初始化按钮、rate limit、stale initialize 不自动重试，以及浏览器 devtools/query state 中没有 token；当前仓库没有前端 test runner，本任务不额外引入一套测试框架。
 
-- [ ] **Step 4: 更新 Settings**
+- [ ] **Step 4: 实现认证门禁与双 Tab 工作区**
+
+`src/routes/+page.svelte`、`src/routes/app/+page.svelte` 和 `src/routes/app/+layout.svelte` 必须先等待 `getAppState()`，加载期间只显示 spinner，不渲染后再撤掉业务侧边栏。定义单一前端门禁语义：
+
+```ts
+const workspaceReady =
+  appState.configured &&
+  appState.github_authorized &&
+  ['valid', 'refreshing'].includes(appState.credential_status)
+```
+
+`vault_status` 的临时网络/限流结果不用于销毁已有本机 binding 或把已绑定用户踢出工作区；Sync 页面继续显示精确远端错误。`pending_recovery` 也保持在工作区并由 Sync 恢复面板处理。
+
+- `/` 与 `/app`：等待 AppState 后，workspaceReady 跳 `/app/sync`，否则 replace 跳 `/app/onboarding`。
+- `/app/sync`、`/app/settings` 及其他业务 route：workspaceReady=false 时 replace 跳 `/app/onboarding`，且跳转完成前不渲染 `AppLayout`。
+- `/app/onboarding`：使用无 sidebar/breadcrumb 的最小引导壳；它不读取 `appRoutes`，页面中也不显示 Sync / Settings Tab。workspaceReady=true 时普通访问该路径 replace 回 `/app/sync`；Settings 的“重新配置 Vault”使用 `/app/onboarding?mode=reconfigure` 显式进入，并可取消返回 Sync。query 只决定前端展示，bind command 仍按 expected previous binding 和 confirm_rebind 做后端校验。
+- bind 成功：直接使用 command 返回的 AppState 更新 `['app-state']` cache，确认 `configured=true` 后 replace 跳 `/app/sync`；不得先跳转再等待后台 refetch。
+- reauthorization_required 或 disconnect 成功：更新/失效 AppState cache 并 replace 跳 `/app/onboarding`，旧工作区导航立即不可操作。
+
+`src/app/router/routeConfig.ts` 的 `appRoutes` 只包含 Sync / Settings；不要给 Onboarding 添加 `showInNavigation` 一类默认 true 的可选配置，也不要保留第三个 Tab 再用 CSS 隐藏。route gate 只负责 UX，Rust command 的 credential/binding/remote identity 校验保持不变。
+
+- [ ] **Step 5: 更新 Settings**
 
 删除 `config.defaults.backup` checkbox，新增：
 
@@ -2610,7 +2643,7 @@ config.limits.max_auto_delete
 
 保留 ignore textarea，文案说明它影响 zip/hash/size/status。四个 pack/unpack limit 使用带单位和最小值校验的数字输入；single unpacked 不得大于 total unpacked。说明 compressed limit 控制上传 blob，file/single/total limits 同时保护本地 pack 和远端解包。
 
-Settings 只读显示 GitHub App slug、credential status、GitHub login、installation/repository id、owner/repo/branch、`AppState.device_name` 与 nullable remote commit；这些 identity/runtime 字段不能直接编辑。提供“重新配置 vault”和“断开 GitHub”命令：断开前显示会清除本机授权与归档本机 base、不会卸载 GitHub App 或删除远端内容；确认后携带 expected repository id。
+Settings 只读显示 GitHub App slug、credential status、GitHub login、installation/repository id、owner/repo/branch、`AppState.device_name` 与 nullable remote commit；这些 identity/runtime 字段不能直接编辑。提供“重新配置 vault”和“断开 GitHub”命令：重新配置导航到 `/app/onboarding?mode=reconfigure` 并进入无业务导航的 Onboarding，但在新 bind transaction 成功前保留当前 binding，并提供取消返回 Sync；断开前显示会清除本机授权与归档本机 base、不会卸载 GitHub App 或删除远端内容，确认后携带 expected repository id，成功后回到 Onboarding。
 
 新增固定 root 只读列表，数据来自 `scanSkills().roots`：
 
@@ -2641,12 +2674,15 @@ claude-code  ~/.claude/skills       resolved path + exists/readable/scan status
   "github.initializeCreatesCommit": "这会在目标仓库创建 manifest.json commit",
   "github.invalidManifest": "manifest.json 存在但格式无效，应用不会覆盖它",
   "github.reauthorizationRequired": "GitHub 授权已失效，请重新连接",
+  "onboarding.progress": "第 {{current}}/{{total}} 步",
+  "onboarding.cancelReconfigure": "取消重新配置",
+  "onboarding.bindingRequired": "完成 Vault 连接后才能进入同步与设置",
   "settings.rootNotFound": "目录尚未创建",
   "settings.rootUnreadable": "目录不可读"
 }
 ```
 
-- [ ] **Step 5: 验证**
+- [ ] **Step 6: 验证**
 
 ```bash
 npm run lint:responsive
@@ -2657,12 +2693,12 @@ npm run lint
 npm run build
 ```
 
-手动验证：GitHub App Device Flow -> install -> 唯一 repo -> branch -> empty/missing manifest 确认初始化 -> ready 全链路可完成；OAuth/PAT/Git/SSH 控件不存在；多 repo、invalid manifest 和 stale init 均不能越过；Settings 不显示 token、不允许编辑 stable IDs。三个 namespace 均显示唯一固定路径；修改旧 hosts/custom_paths 不改变扫描目标；缺失 root 显示 unknown 而不产生删除。
+手动验证：首次未授权打开 `/`、`/app`、`/app/sync` 和 `/app/settings` 都只出现无业务导航的 Onboarding，加载期间不闪现 sidebar；向导一次只显示当前步骤与明确进度；Device Flow authorized 后仍停留在 installation/repo/branch/init/bind 引导，不能提前看到业务 Tab。bind 成功后默认进入 Sync，导航严格只有 Sync / Settings；已绑定用户普通访问 `/app/onboarding` 会回到 Sync。GitHub App Device Flow -> install -> 唯一 repo -> branch -> empty/missing manifest 确认初始化 -> ready -> bind 全链路可完成；OAuth/PAT/Git/SSH 控件不存在；多 repo、invalid manifest 和 stale init 均不能越过。Settings 的重新配置通过 `?mode=reconfigure` 进入无导航向导且可取消保留旧 binding；disconnect/reauthorization_required 回到向导并隐藏旧工作区。Settings 不显示 token、不允许编辑 stable IDs。三个 namespace 均显示唯一固定路径；修改旧 hosts/custom_paths 不改变扫描目标；缺失 root 显示 unknown 而不产生删除。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/modules/onboarding src/modules/settings src/shared/i18n/locales
+git add src/modules/onboarding src/modules/settings src/app/router/routeConfig.ts src/routes src/shared/i18n/locales
 git commit -m "feat: connect github vault settings"
 ```
 
@@ -2744,7 +2780,7 @@ Expected: 只有历史上下文或明确非 MVP 注记保留。
 
 - [ ] **Step 2: 更新文档**
 
-README 和开发文档说明 V1 唯一 provider 是 GitHub App Device Flow，private repo vault 使用 `manifest.json` + `blobs/sha256`，不需要 OAuth App/PAT/Git/SSH/SaaS backend。说明 installation 必须只授权一个 vault repo、token 只进 keyring且自动刷新、空 repo/缺 manifest 会在显式确认后创建初始化 commit，以及三个固定 namespace/root、advisory 删除、本地 trash、blob 不 GC。
+README 和开发文档说明 V1 唯一 provider 是 GitHub App Device Flow，private repo vault 使用 `manifest.json` + `blobs/sha256`，不需要 OAuth App/PAT/Git/SSH/SaaS backend。说明 installation 必须只授权一个 vault repo、token 只进 keyring且自动刷新、空 repo/缺 manifest 会在显式确认后创建初始化 commit，以及三个固定 namespace/root、advisory 删除、本地 trash、blob 不 GC。用户流程必须说明：未完成 Ready Vault binding 时应用只有逐步 Onboarding；bind 成功后才进入只含 Sync / Settings 两个 Tab 的工作区。
 
 删除仍以有效指南口吻推荐 SSH/HTTPS/PAT 的 `docs/ssh-setup.md`。`docs/github-app-setup.md` 给维护者完整 release checklist：注册可安装 GitHub App；开启 Device Flow 和 expiring user tokens；Repository permissions 仅 Contents read/write + Metadata read-only；无 account/org permissions、events/webhook；记录公开 client id/app slug；在 GitHub Actions repository variables 配置 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` / `SKILL_SYNC_GITHUB_APP_SLUG`；在打包前实际打开并核对 `https://github.com/apps/<slug>/installations/new`；确认 release artifact 不含 private key/client secret；用 keyring 中的测试 App credential 和 disposable empty private repo 运行 `SKILL_SYNC_GITHUB_INTEGRATION=1 SKILL_SYNC_GITHUB_EMPTY_TEST_REPO=<owner/repo> cargo test --manifest-path src-tauri/Cargo.toml github_empty_repo_initialization -- --ignored --nocapture`。给普通用户说明授权、Only select repositories、唯一 vault repo、installation 调整与撤销方式。
 
@@ -2774,9 +2810,11 @@ npm run tauri dev
 
 检查：
 
-- App opens to Sync。
-- Nav 没有 Conflicts 或 Backups。
-- Onboarding 只展示 GitHub App Device Flow；能从未授权走到 installation、唯一 repo、branch、显式初始化和 ready。
+- 未授权、credential 需要重新授权或尚未完成 binding 时，App 只打开无业务导航的 Onboarding；直接访问 Sync/Settings 也会被门禁拦回且不闪现 sidebar。
+- Onboarding 是单当前步骤的渐进式向导，显示明确进度；能从 Device Flow 走到 installation、唯一 repo、branch、显式初始化、ready 和 bind。
+- Device Flow authorized、App installed 或 initialize ready 都不会提前显示业务导航；只有 bind 成功后默认进入 Sync。
+- bind 成功后的 Nav 严格只有 Sync / Settings，没有 Onboarding、Conflicts 或 Backups。
+- Settings 重新配置会进入无业务导航的 Onboarding 且取消时保留旧 binding；disconnect 或 reauthorization_required 会回到 Onboarding 并使旧工作区不可操作。
 - empty repo 初始化只创建一次 manifest commit；missing manifest 明确确认；invalid manifest 不可覆盖；非空 repo branch missing 只能选择已有 branch。
 - 多 repo installation 被 blocked；扩大 installation scope 后下一次 check/sync 在副作用前 blocked。
 - token 临近过期可自动刷新，撤销授权后进入重新连接；前端和日志不出现 token。
@@ -2803,6 +2841,7 @@ git commit -m "docs: update github vault behavior"
 - 公开 client id/app slug 只在构建时注入；正式 release 缺失必须失败，运行时不读环境变量。
 - access/refresh token 与过期时间只作为单个 keyring credential 保存；刷新轮换写入失败必须重新授权，不能使用部分 credential。
 - installation/repository 枚举必须穷尽分页并 fail closed；总计非唯一 repo 或 repository_selection=all 时禁止任何远端副作用。
+- 前端工作区门禁只在完整 Ready binding 和有效/刷新中 credential 下开放；`GithubAppInfo.configured` 或 Device Flow authorized 不得单独解锁。Onboarding 不进入 authenticated navigation，bind 后导航严格只有 Sync / Settings。
 - 普通 preview/apply 发现 AppConfig/SyncState 的 installation_id、repository_id、branch 不一致时只读 blocked；只有用户明确确认切换 vault 后才归档旧 base 并 rebind，不得按 owner/repo 名称猜测。
 - 只有 empty_repository/missing_manifest 可经用户确认初始化；invalid_manifest、branch_missing、unavailable/rate_limited 不得 PUT manifest。
 - 不要实现 Backups 页面或 restore flow。
