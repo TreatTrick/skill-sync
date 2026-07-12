@@ -11,6 +11,8 @@
     Sparkles,
   } from '@lucide/svelte'
   import type { Component } from 'svelte'
+  import { fade, fly } from 'svelte/transition'
+  import { flip } from 'svelte/animate'
 
   import { cn, errorMessage } from '@/shared/lib'
   import { t } from '@/shared/i18n'
@@ -18,6 +20,7 @@
   import {
     Badge,
     Button,
+    Callout,
     Card,
     CardContent,
     CardDescription,
@@ -26,7 +29,13 @@
     Checkbox,
     EmptyState,
     Input,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    Skeleton,
     Spinner,
+    toast,
   } from '@/shared/ui'
   import { getAppState } from '@/modules/settings'
   import { scanSkills } from '@/modules/skills'
@@ -79,8 +88,6 @@
   let lastFingerprint = $state<string | null>(null)
   let defaultNextPlan = $state(false)
   let planNotice = $state('')
-  let resultMsg = $state('')
-  let resultStateMsg = $state('')
   let recoveryOverride = $state<RecoveryInfo | null>(null)
   let selectedConflict = $state<Conflict | null>(null)
   let conflictDialogOpen = $state(false)
@@ -168,14 +175,16 @@
     retry: false,
     onSuccess: (response) => {
       if (response.status === 'applied') {
-        resultMsg = t('sync.applied', {
-          count: response.result.applied.length,
-        })
-        resultStateMsg = response.result.state_updated.length
-          ? t('sync.localBaseUpdated', {
+        toast.success(
+          t('sync.applied', { count: response.result.applied.length }),
+        )
+        if (response.result.state_updated.length) {
+          toast.info(
+            t('sync.localBaseUpdated', {
               count: response.result.state_updated.length,
-            })
-          : ''
+            }),
+          )
+        }
         recoveryOverride = null
         clearInteractionState()
         void queryClient.invalidateQueries({ queryKey: ['sync-plan'] })
@@ -193,7 +202,7 @@
       recoveryOverride = response.recovery
     },
     onError: (error) => {
-      resultMsg = t('sync.applyError', { message: errorMessage(error) })
+      toast.error(t('sync.applyError', { message: errorMessage(error) }))
     },
   }))
 
@@ -206,12 +215,12 @@
         return
       }
       recoveryOverride = null
-      resultMsg = t('sync.recoveryCompleted')
+      toast.success(t('sync.recoveryCompleted'))
       void queryClient.invalidateQueries({ queryKey: ['app-state'] })
       void queryClient.invalidateQueries({ queryKey: ['sync-plan'] })
     },
     onError: (error) => {
-      resultMsg = t('sync.applyError', { message: errorMessage(error) })
+      toast.error(t('sync.applyError', { message: errorMessage(error) }))
     },
   }))
 
@@ -236,8 +245,6 @@
 
   const handleApply = (): void => {
     if (!planData || !canApply) return
-    resultMsg = ''
-    resultStateMsg = ''
     apply.mutate({
       expected_remote_commit: planData.expected_remote_commit,
       plan_fingerprint: planData.plan_fingerprint,
@@ -250,8 +257,6 @@
   const handleRecheck = (): void => {
     defaultNextPlan = true
     planNotice = ''
-    resultMsg = ''
-    resultStateMsg = ''
     void plan.refetch()
     void scan.refetch()
   }
@@ -262,8 +267,19 @@
   value: number | string,
   Icon: Component<{ class?: string }>,
   tone: 'neutral' | 'warning' = 'neutral',
+  filter?: SyncStatusFilter,
 )}
-  <div class="grid gap-2 border border-border bg-surface p-4">
+  <button
+    type="button"
+    class={cn(
+      'grid w-full gap-2 rounded-md border bg-surface p-4 text-left transition-colors disabled:opacity-100',
+      filter ? 'cursor-pointer hover:border-border-strong' : 'cursor-default border-border',
+      filter && statusFilter === filter ? 'border-primary ring-1 ring-primary' : '',
+    )}
+    aria-pressed={filter ? statusFilter === filter : undefined}
+    disabled={filter ? undefined : true}
+    onclick={filter ? () => { statusFilter = filter } : undefined}
+  >
     <div class="flex items-center justify-between gap-3">
       <div class="text-sm font-medium text-muted-foreground">{label}</div>
       <span class={tone === 'warning' ? 'text-warning' : 'text-muted-foreground'}>
@@ -273,7 +289,7 @@
     <div class={cn('text-3xl font-bold', tone === 'warning' ? 'text-warning' : 'text-strong-foreground')}>
       {value}
     </div>
-  </div>
+  </button>
 {/snippet}
 
 <ConflictDetailDialog
@@ -336,71 +352,72 @@
   {:else}
     <div class="grid gap-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-xl font-bold text-strong-foreground">{t('sync.title')}</h1>
-          <p class="text-sm text-muted-foreground">{t('sync.description')}</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <Button
-            disabled={recovery !== null}
-            loading={recheckLoading}
-            onclick={handleRecheck}
-            variant="outline"
-          >
-            {#snippet icon()}
-              <RefreshCw class="size-4" />
-            {/snippet}
-            {t('sync.recheck')}
-          </Button>
-          <Button disabled={!canApply} loading={apply.isPending} onclick={handleApply}>
-            {t('common.actions.apply')}
-          </Button>
-        </div>
+        <p class="text-sm text-muted-foreground">{t('sync.description')}</p>
+        <Button
+          disabled={recovery !== null}
+          loading={recheckLoading}
+          onclick={handleRecheck}
+          variant="outline"
+        >
+          {#snippet icon()}
+            <RefreshCw class="size-4" />
+          {/snippet}
+          {t('sync.recheck')}
+        </Button>
       </div>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {@render metric(t('dashboard.metrics.discovered'), skills.length, Package)}
-        {@render metric(t('dashboard.metrics.toUpload'), planData?.uploads.length ?? 0, ArrowUpFromLine)}
-        {@render metric(t('dashboard.metrics.toDownload'), planData?.downloads.length ?? 0, ArrowDownToLine)}
-        {@render metric(t('dashboard.metrics.conflicts'), planData?.conflicts.length ?? 0, AlertTriangle, (planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral')}
+        {@render metric(t('dashboard.metrics.toUpload'), planData?.uploads.length ?? 0, ArrowUpFromLine, 'neutral', 'local_update')}
+        {@render metric(t('dashboard.metrics.toDownload'), planData?.downloads.length ?? 0, ArrowDownToLine, 'neutral', 'remote_update')}
+        {@render metric(t('dashboard.metrics.conflicts'), planData?.conflicts.length ?? 0, AlertTriangle, (planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral', 'conflict')}
       </div>
 
       {#if planNotice}
-        <div class="border border-warning-border bg-warning-muted p-3 text-sm text-warning">
-          {planNotice}
+        <div transition:fly={{ y: -6, duration: 150 }}>
+          <Callout tone="warning">{planNotice}</Callout>
         </div>
       {/if}
 
       {#if planData?.delete_guard_tripped}
-        <div class="flex items-start gap-3 border border-warning-border bg-warning-muted p-3 text-sm">
-          <AlertTriangle class="mt-0.5 size-4 shrink-0 text-warning" />
+        <Callout tone="warning">
+          {#snippet icon()}
+            <AlertTriangle class="size-4" />
+          {/snippet}
           <div class="grid gap-1">
-            <strong class="text-warning">{t('sync.deleteGuard.title')}</strong>
+            <strong class="font-semibold">{t('sync.deleteGuard.title')}</strong>
             <span class="text-muted-foreground">{t('sync.deleteGuard.description')}</span>
             <label class="mt-2 flex items-center gap-2 text-foreground">
               <Checkbox bind:checked={deleteGuardAck} />
               {t('sync.confirmDelete')}
             </label>
           </div>
-        </div>
+        </Callout>
       {/if}
 
       <div class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row">
         <Input bind:value={search} placeholder={t('sync.searchPlaceholder')} />
-        <select
-          aria-label={t('sync.filterLabel')}
-          bind:value={statusFilter}
-          class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:w-52"
-        >
-          {#each SYNC_STATUS_FILTERS as filter (filter)}
-            <option value={filter}>{statusFilterLabel(filter)}</option>
-          {/each}
-        </select>
+        <Select type="single" bind:value={statusFilter}>
+          <SelectTrigger aria-label={t('sync.filterLabel')} class="sm:w-52">
+            {t(statusFilterLabel(statusFilter))}
+          </SelectTrigger>
+          <SelectContent>
+            {#each SYNC_STATUS_FILTERS as filter (filter)}
+              <SelectItem value={filter}>{t(statusFilterLabel(filter))}</SelectItem>
+            {/each}
+          </SelectContent>
+        </Select>
       </div>
 
       {#if plan.isLoading}
-        <div class="flex justify-center py-12">
-          <Spinner class="size-6" />
+        <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {#each Array(4) as _, i (i)}
+            <div class="rounded-xl border border-border bg-card p-4">
+              <Skeleton class="h-5 w-40" />
+              <Skeleton class="mt-3 h-3 w-full" />
+              <Skeleton class="mt-2 h-3 w-2/3" />
+            </div>
+          {/each}
         </div>
       {:else if plan.error}
         <Card class="border-destructive-border bg-destructive-muted">
@@ -409,21 +426,36 @@
           </CardContent>
         </Card>
       {:else if visibleEntries.length === 0}
-        <EmptyState title={t('sync.empty')} description={t('sync.emptyDescription')}>
-          {#snippet icon()}
-            <CheckCircle class="size-10" />
-          {/snippet}
-        </EmptyState>
+        {#if (planData?.entries.length ?? 0) === 0}
+          <EmptyState title={t('sync.emptyAllSynced')} description={t('sync.emptyAllSyncedDescription')}>
+            {#snippet icon()}
+              <CheckCircle class="size-10" />
+            {/snippet}
+          </EmptyState>
+        {:else}
+          <EmptyState title={t('sync.empty')} description={t('sync.emptyDescription')}>
+            {#snippet icon()}
+              <CheckCircle class="size-10" />
+            {/snippet}
+            {#snippet action()}
+              <Button onclick={() => { search = ''; statusFilter = 'all' }} variant="outline">
+                {t('sync.clearFilters')}
+              </Button>
+            {/snippet}
+          </EmptyState>
+        {/if}
       {:else}
         <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {#each visibleEntries as entry (entry.action_id)}
-            <SyncSkillCard
-              entry={entry}
-              onOpenConflict={entry.conflict_reason ? () => openConflict(entry) : undefined}
-              onToggle={isSelectable(entry) ? (selected) => toggleAction(entry.action_id, selected) : undefined}
-              requiresConfirmation={isDeleteEntry(entry)}
-              selected={selectedActionIds.includes(entry.action_id)}
-            />
+            <div in:fade={{ duration: 100 }} animate:flip={{ duration: 150 }}>
+              <SyncSkillCard
+                entry={entry}
+                onOpenConflict={entry.conflict_reason ? () => openConflict(entry) : undefined}
+                onToggle={isSelectable(entry) ? (selected) => toggleAction(entry.action_id, selected) : undefined}
+                requiresConfirmation={isDeleteEntry(entry)}
+                selected={selectedActionIds.includes(entry.action_id)}
+              />
+            </div>
           {/each}
         </div>
       {/if}
@@ -431,7 +463,7 @@
       {#if planData}
         <div class="grid gap-2 border-t border-border pt-4 text-sm">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="font-bold text-strong-foreground">{t('sync.commitSummary')}</span>
+            <span class="font-semibold text-strong-foreground">{t('sync.commitSummary')}</span>
             <Badge variant="secondary">
               {planData.will_create_commit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
             </Badge>
@@ -449,17 +481,19 @@
         </div>
       {/if}
 
-      {#if resultMsg}
-        <div class="flex items-center gap-2 border border-success-muted bg-success-muted p-3 text-sm text-success">
-          <CheckCircle class="size-4 shrink-0" />
-          {resultMsg}
+      <div class="sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <span class="text-sm text-muted-foreground">
+            {t('sync.selectedCount', { count: selectedActionIds.length })}
+            {#if planData}
+              · {planData.will_create_commit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
+            {/if}
+          </span>
+          <Button disabled={!canApply} loading={apply.isPending} onclick={handleApply}>
+            {t('common.actions.apply')}
+          </Button>
         </div>
-      {/if}
-      {#if resultStateMsg}
-        <div class="border border-primary-muted bg-primary-muted p-3 text-sm text-primary-muted-foreground">
-          {resultStateMsg}
-        </div>
-      {/if}
+      </div>
     </div>
   {/if}
 </div>

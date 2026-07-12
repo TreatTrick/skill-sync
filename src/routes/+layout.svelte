@@ -3,6 +3,7 @@
   import QueryProvider from '@/app/providers/QueryProvider.svelte'
   import { ThemeSync } from '@/shared/theme'
   import { initTheme } from '@/shared/state'
+  import { Toaster } from '@/shared/ui'
 
   let { children } = $props()
 
@@ -13,4 +14,5 @@
 <QueryProvider>
   <ThemeSync />
   {@render children?.()}
+  <Toaster />
 </QueryProvider>

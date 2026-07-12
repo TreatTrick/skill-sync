@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 :root {
-  /* Neutral scale — cool, cohesive slate */
+  /* Neutral scale - cool, cohesive slate */
   --background: #f6f7f9;
   --foreground: #1a1f29;
   --surface: #ffffff;
@@ -13,7 +13,7 @@
   --muted-foreground: #5b6471;
   --strong-foreground: #0e1320;
 
-  /* Primary — teal */
+  /* Primary - teal */
   --primary: #0f766e;
   --primary-foreground: #ffffff;
   --primary-muted: #ecfdf8;
@@ -23,6 +23,7 @@
   /* Info */
   --info-muted: #e0ecff;
   --info-muted-foreground: #1d4ed8;
+  --info-border: #bfdbfe;
 
   /* Warning */
   --warning: #b45309;
@@ -38,11 +39,12 @@
   /* Success */
   --success: #15803d;
   --success-muted: #f0fdf4;
+  --success-border: #bbf7d0;
 
   /* Focus ring */
   --ring: #0f766e;
 
-  /* shadcn-svelte token aliases — map shadcn token names to existing values so
+  /* shadcn-svelte token aliases - map shadcn token names to existing values so
      generated shadcn components resolve against the project's token system. */
   --card: var(--surface);
   --card-foreground: var(--foreground);
@@ -55,9 +57,12 @@
   --accent-foreground: var(--foreground);
   --input: var(--border);
 
-  font-family: 'Microsoft YaHei', 'PingFang SC', Inter, Arial, sans-serif;
+  /* Latin 字体优先，CJK 随后接管中文字形，避免英文/数字被雅黑拖低 */
+  font-family:
+    'Segoe UI', system-ui, 'Microsoft YaHei', 'PingFang SC', sans-serif;
   color: var(--foreground);
   background: var(--background);
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -65,7 +70,7 @@
 }
 
 .dark {
-  /* Neutral scale — dark */
+  /* Neutral scale - dark */
   --background: #0d1117;
   --foreground: #e6edf3;
   --surface: #161b22;
@@ -77,7 +82,7 @@
   --muted-foreground: #8b949e;
   --strong-foreground: #f0f6fc;
 
-  /* Primary — teal，暗色下提亮 */
+  /* Primary - teal，暗色下提亮 */
   --primary: #2dd4bf;
   --primary-foreground: #04201c;
   --primary-muted: #0d2e2a;
@@ -87,6 +92,7 @@
   /* Info */
   --info-muted: #0d2138;
   --info-muted-foreground: #93b4ff;
+  --info-border: #1e3a5f;
 
   /* Warning */
   --warning: #f59e0b;
@@ -102,11 +108,12 @@
   /* Success */
   --success: #4ade80;
   --success-muted: #0f2818;
+  --success-border: #1f4d33;
 
   /* Focus ring */
   --ring: #2dd4bf;
 
-  /* shadcn-svelte token aliases — reference the dark-mode tokens above. */
+  /* shadcn-svelte token aliases - reference the dark-mode tokens above. */
   --card: var(--surface);
   --card-foreground: var(--foreground);
   --popover: var(--surface);
@@ -117,6 +124,8 @@
   --accent: var(--surface-hover);
   --accent-foreground: var(--foreground);
   --input: var(--border);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -139,6 +148,7 @@
 
   --color-info-muted: var(--info-muted);
   --color-info-muted-foreground: var(--info-muted-foreground);
+  --color-info-border: var(--info-border);
 
   --color-warning: var(--warning);
   --color-warning-muted: var(--warning-muted);
@@ -151,6 +161,7 @@
 
   --color-success: var(--success);
   --color-success-muted: var(--success-muted);
+  --color-success-border: var(--success-border);
 
   --color-ring: var(--ring);
 
@@ -173,6 +184,12 @@
   --shadow-lg:
     0 12px 24px -6px rgba(15, 23, 42, 0.12),
     0 4px 8px -4px rgba(15, 23, 42, 0.06);
+}
+
+/* 等宽字栈（F4）：hash/ID/设备码等宽敏感内容用 font-mono，系统字体零下载 */
+@theme {
+  --font-mono:
+    ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace;
 }
 
 * {
@@ -199,3 +216,28 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* 隐藏原生 number 输入旋钮（F23）：WebView2 下旋钮配色/宽度不可控，改由 formatBytes 回显 */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* 尊重系统减少动效偏好（F18/F22 兜底），动效在此偏好下降级为瞬时 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 对比度基线（F25 实测，WCAG 2.1 相对亮度公式，均 >= 4.5:1 AA）：
+   调整任何 muted/foreground 值后须按下表复算，避免回归。
+   muted-fg #5b6471 -> surface #fff（浅）5.99 | muted-fg -> background #f6f7f9 5.59
+   muted-fg -> surface-muted #f4f5f7 5.49 | warning #b45309 -> warning-muted 4.71
+   success #15803d -> success-muted 4.79 | primary #0f766e -> 白 5.47
+   primary-muted-fg #115e59 -> primary-muted 7.21 AAA | muted-fg #8b949e -> surface #161b22（暗）5.62
+   warning #f59e0b -> warning-muted（暗）7.53 AAA */

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
+  import { fade } from 'svelte/transition'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
 
@@ -10,19 +11,29 @@
   import {
     AlertTriangle,
     CheckCircle,
+    Copy,
     ExternalLink,
     KeyRound,
     LoaderCircle,
   } from '@lucide/svelte'
   import {
     Button,
+    Callout,
     Card,
     CardContent,
     CardDescription,
     CardHeader,
     CardTitle,
+    Checkbox,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
     Spinner,
+    toast,
   } from '@/shared/ui'
+
+  import OnboardingStepper from '../components/OnboardingStepper.svelte'
 
   import {
     bindGithubVault,
@@ -153,6 +164,16 @@
       await openPath(url)
     } catch (error) {
       setError(error)
+    }
+  }
+
+  const copyDeviceCode = async (): Promise<void> => {
+    if (!deviceFlow?.user_code) return
+    try {
+      await navigator.clipboard.writeText(deviceFlow.user_code)
+      toast.success(t('github.deviceCodeCopied'))
+    } catch (error) {
+      toast.error(errorMessage(error))
     }
   }
 
@@ -394,7 +415,7 @@
   onDestroy(stopPolling)
 </script>
 
-<div class="mx-auto grid w-full max-w-2xl gap-4">
+<div class="mx-auto grid min-h-screen w-full max-w-2xl gap-4 px-4 py-10 sm:py-16">
   <Card>
     <CardHeader>
       <div class="flex items-center justify-between gap-3">
@@ -413,26 +434,26 @@
           <span>{t('onboarding.progress', { current: progressStep(stage), total: 5 })}</span>
           <span>{stageTitle(stage)}</span>
         </div>
-        <progress
-          aria-label={t('onboarding.progress', { current: progressStep(stage), total: 5 })}
-          class="h-2 w-full accent-primary"
-          max="5"
-          value={progressStep(stage)}
-        ></progress>
+        <OnboardingStepper
+          ariaLabel={t('onboarding.progress', { current: progressStep(stage), total: 5 })}
+          current={progressStep(stage)}
+        />
       </div>
     </CardHeader>
   </Card>
 
   {#if message}
-    <Card class="border-destructive-border bg-destructive-muted">
-      <CardContent class="flex items-start gap-2 pt-6 text-sm text-destructive">
-        <AlertTriangle class="mt-0.5 size-4 shrink-0" />
-        <span>{message}</span>
-      </CardContent>
-    </Card>
+    <Callout tone="danger">
+      {#snippet icon()}
+        <AlertTriangle class="size-4" />
+      {/snippet}
+      {message}
+    </Callout>
   {/if}
 
-  {#if !appInfoLoaded || appState.isLoading}
+  {#key stage}
+    <div in:fade={{ duration: 120 }}>
+      {#if !appInfoLoaded || appState.isLoading}
     <Card><CardContent class="flex justify-center py-12"><Spinner class="size-6" /></CardContent></Card>
   {:else if stage === 'app_not_configured'}
     <Card>
@@ -445,25 +466,33 @@
     <Card>
       <CardContent class="grid gap-4 pt-6">
         <div class="flex items-center gap-3">
-          <KeyRound class="size-6" />
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-muted text-primary-muted-foreground">
+            <KeyRound class="size-5" />
+          </span>
           <div class="grid gap-1">
-            <h2 class="font-bold text-strong-foreground">{t('github.authorizeTitle')}</h2>
+            <h2 class="font-semibold text-strong-foreground">{t('github.authorizeTitle')}</h2>
             <p class="text-sm text-muted-foreground">{t('github.authorizeDescription')}</p>
           </div>
         </div>
         {#if stage === 'device_pending' && deviceFlow}
-          <div class="grid gap-3 border border-border bg-surface p-4">
+          <div class="grid gap-3 rounded-md border border-border bg-surface p-4">
             <p class="text-sm text-muted-foreground">{t('github.deviceCodeLabel')}</p>
-            <code class="text-2xl font-bold tracking-widest text-strong-foreground">{deviceFlow.user_code}</code>
-            <a
-              class="inline-flex items-center gap-2 text-sm text-primary underline"
-              href={deviceFlow?.verification_uri ?? ''}
-              onclick={(event) => void openExternal(event, deviceFlow?.verification_uri ?? '')}
-              rel="noreferrer"
-              target="_blank"
+            <div class="flex items-center gap-2">
+              <code class="font-mono text-2xl font-bold tracking-widest text-strong-foreground">{deviceFlow.user_code}</code>
+              <Button onclick={() => void copyDeviceCode()} size="icon" variant="outline">
+                {#snippet icon()}
+                  <Copy class="size-4" />
+                {/snippet}
+                <span class="sr-only">{t('common.actions.copy')}</span>
+              </Button>
+            </div>
+            <Button
+              class="w-full justify-center"
+              onclick={(event: MouseEvent) => void openExternal(event, deviceFlow?.verification_uri ?? '')}
+              variant="outline"
             >
               {t('github.openVerification')} <ExternalLink class="size-4" />
-            </a>
+            </Button>
             {#if deviceExpiresAt}
               <p class="text-xs text-muted-foreground">{t('github.waitingAuthorization')}</p>
             {/if}
@@ -478,20 +507,18 @@
   {:else if stage === 'install_app' || stage === 'repository_scope_blocked'}
     <Card>
       <CardContent class="grid gap-4 pt-6">
-        <h2 class="font-bold text-strong-foreground">{t('github.installTitle')}</h2>
+        <h2 class="font-semibold text-strong-foreground">{t('github.installTitle')}</h2>
         <p class="text-sm text-muted-foreground">
           {stage === 'repository_scope_blocked' ? t('github.adjustScope') : t('github.installDescription')}
         </p>
         {#if appInfo?.install_url}
-          <a
-            class="inline-flex items-center gap-2 text-sm text-primary underline"
-            href={appInfo?.install_url ?? ''}
-            onclick={(event) => void openExternal(event, appInfo?.install_url ?? '')}
-            rel="noreferrer"
-            target="_blank"
+          <Button
+            class="w-fit"
+            onclick={(event: MouseEvent) => void openExternal(event, appInfo?.install_url ?? '')}
+            variant="outline"
           >
             {t('github.installApp')} <ExternalLink class="size-4" />
-          </a>
+          </Button>
         {/if}
         <Button disabled={busy} loading={busy} onclick={() => void discoverRepository()} variant="outline">
           {t('github.checkInstallation')}
@@ -501,17 +528,20 @@
   {:else if stage === 'select_branch'}
     <Card>
       <CardContent class="grid gap-4 pt-6">
-        <h2 class="font-bold text-strong-foreground">{t('github.selectBranch')}</h2>
+        <h2 class="font-semibold text-strong-foreground">{t('github.selectBranch')}</h2>
         <p class="text-sm text-muted-foreground">
           {remote ? `${remote.owner}/${remote.repo}` : t('github.repositoryUnavailable')}
         </p>
         <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
           {t('onboarding.branch')}
-          <select bind:value={selectedBranch} class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground">
-            {#each branchNames as branch (branch)}
-              <option value={branch}>{branch}</option>
-            {/each}
-          </select>
+          <Select type="single" bind:value={selectedBranch}>
+            <SelectTrigger class="w-full">{selectedBranch}</SelectTrigger>
+            <SelectContent>
+              {#each branchNames as branch (branch)}
+                <SelectItem value={branch}>{branch}</SelectItem>
+              {/each}
+            </SelectContent>
+          </Select>
         </label>
         <Button disabled={busy || !selectedBranch} loading={busy} onclick={() => void chooseBranch()}>
           {t('github.checkVault')}
@@ -523,14 +553,14 @@
   {:else if stage === 'vault_unavailable'}
     <Card>
       <CardContent class="grid gap-4 pt-6">
-        <h2 class="font-bold text-warning">{t('github.vaultUnavailable')}</h2>
+        <h2 class="font-semibold text-warning">{t('github.vaultUnavailable')}</h2>
         <Button disabled={busy} loading={busy} onclick={() => void checkVault()}>{t('common.actions.retry')}</Button>
       </CardContent>
     </Card>
   {:else if stage === 'confirm_initialize'}
     <Card>
       <CardContent class="grid gap-4 pt-6">
-        <h2 class="font-bold text-strong-foreground">{t('github.initializeVault')}</h2>
+        <h2 class="font-semibold text-strong-foreground">{t('github.initializeVault')}</h2>
         <p class="text-sm text-muted-foreground">{t('github.initializeCreatesCommit')}</p>
         <Button disabled={busy} loading={busy} onclick={() => void initializeVault()}>
           {t('github.confirmInitialize')}
@@ -543,40 +573,50 @@
         <h2 class="font-bold text-destructive">{t('github.invalidManifest')}</h2>
         <p class="text-sm text-muted-foreground">{t('github.invalidManifestDescription')}</p>
         {#if remote}
-          <a
-            class="inline-flex items-center gap-2 text-sm text-primary underline"
-            href={`https://github.com/${remote?.owner ?? ''}/${remote?.repo ?? ''}`}
-            onclick={(event) => void openExternal(event, `https://github.com/${remote?.owner ?? ''}/${remote?.repo ?? ''}`)}
-            rel="noreferrer"
-            target="_blank"
+          <Button
+            class="w-fit"
+            onclick={(event: MouseEvent) => void openExternal(event, `https://github.com/${remote?.owner ?? ''}/${remote?.repo ?? ''}`)}
+            variant="outline"
           >
             {t('github.openRepository')} <ExternalLink class="size-4" />
-          </a>
+          </Button>
         {/if}
       </CardContent>
     </Card>
   {:else if stage === 'rate_limited'}
     <Card>
       <CardContent class="grid gap-4 pt-6">
-        <h2 class="font-bold text-warning">{t('github.rateLimited')}</h2>
+        <h2 class="font-semibold text-warning">{t('github.rateLimited')}</h2>
         <Button disabled={busy} loading={busy} onclick={() => void checkVault()}>{t('common.actions.retry')}</Button>
       </CardContent>
     </Card>
   {:else if stage === 'ready'}
     <Card>
       <CardContent class="grid gap-4 pt-6">
-        <div class="flex items-center gap-2 text-success"><CheckCircle class="size-5" /><h2 class="font-bold">{t('github.readyTitle')}</h2></div>
+        <div class="flex items-center gap-3">
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-success-muted text-success">
+            <CheckCircle class="size-5" />
+          </span>
+          <h2 class="font-semibold text-strong-foreground">{t('github.readyTitle')}</h2>
+        </div>
         <p class="text-sm text-muted-foreground">{remote ? `${remote.owner}/${remote.repo} · ${remote.branch}` : ''}</p>
         {#if bindingChanged}
-          <label class="flex items-start gap-2 border border-warning-border bg-warning-muted p-3 text-sm">
-            <input bind:checked={confirmRebind} class="mt-0.5" type="checkbox" />
-            <span>{t('github.confirmRebind')}</span>
-          </label>
+          <Callout tone="warning">
+            <label class="flex items-start gap-2">
+              <Checkbox
+                checked={confirmRebind}
+                onCheckedChange={(checked) => (confirmRebind = checked === true)}
+              />
+              <span>{t('github.confirmRebind')}</span>
+            </label>
+          </Callout>
         {/if}
         <Button disabled={busy} loading={busy} onclick={() => void bindVault()}>
           {t('github.bindVault')}
         </Button>
       </CardContent>
     </Card>
-  {/if}
+      {/if}
+    </div>
+  {/key}
 </div>

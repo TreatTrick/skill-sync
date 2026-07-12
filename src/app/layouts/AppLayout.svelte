@@ -40,7 +40,7 @@
         uiState.sidebarCollapsed && 'lg:justify-center lg:px-0',
       )}
     >
-      <img alt="" class="size-9 shrink-0 rounded-lg shadow-sm" src="/favicon.svg" />
+      <img alt={t('layout.brandTitle')} class="size-9 shrink-0 rounded-lg shadow-sm" src="/favicon.svg" />
       <div class={cn('min-w-0', uiState.sidebarCollapsed && 'lg:hidden')}>
         <div class="truncate text-base font-extrabold text-strong-foreground">
           {t('layout.brandTitle')}
@@ -127,7 +127,7 @@
           <span aria-hidden="true">/</span>
           <span class="text-foreground">{t(currentRoute.title)}</span>
         </nav>
-        <h1 class="mt-1.5 text-2xl font-bold text-strong-foreground">
+        <h1 class="mt-1.5 text-2xl font-semibold tracking-tight text-strong-foreground">
           {t(currentRoute.title)}
         </h1>
       </div>

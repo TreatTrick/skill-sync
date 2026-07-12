@@ -13,11 +13,11 @@
   let { icon, title, description, action, class: className }: Props = $props()
 </script>
 
-<div class={cn('grid gap-2 p-8 text-center', className)}>
+<div class={cn('grid gap-3 p-10 text-center', className)}>
   {#if icon}
-    <div class="mx-auto text-muted-foreground">{@render icon()}</div>
+    <div class="mx-auto flex size-14 items-center justify-center rounded-full bg-surface-muted text-muted-foreground">{@render icon()}</div>
   {/if}
-  <div class="text-sm font-bold text-strong-foreground">{title}</div>
+  <div class="text-base font-semibold text-strong-foreground">{title}</div>
   {#if description}
     <p class="mx-auto max-w-md text-sm text-muted-foreground">{description}</p>
   {/if}

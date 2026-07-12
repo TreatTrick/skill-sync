@@ -1,6 +1,7 @@
 <script lang="ts">
   import { AlertTriangle, ChevronRight } from '@lucide/svelte'
 
+  import { cn } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import {
     Badge,
@@ -48,7 +49,7 @@
 
 </script>
 
-<Card class="h-full">
+<Card class={cn('h-full transition-shadow hover:shadow-md', selected && 'border-primary bg-primary-muted/30')}>
   <CardContent class="grid gap-3 p-4">
     <div class="flex items-start gap-3">
       {#if onToggle}
@@ -60,7 +61,7 @@
       {/if}
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
-          <h3 class="truncate text-base font-bold text-strong-foreground">
+          <h3 class="truncate text-base font-semibold text-strong-foreground">
             {entry.name}
           </h3>
           <Badge variant="secondary">{entry.namespace}</Badge>
@@ -68,29 +69,29 @@
             {t(statusLabelKey(entry.status))}
           </StatusBadge>
         </div>
-        <p class="mt-1 truncate text-xs text-muted-foreground">{entry.skill_id}</p>
+        <p class="mt-1 truncate font-mono text-xs text-muted-foreground">{entry.skill_id}</p>
       </div>
     </div>
 
     <div class="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-3">
       <div class="truncate">
         <span class="text-foreground">{t('sync.entry.localHash')}:</span>
-        {shortHash(entry.local_hash)}
+        <span class="font-mono">{shortHash(entry.local_hash)}</span>
       </div>
       <div class="truncate">
         <span class="text-foreground">{t('sync.entry.remoteHash')}:</span>
-        {shortHash(entry.remote_hash)}
+        <span class="font-mono">{shortHash(entry.remote_hash)}</span>
       </div>
       <div class="truncate">
         <span class="text-foreground">{t('sync.entry.baseHash')}:</span>
-        {shortHash(entry.base_hash)}
+        <span class="font-mono">{shortHash(entry.base_hash)}</span>
       </div>
     </div>
 
     <div class="grid gap-1 text-xs text-muted-foreground">
       <div class="truncate">
         <span class="text-foreground">{t('sync.entry.path')}:</span>
-        {entry.local_path ?? entry.relative_dir ?? t('sync.notAvailable')}
+        <span class="font-mono">{entry.local_path ?? entry.relative_dir ?? t('sync.notAvailable')}</span>
       </div>
       <div class="truncate">
         <span class="text-foreground">{t('sync.entry.folder')}:</span>

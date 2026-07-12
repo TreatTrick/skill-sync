@@ -59,19 +59,19 @@
         <div class="grid gap-2 text-sm text-muted-foreground">
           <div>
             <span class="text-foreground">{t('sync.entry.localHash')}:</span>
-            {shortHash(conflict.local_hash)}
+            <span class="font-mono">{shortHash(conflict.local_hash)}</span>
           </div>
           <div>
             <span class="text-foreground">{t('sync.entry.remoteHash')}:</span>
-            {shortHash(conflict.remote_hash)}
+            <span class="font-mono">{shortHash(conflict.remote_hash)}</span>
           </div>
           <div>
             <span class="text-foreground">{t('sync.entry.baseHash')}:</span>
-            {shortHash(conflict.base_hash)}
+            <span class="font-mono">{shortHash(conflict.base_hash)}</span>
           </div>
           <div>
             <span class="text-foreground">{t('sync.entry.path')}:</span>
-            {conflict.local_path ?? conflict.relative_dir ?? t('sync.notAvailable')}
+            <span class="font-mono">{conflict.local_path ?? conflict.relative_dir ?? t('sync.notAvailable')}</span>
           </div>
         </div>
 
@@ -84,7 +84,7 @@
         {/if}
 
         <div class="grid gap-2">
-          <p class="text-sm font-bold text-strong-foreground">
+          <p class="text-sm font-semibold text-strong-foreground">
             {t('sync.conflictDetail.choose')}
           </p>
           <div class="grid gap-2 sm:grid-cols-3">

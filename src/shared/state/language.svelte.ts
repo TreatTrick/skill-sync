@@ -15,6 +15,8 @@ class LanguageState {
   async setLanguage(language: Language): Promise<void> {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language)
     await i18next.changeLanguage(language)
+    // Sync <html lang> so screen-reader pronunciation and :lang() rules follow the active language (F26)
+    document.documentElement.lang = language
     this.language = language
   }
 }

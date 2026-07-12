@@ -8,6 +8,7 @@ export const cn = (...inputs: ClassValue[]): string => twMerge(clsx(inputs))
 export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & {
   ref?: U | null
 }
-type WithoutChildren<T> = Omit<T, 'children'>
-type WithoutChild<T> = Omit<T, 'child'>
+// shadcn-svelte nova components reference these intermediate types directly, so export them
+export type WithoutChildren<T> = Omit<T, 'children'>
+export type WithoutChild<T> = Omit<T, 'child'>
 export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>
