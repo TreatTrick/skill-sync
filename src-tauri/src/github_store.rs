@@ -253,12 +253,10 @@ impl GitHubVaultStore {
     }
 
     fn contents_path(&self, path: &str, reference: &str) -> String {
-        format!(
-            "{}/contents/{}?ref={}",
-            self.repository_prefix(),
-            path,
-            reference
-        )
+        let mut url = reqwest::Url::parse("https://api.github.com").expect("static URL is valid");
+        url.set_path(&format!("{}/contents/{}", self.repository_prefix(), path));
+        url.query_pairs_mut().append_pair("ref", reference);
+        format!("{}?{}", url.path(), url.query().unwrap_or_default())
     }
 
     async fn fetch_head(&self) -> Result<String> {
@@ -555,6 +553,27 @@ mod tests {
             .fetch_blob(&blob_path, &hash)
             .await
             .unwrap();
+        assert_eq!(actual, bytes);
+    }
+
+    #[tokio::test]
+    async fn fetch_blob_preserves_special_characters_in_branch_ref() {
+        let server = MockServer::start().await;
+        let bytes = b"blob-bytes";
+        let hash = format!("sha256:{}", hex::encode(sha2::Sha256::digest(bytes)));
+        let blob_path = format!("blobs/sha256/{}.skill.zip", &hash[7..]);
+        let branch = "feature/hash#amp&percent%";
+        Mock::given(method("GET"))
+            .and(path(format!("/repos/owner/vault/contents/{blob_path}")))
+            .and(query_param("ref", branch))
+            .respond_with(ResponseTemplate::new(200).set_body_json(content_body(bytes, "blob-sha")))
+            .mount(&server)
+            .await;
+        let mut vault_store = store(&server).await;
+        vault_store.repository.branch = branch.into();
+
+        let actual = vault_store.fetch_blob(&blob_path, &hash).await.unwrap();
+
         assert_eq!(actual, bytes);
     }
 
