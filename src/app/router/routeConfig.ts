@@ -1,18 +1,7 @@
-import {
-  FolderSync,
-  ListChecks,
-  RotateCcw,
-  Settings as SettingsIcon,
-  Sparkles,
-} from '@lucide/svelte'
+import { FolderSync, Settings as SettingsIcon } from '@lucide/svelte'
 import type { Component } from 'svelte'
 
-type RouteTitleKey =
-  | 'routes.backups'
-  | 'routes.conflicts'
-  | 'routes.onboarding'
-  | 'routes.settings'
-  | 'routes.sync'
+type RouteTitleKey = 'routes.settings' | 'routes.sync'
 
 export type RouteGroupKey = 'routeGroups.main'
 
@@ -32,28 +21,10 @@ export const appRoutes: AppRouteConfig[] = [
     icon: FolderSync,
   },
   {
-    path: '/app/conflicts',
-    title: 'routes.conflicts',
-    group: 'routeGroups.main',
-    icon: ListChecks,
-  },
-  {
-    path: '/app/backups',
-    title: 'routes.backups',
-    group: 'routeGroups.main',
-    icon: RotateCcw,
-  },
-  {
     path: '/app/settings',
     title: 'routes.settings',
     group: 'routeGroups.main',
     icon: SettingsIcon,
-  },
-  {
-    path: '/app/onboarding',
-    title: 'routes.onboarding',
-    group: 'routeGroups.main',
-    icon: Sparkles,
   },
 ]
 

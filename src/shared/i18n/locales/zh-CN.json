@@ -41,8 +41,6 @@
     "userName": "开发者"
   },
   "routes": {
-    "backups": "备份",
-    "conflicts": "冲突",
     "onboarding": "初始配置",
     "settings": "设置",
     "sync": "同步"
@@ -154,20 +152,6 @@
     "skip": "跳过",
     "title": "冲突处理",
     "useRemote": "使用远程"
-  },
-  "backups": {
-    "columns": {
-      "actions": "操作",
-      "path": "原路径",
-      "size": "大小",
-      "skill": "Skill",
-      "time": "时间"
-    },
-    "description": "查看并恢复同步写入前的备份。",
-    "empty": "暂无备份。",
-    "restoreError": "恢复失败：{{message}}",
-    "restored": "已恢复。",
-    "title": "备份"
   },
   "settings": {
     "appearance": "外观",

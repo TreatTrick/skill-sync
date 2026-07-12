@@ -41,8 +41,6 @@
     "userName": "Developer"
   },
   "routes": {
-    "backups": "Backups",
-    "conflicts": "Conflicts",
     "onboarding": "Setup",
     "settings": "Settings",
     "sync": "Sync"
@@ -154,20 +152,6 @@
     "skip": "Skip",
     "title": "Conflict Resolution",
     "useRemote": "Use remote"
-  },
-  "backups": {
-    "columns": {
-      "actions": "Actions",
-      "path": "Original path",
-      "size": "Size",
-      "skill": "Skill",
-      "time": "Time"
-    },
-    "description": "View and restore backups made before sync writes.",
-    "empty": "No backups yet.",
-    "restoreError": "Restore failed: {{message}}",
-    "restored": "Restored.",
-    "title": "Backups"
   },
   "settings": {
     "appearance": "Appearance",
