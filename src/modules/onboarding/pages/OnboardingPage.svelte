@@ -37,8 +37,11 @@
   $effect(() => {
     if (appState.data && !prefilled) {
       prefilled = true
-      remote = appState.data.config.repository.remote
-      branch = appState.data.config.repository.branch || 'main'
+      const configuredRemote = appState.data.config.remote
+      remote = configuredRemote
+        ? `https://github.com/${configuredRemote.owner}/${configuredRemote.repo}`
+        : ''
+      branch = configuredRemote?.branch || 'main'
     }
   })
 

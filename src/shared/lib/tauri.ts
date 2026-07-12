@@ -1,15 +1,19 @@
 import { invoke } from '@tauri-apps/api/core'
 
-import type { AppError } from '@/shared/schemas'
+import { appErrorSchema, type AppError } from '@/shared/schemas'
 
 /** Error thrown when a Tauri command returns a structured AppError. */
-class SkillSyncError extends Error {
+export class SkillSyncError extends Error {
   readonly kind: string
+  readonly retryAfter: string | null | undefined
+  readonly latestCheck: unknown
 
   constructor(err: AppError) {
     super(err.message)
     this.name = 'SkillSyncError'
     this.kind = err.kind
+    this.retryAfter = err.retry_after
+    this.latestCheck = err.latest_check
   }
 }
 
@@ -25,13 +29,9 @@ export const invokeCmd = async <T>(
   try {
     return await invoke<T>(cmd, args)
   } catch (raw) {
-    if (
-      raw !== null &&
-      typeof raw === 'object' &&
-      'kind' in raw &&
-      'message' in raw
-    ) {
-      throw new SkillSyncError(raw as AppError)
+    const parsed = appErrorSchema.safeParse(raw)
+    if (parsed.success) {
+      throw new SkillSyncError(parsed.data)
     }
     throw new SkillSyncError({
       kind: 'other',

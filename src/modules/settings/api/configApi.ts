@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { invokeCmd } from '@/shared/lib'
 
 import {
@@ -15,4 +17,17 @@ export const getAppState = async (): Promise<AppState> => {
 export const saveConfig = async (config: AppConfig): Promise<void> => {
   const parsed = appConfigSchema.parse(config)
   await invokeCmd('save_config', { config: parsed })
+}
+
+export const disconnectGithub = async (
+  expectedRepositoryId: number,
+): Promise<void> => {
+  const repositoryId = z
+    .number()
+    .int()
+    .nonnegative()
+    .parse(expectedRepositoryId)
+  await invokeCmd('disconnect_github', {
+    expected_repository_id: repositoryId,
+  })
 }

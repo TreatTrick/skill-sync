@@ -12,7 +12,6 @@
     CardDescription,
     CardHeader,
     CardTitle,
-    Checkbox,
     Spinner,
     Textarea,
   } from '@/shared/ui'
@@ -33,8 +32,6 @@
     queryFn: getAppState,
   }))
   let config = $state<AppConfig | null>(null)
-  let codexPaths = $state('')
-  let claudePaths = $state('')
   let ignore = $state('')
   let prefilled = $state(false)
   let saveError = $state('')
@@ -46,8 +43,6 @@
     if (appState.data && !prefilled) {
       prefilled = true
       config = appState.data.config
-      codexPaths = toLines(appState.data.config.hosts.codex.paths)
-      claudePaths = toLines(appState.data.config.hosts.claude.paths)
       ignore = toLines(appState.data.config.ignore)
     }
   })
@@ -57,10 +52,6 @@
     config
       ? {
           ...config,
-          hosts: {
-            codex: { ...config.hosts.codex, paths: fromLines(codexPaths) },
-            claude: { ...config.hosts.claude, paths: fromLines(claudePaths) },
-          },
           ignore: fromLines(ignore),
         }
       : null,
@@ -177,36 +168,10 @@
     </div>
   {:else}
     <Card>
-      <CardHeader><CardTitle>{t('settings.hosts')}</CardTitle></CardHeader>
-      <CardContent class="grid gap-4">
-        <label class="flex items-center gap-2 text-sm text-foreground">
-          <Checkbox bind:checked={config.hosts.codex.enabled} />
-          {t('settings.codexEnabled')}
-        </label>
-        <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
-          {t('settings.codexPaths')}
-          <Textarea bind:value={codexPaths} class="min-h-[180px]" />
-        </label>
-        <label class="flex items-center gap-2 text-sm text-foreground">
-          <Checkbox bind:checked={config.hosts.claude.enabled} />
-          {t('settings.claudeEnabled')}
-        </label>
-        <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
-          {t('settings.claudePaths')}
-          <Textarea bind:value={claudePaths} class="min-h-[180px]" />
-        </label>
-      </CardContent>
-    </Card>
-
-    <Card>
       <CardContent class="grid gap-4 pt-6">
-        <label class="flex items-center gap-2 text-sm text-foreground">
-          <Checkbox bind:checked={config.defaults.backup} />
-          {t('settings.backup')}
-        </label>
         <label class="grid gap-1.5 text-sm font-medium text-muted-foreground">
           {t('settings.ignore')}
-          <Textarea bind:value={ignore}  class="min-h-[180px]"/>
+          <Textarea bind:value={ignore} class="min-h-[180px]" />
         </label>
       </CardContent>
     </Card>
