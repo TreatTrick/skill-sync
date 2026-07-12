@@ -5,120 +5,86 @@
 <h1 align="center">Skill Sync</h1>
 
 <p align="center">
-  <strong>Sync your AI agent skills across machines — like dotfiles, with a desktop UI.</strong>
+  <strong>Sync your AI agent skills between machines with a small desktop workspace.</strong>
 </p>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
-  <img src="https://img.shields.io/badge/Tauri-2-orange?logo=tauri&logoColor=white" alt="Tauri 2" />
-  <img src="https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5" />
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
-  <a href="https://github.com/TreatTrick/skill-sync/issues"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome" /></a>
-  <img src="https://img.shields.io/github/stars/TreatTrick/skill-sync?style=social" alt="GitHub Stars" />
-</p>
+Skill Sync is a local-first Tauri desktop app for syncing skills through one private GitHub Vault repository. V1 uses the GitHub App Device Flow as its only remote provider. There is no SaaS account, custom sync server, OAuth App, PAT, Git CLI setup, SSH setup, or telemetry.
 
----
+## How It Works
 
-## ✨ Why
+Before a Vault is bound, the app shows only a guarded Onboarding flow. The flow authorizes GitHub, checks the GitHub App installation, requires exactly one selected repository, lets you choose a branch, and explicitly confirms an empty or missing-manifest initialization commit. Only a successful Ready Vault binding unlocks the workspace, whose navigation contains Sync and Settings.
 
-You've built a great set of Claude Code, Codex, Cursor, or Gemini skills — but moving them between your laptop, desktop, and work machine means remembering paths, copying folders, and hand-merging Git conflicts. **Skill Sync** turns all of that into one click.
+The remote repository contains only:
 
-Your skills follow you everywhere, through **your own Git repo**. No account. No cloud. No marketplace. No telemetry.
+```text
+manifest.json
+blobs/sha256/<sha256>.skill.zip
+```
 
-## 🚀 Features
+The manifest is validated as a whole. Skill hashes are hashes of canonical ZIP bytes. Local sync state and credentials stay on the machine; credentials are stored in the OS keyring and are refreshed when possible.
 
-- **🔍 Auto-discover** skills already living on your machine from configured agent paths.
-- **🧩 Multi-agent** support — Claude Code, Codex, Cursor, Gemini CLI, and custom paths.
-- **👀 Sync preview** — see every upload, download, update, delete, and conflict _before_ anything is written.
-- **⚡ One-click sync** — apply the whole plan with a single button.
-- **⚔️ Conflict resolution** — keep local, use remote, or skip, per skill.
-- **💾 Automatic backups** — every local file is backed up before it's touched, with one-click restore.
-- **⚙️ Full settings** — manage agent paths, Git remote, backup directory, and ignore rules.
-- **🛡️ Safe by default** — all destructive writes are previewed first.
-- **🔒 Local-first & private** — sync runs through your own Git repository. Nothing leaves your control.
+V1 scans three fixed user-level roots:
 
-## 🤝 Supported Agents
+| Namespace     | Root               |
+| ------------- | ------------------ |
+| `agents`      | `~/.agents/skills` |
+| `codex`       | `~/.codex/skills`  |
+| `claude-code` | `~/.claude/skills` |
 
-| Agent       | Status |
-| ----------- | :----: |
-| Claude Code |   ✅   |
-| Codex       |   ✅   |
-| Cursor      |   ✅   |
-| Gemini CLI  |   ✅   |
-| Custom path |   ✅   |
+Project-level directories and user-configured roots are outside V1. Deletes are advisory: they are shown in the preview, require explicit selection, and move local directories to the local trash area. Remote deletes remove manifest entries only; blobs are not garbage-collected.
 
-## 🧭 How it works
+## GitHub App
 
-1. **Scan** — discovers skills (e.g. `SKILL.md`) from your configured agent directories.
-2. **Diff** — compares local skills against your Git sync repo and computes a change plan.
-3. **Preview** — review planned uploads, downloads, updates, deletions, and conflicts.
-4. **Sync** — apply changes with one click. Local files are backed up first.
-5. **Resolve** — handle conflicts: keep local, use remote, or skip.
-6. **Restore** — roll back any file from the backups page, anytime.
+The release must provide a public GitHub App client id and slug at build time. The App needs only Contents read/write and Metadata read-only permissions. Its installation must use selected repositories and contain exactly one Vault repository. Users can adjust or revoke the installation from GitHub; the app never stores a client secret or private key.
 
-## 📦 Install
+Maintainers should follow [GitHub App setup](docs/github-app-setup.md). Users can start with the Onboarding screen after installing the app.
 
-### Build from source
+## Build From Source
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 20+, [Rust](https://www.rust-lang.org/) (stable), [Git](https://git-scm.com/), and the [Tauri v2 system dependencies](https://tauri.app/start/prerequisites/).
+Prerequisites: Node.js 20+, Rust stable, and the Tauri v2 system dependencies. Git is not required by the app.
 
 ```bash
 git clone https://github.com/TreatTrick/skill-sync.git
 cd skill-sync
 npm install
 
-npm run tauri dev     # run the app in development
-npm run tauri build   # produce installers in src-tauri/target/release/bundle
+npm run tauri dev
+npm run tauri build
 ```
 
-> Prebuilt binaries will ship with the first release — **watch** the repo to be notified ⭐
+The release workflow injects only the public GitHub App client id and slug through repository variables. See the maintainer checklist before producing an installer.
 
-## 🛠 Tech stack
-
-- **Backend:** Tauri 2 + Rust — skill discovery, `SKILL.md` parsing, Git sync (system `git` CLI), backups, conflict detection.
-- **Frontend:** Svelte 5 + SvelteKit (static SPA), TypeScript (strict), Vite.
-- **Styling:** Tailwind CSS v4 with semantic color tokens, shadcn-svelte (bits-ui) components.
-- **State:** `@tanstack/svelte-query` for server state, Svelte 5 runes for client state.
-- **Extras:** `@lucide/svelte` icons, i18next (EN / 简体中文), zod validation.
-
-## 📁 Project structure
-
-```
-src/
-  routes/    # SvelteKit routing (thin page wrappers)
-  app/       # app shell, layout, navigation
-  modules/   # dashboard · skills · sync · conflicts · backups · settings · onboarding
-  shared/    # shadcn-svelte UI, i18n, tokens, utils
-src-tauri/
-  src/       # Rust: detect · manifest · git_store · sync_engine · backup · config
-```
-
-## 🗺 Roadmap
-
-- [ ] Prebuilt binaries + Tauri auto-update
-- [ ] Cross-platform CI (Windows / macOS / Linux)
-- [ ] More agent integrations
-- [ ] Scheduled / background sync
-
-## 🤝 Contributing
-
-Issues and PRs are welcome! Please read [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) first — they cover the engineering rules, commit conventions, and AI-collaboration guidelines this repo follows.
+## Development Checks
 
 ```bash
-npm run lint     # typecheck + ESLint + responsive/colors/i18n lints
-npm run build    # type-check and build
+npm run typecheck
+npm run format:check
+npm run lint
+npm run build
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, …).
+The backend owns local scanning, canonical ZIP packing, limits, manifest validation, GitHub API access, comparison, delete protection, and journaled local apply. The frontend owns onboarding, display, filters, conflict decisions, and command calls. Frontend API responses are validated with zod before rendering.
 
-## 📄 License
+## Project Structure
+
+```text
+src/
+  routes/    # SvelteKit route wrappers
+  app/       # app shell, route gate, navigation
+  modules/   # onboarding, settings, skills, sync
+  shared/    # UI, schemas, i18n, state, request helpers
+src-tauri/
+  src/       # Rust scanner, packer, vault, GitHub client, sync engine
+docs/
+  github-base-refactor-design.md
+  github-app-setup.md
+```
+
+## License
 
 [MIT](LICENSE) © 2026 TreatTrick
-
----
-
-<sub>Built with Tauri · Svelte 5 · for everyone who keeps losing their skills between machines.</sub>

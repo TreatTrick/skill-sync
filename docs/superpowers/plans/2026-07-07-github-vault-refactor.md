@@ -1981,7 +1981,7 @@ git commit -m "feat: add github vault store"
 
 - [x] **Step 1: 原子迁移 AppConfig 和所有 Rust consumers**
 
-先写 `legacy_hosts_and_custom_paths_are_ignored_on_migration`、`legacy_config_gets_all_pack_unpack_limit_defaults`、`default_config_has_no_unvalidated_remote`、`save_config_cannot_change_remote_identity` 测试。将 AppConfig 改为 `remote: Option<RemoteConfig> + limits + ignore`，配置版本递增，旧 YAML 迁移已有 ignore/limits，并为缺失的 file/single/total unpack limits 填安全默认值；Git/OAuth remote、hosts/custom_paths/defaults 保存后消失。所有 AppConfig load 先调用 `VaultBindingStore::recover_if_needed`。同步修改 commands/detect/sync engine 的所有字段引用，删除 Task 5 暂留的 Rust host/platform/enabled/repo_path compatibility 字段和 Task 7-9 暂留的 legacy engine adapter；扫描只用 fixed registry，未绑定 remote 返回 OnboardingRequired。不得保留只为编译而继续生效的 legacy config/identity 字段。
+先写 `default_config_has_no_unvalidated_remote`、`save_config_cannot_change_remote_identity` 等当前格式测试。将 AppConfig 固定为 `remote: Option<RemoteConfig> + limits + ignore`；demo 不迁移旧 YAML，旧版本和未知字段直接拒绝。所有 AppConfig load 先调用 `VaultBindingStore::recover_if_needed`。同步修改 commands/detect/sync engine 的所有字段引用，删除 Task 5 暂留的 Rust host/platform/enabled/repo_path 字段和 Task 7-9 的旧 engine adapter；扫描只用 fixed registry，未绑定 remote 返回 OnboardingRequired。
 
 - [x] **Step 2: 删除旧 commands**
 
@@ -2537,6 +2537,8 @@ npm run build
 
 手动验证：删除 action 首次与计划变化后均不选中；Apply 只调用一次且 request 五个字段完整；`applied` 正确读取嵌套 result；`plan_changed` 使用 latest_plan 替换缓存并清空选择、决策和 ack，不触发自动 retry/refetch；`recovery_required` 冻结普通同步且只按 task id resume，不自动重发 Apply；应用以 `AppState.pending_recovery` 启动时直接显示同一恢复面板；分别用 adoption-only 与 removal-only 计划确认 Apply 仍可用、普通选择和 decisions 保持为空、显示 0 commit，并使用 `state_updated` 展示结果。
 
+自动验证已通过；完整交互验收仍需要可运行的 Tauri 窗口和本机同步 fixture。
+
 - [x] **Step 8: Commit**
 
 ```bash
@@ -2562,11 +2564,11 @@ git commit -m "feat: consolidate sync status ui"
 - Modify: `src/shared/i18n/locales/zh-CN.json`
 - Modify: `src/shared/i18n/locales/en-US.json`
 
-- [ ] **Step 1: 删除 SSH/Git onboarding UI**
+- [x] **Step 1: 删除 SSH/Git onboarding UI**
 
 删除 `SshSetupDialog`、Git 检测、remote URL 检测、SSH 教程入口。
 
-- [ ] **Step 2: 添加 Device Flow 状态**
+- [x] **Step 2: 添加 Device Flow 状态**
 
 ```ts
 type OnboardingStage =
@@ -2587,7 +2589,7 @@ Device Flow 局部状态保存 device code、user code、verification URI、expi
 
 页面使用单列、单当前步骤的渐进式向导。为 stage 映射稳定的 step number/title，显示“第 N/5 步”和原生或等价的可访问进度；每次只渲染当前步骤需要的说明与操作，已完成步骤只显示简短完成状态，不能把 Device Flow、installation、repo、branch 和初始化控件一次堆在同一页面。`authorized` 只推进到 installation discovery，不设置 workspace ready。
 
-- [ ] **Step 3: 添加连接、轮询和 repo 检测**
+- [x] **Step 3: 添加连接、轮询和 repo 检测**
 
 实现以下单一路径，不提供 OAuth/PAT/Git/SSH 切换：
 
@@ -2601,7 +2603,7 @@ Device Flow 局部状态保存 device code、user code、verification URI、expi
 
 在 Step 6 手动验收中逐项覆盖以上状态迁移、单当前步骤和进度、poll timer 清理、install 后 recheck、单 repo blocked、初始化确认、invalid manifest 不出现初始化按钮、rate limit、stale initialize 不自动重试，以及浏览器 devtools/query state 中没有 token；当前仓库没有前端 test runner，本任务不额外引入一套测试框架。
 
-- [ ] **Step 4: 实现认证门禁与双 Tab 工作区**
+- [x] **Step 4: 实现认证门禁与双 Tab 工作区**
 
 `src/routes/+page.svelte`、`src/routes/app/+page.svelte` 和 `src/routes/app/+layout.svelte` 必须先等待 `getAppState()`，加载期间只显示 spinner，不渲染后再撤掉业务侧边栏。定义单一前端门禁语义：
 
@@ -2622,7 +2624,7 @@ const workspaceReady =
 
 `src/app/router/routeConfig.ts` 的 `appRoutes` 只包含 Sync / Settings；不要给 Onboarding 添加 `showInNavigation` 一类默认 true 的可选配置，也不要保留第三个 Tab 再用 CSS 隐藏。route gate 只负责 UX，Rust command 的 credential/binding/remote identity 校验保持不变。
 
-- [ ] **Step 5: 更新 Settings**
+- [x] **Step 5: 更新 Settings**
 
 删除 `config.defaults.backup` checkbox，新增：
 
@@ -2695,7 +2697,9 @@ npm run build
 
 手动验证：首次未授权打开 `/`、`/app`、`/app/sync` 和 `/app/settings` 都只出现无业务导航的 Onboarding，加载期间不闪现 sidebar；向导一次只显示当前步骤与明确进度；Device Flow authorized 后仍停留在 installation/repo/branch/init/bind 引导，不能提前看到业务 Tab。bind 成功后默认进入 Sync，导航严格只有 Sync / Settings；已绑定用户普通访问 `/app/onboarding` 会回到 Sync。GitHub App Device Flow -> install -> 唯一 repo -> branch -> empty/missing manifest 确认初始化 -> ready -> bind 全链路可完成；OAuth/PAT/Git/SSH 控件不存在；多 repo、invalid manifest 和 stale init 均不能越过。Settings 的重新配置通过 `?mode=reconfigure` 进入无导航向导且可取消保留旧 binding；disconnect/reauthorization_required 回到向导并隐藏旧工作区。Settings 不显示 token、不允许编辑 stable IDs。三个 namespace 均显示唯一固定路径；修改旧 hosts/custom_paths 不改变扫描目标；缺失 root 显示 unknown 而不产生删除。
 
-- [ ] **Step 7: Commit**
+自动验证已通过；完整链路验收需要 GitHub App credential、installation 和 disposable private repository。
+
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/modules/onboarding src/modules/settings src/app/router/routeConfig.ts src/routes src/shared/i18n/locales
@@ -2716,7 +2720,7 @@ git commit -m "feat: connect github vault settings"
 - Modify: `src-tauri/src/sync_engine.rs`
 - Modify: `src-tauri/src/commands.rs`
 
-- [ ] **Step 1: 删除 module declarations**
+- [x] **Step 1: 删除 module declarations**
 
 ```rust
 mod backup;
@@ -2724,7 +2728,7 @@ mod git_store;
 mod manifest;
 ```
 
-- [ ] **Step 2: 替换旧引用**
+- [x] **Step 2: 替换旧引用**
 
 ```text
 crate::manifest::hash_dir -> crate::pack / packed local hash
@@ -2732,11 +2736,11 @@ crate::git_store::GitStore -> RemoteStore / GitHubVaultStore
 crate::backup::* -> trash move logic in sync_engine
 ```
 
-- [ ] **Step 3: 删除旧文件**
+- [x] **Step 3: 删除旧文件**
 
 用 `apply_patch` 删除 legacy files。
 
-- [ ] **Step 4: 验证无残留**
+- [x] **Step 4: 验证无残留**
 
 Run:
 
@@ -2750,7 +2754,7 @@ npm run build
 
 Expected: 两个 `rg` 均无产品代码命中；Rust tests pass。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src
@@ -2768,7 +2772,7 @@ git commit -m "refactor: remove git cli sync backend"
 - Delete: `docs/ssh-setup.md`
 - Modify: `docs/github-base-refactor-design.md` only if implementation details changed during execution.
 
-- [ ] **Step 1: 搜索旧产品描述**
+- [x] **Step 1: 搜索旧产品描述**
 
 Run:
 
@@ -2778,13 +2782,13 @@ rg -n "Git CLI|git_store|GitStore|check_git|check_remote|prepare_repo|Backups|ba
 
 Expected: 只有历史上下文或明确非 MVP 注记保留。
 
-- [ ] **Step 2: 更新文档**
+- [x] **Step 2: 更新文档**
 
 README 和开发文档说明 V1 唯一 provider 是 GitHub App Device Flow，private repo vault 使用 `manifest.json` + `blobs/sha256`，不需要 OAuth App/PAT/Git/SSH/SaaS backend。说明 installation 必须只授权一个 vault repo、token 只进 keyring且自动刷新、空 repo/缺 manifest 会在显式确认后创建初始化 commit，以及三个固定 namespace/root、advisory 删除、本地 trash、blob 不 GC。用户流程必须说明：未完成 Ready Vault binding 时应用只有逐步 Onboarding；bind 成功后才进入只含 Sync / Settings 两个 Tab 的工作区。
 
 删除仍以有效指南口吻推荐 SSH/HTTPS/PAT 的 `docs/ssh-setup.md`。`docs/github-app-setup.md` 给维护者完整 release checklist：注册可安装 GitHub App；开启 Device Flow 和 expiring user tokens；Repository permissions 仅 Contents read/write + Metadata read-only；无 account/org permissions、events/webhook；记录公开 client id/app slug；在 GitHub Actions repository variables 配置 `SKILL_SYNC_GITHUB_APP_CLIENT_ID` / `SKILL_SYNC_GITHUB_APP_SLUG`；在打包前实际打开并核对 `https://github.com/apps/<slug>/installations/new`；确认 release artifact 不含 private key/client secret；用 keyring 中的测试 App credential 和 disposable empty private repo 运行 `SKILL_SYNC_GITHUB_INTEGRATION=1 SKILL_SYNC_GITHUB_EMPTY_TEST_REPO=<owner/repo> cargo test --manifest-path src-tauri/Cargo.toml github_empty_repo_initialization -- --ignored --nocapture`。给普通用户说明授权、Only select repositories、唯一 vault repo、installation 调整与撤销方式。
 
-- [ ] **Step 3: 全量验证**
+- [x] **Step 3: 全量验证**
 
 Run:
 
@@ -2823,7 +2827,7 @@ npm run tauri dev
 - 删除项不默认勾选，必须显式确认。
 - 冲突详情能展示普通冲突和两类删改冲突。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md README.zh-CN.md docs src src-tauri
