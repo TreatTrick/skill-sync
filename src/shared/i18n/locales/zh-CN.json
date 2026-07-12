@@ -121,7 +121,6 @@
     "columns": {
       "actions": "操作",
       "hash": "内容 hash",
-      "host": "来源",
       "modified": "最近修改",
       "name": "名称",
       "path": "本地路径",

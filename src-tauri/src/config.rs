@@ -13,6 +13,7 @@ const CONFIG_DIR_NAME: &str = "skill-sync";
 const CONFIG_FILE_NAME: &str = "config.yaml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct AppConfig {
     #[serde(default = "default_version")]
     pub version: u32,
@@ -129,20 +130,6 @@ impl LimitsConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Default)]
-struct StoredConfig {
-    #[serde(default)]
-    version: u32,
-    #[serde(default)]
-    ignore: Option<Vec<String>>,
-    #[serde(default)]
-    remote: Option<RemoteConfig>,
-    #[serde(default)]
-    limits: Option<LimitsConfig>,
-    #[serde(default)]
-    device_id: Option<String>,
-}
-
 impl AppConfig {
     pub(crate) fn default_config() -> Self {
         Self {
@@ -191,19 +178,12 @@ impl AppConfig {
     }
 
     pub(crate) fn from_yaml(text: &str) -> Result<Self> {
-        let stored: StoredConfig = serde_yaml::from_str(text)?;
-        if stored.version > CONFIG_VERSION {
+        let config: Self = serde_yaml::from_str(text)?;
+        if config.version != CONFIG_VERSION {
             return Err(AppError::Config(format!(
                 "unsupported config version: {}",
-                stored.version
+                config.version
             )));
-        }
-        let mut config = Self::default_config();
-        config.ignore = stored.ignore.unwrap_or_else(default_ignore);
-        config.limits = stored.limits.unwrap_or_default();
-        config.device_id = stored.device_id.unwrap_or_else(default_device_id);
-        if stored.version >= CONFIG_VERSION {
-            config.remote = stored.remote;
         }
         config.limits.validate()?;
         Ok(config)
@@ -243,29 +223,6 @@ fn durable_replace(target: &std::path::Path, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn legacy_hosts_and_custom_paths_are_ignored_on_migration() {
-        let cfg = AppConfig::from_yaml(include_str!("../tests/fixtures/config-v1.yaml")).unwrap();
-        let saved = serde_yaml::to_string(&cfg).unwrap();
-
-        assert_eq!(cfg.version, 2);
-        assert_eq!(cfg.remote, None);
-        assert!(!saved.contains("repository:"));
-        assert!(!saved.contains("hosts:"));
-        assert!(!saved.contains("custom_paths:"));
-        assert!(!saved.contains("defaults:"));
-    }
-
-    #[test]
-    fn legacy_config_gets_all_pack_unpack_limit_defaults() {
-        let cfg = AppConfig::from_yaml(include_str!("../tests/fixtures/config-v1.yaml")).unwrap();
-
-        assert_eq!(cfg.limits.max_skill_zip_bytes, 1234);
-        assert_eq!(cfg.limits.max_skill_files, 7);
-        assert_eq!(cfg.limits.max_single_file_unpacked_bytes, 50 * 1024 * 1024);
-        assert_eq!(cfg.limits.max_skill_unpacked_bytes, 100 * 1024 * 1024);
-    }
 
     #[test]
     fn default_config_has_no_unvalidated_remote() {

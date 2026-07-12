@@ -121,7 +121,6 @@
     "columns": {
       "actions": "Actions",
       "hash": "Content hash",
-      "host": "Source",
       "modified": "Modified",
       "name": "Name",
       "path": "Local path",

@@ -13,10 +13,6 @@ const skillSchema = z.object({
   hash: z.string(),
   zip_size: z.number().optional(),
   modified_at: z.string(),
-  // Transitional fields used only by legacy consumers until Task 16.
-  host: z.string(),
-  repo_path: z.string(),
-  enabled: z.boolean(),
 })
 
 const scanRootStatusSchema = z.object({
@@ -39,10 +35,8 @@ const scanCollisionSchema = z.object({
 export const scanResultSchema = z.object({
   skills: z.array(skillSchema),
   warnings: z.array(z.string()),
-  // The legacy scan_skills command does not return roots/collisions yet; default([])
-  // keeps parsing working until the new vault scanner is wired in (Task 16).
-  roots: z.array(scanRootStatusSchema).default([]),
-  collisions: z.array(scanCollisionSchema).default([]),
+  roots: z.array(scanRootStatusSchema),
+  collisions: z.array(scanCollisionSchema),
 })
 
 export type Skill = z.infer<typeof skillSchema>

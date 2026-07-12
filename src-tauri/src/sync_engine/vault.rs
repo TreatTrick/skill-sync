@@ -1,8 +1,5 @@
-// 新 vault sync plan DTO 与决策模型。Task 7 只定义类型，build_plan/apply_plan 在 Task 8/9 实现。
-// 旧 sync_engine.rs 的同名 SyncPlan/build_plan/apply_plan 保持不动，本子模块用限定名
-// crate::sync_engine::vault::* 引用，无符号冲突。Task 13 重接 commands 时删除 legacy 并
-// 从 boundary module re-export。前端 schema 延后到 Task 16。
-// Task 8/9 接入前非测试构建中为 dead code，整模块 allow。
+// 新 vault sync plan DTO 与决策模型及其唯一实现入口。
+// 前端 schema 与 Tauri boundary 复用本模块的 GitHub Vault 模型。
 #![allow(dead_code)]
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -196,7 +193,7 @@ pub(crate) struct RecoveryInfo {
     pub message: String,
 }
 
-/// apply 成功结果；不再返回 backups。
+/// apply 成功结果；包含本机状态更新和清理告警。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct ApplyResult {
     pub applied: Vec<String>,

@@ -120,7 +120,7 @@ pub(crate) struct FixedSkillRoot {
 
 /// 返回三个固定用户级 skill root，严格映射 `agents -> ~/.agents/skills`、
 /// `codex -> ~/.codex/skills`、`claude-code -> ~/.claude/skills`。
-/// 不接收 AppConfig，不扫描项目级目录或旧 hosts/custom_paths。
+/// 不接收 AppConfig，只扫描固定用户级 root，不扫描项目级目录。
 pub(crate) fn fixed_skill_roots(home: &Path) -> [FixedSkillRoot; 3] {
     [
         FixedSkillRoot {
