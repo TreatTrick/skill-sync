@@ -5,6 +5,7 @@
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
@@ -154,6 +155,23 @@ pub(crate) fn clear_journal(config_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// 把 active journal 原样复制到 `recovery-backups/<timestamp>-apply-transaction.json`。
+/// 备份字节与 active journal 完全一致；`recovery-backups` 已是文件时 create_dir_all 失败，
+/// active journal 不受影响（仅被读取）。成功返回备份路径。
+pub(crate) fn backup_journal(config_dir: &Path) -> Result<PathBuf> {
+    let active = journal_path(config_dir);
+    let bytes = fs::read(&active)?;
+    let backup_dir = config_dir.join("recovery-backups");
+    fs::create_dir_all(&backup_dir)?;
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| AppError::Vault(format!("system clock error: {e}")))?
+        .as_nanos();
+    let backup_path = backup_dir.join(format!("{timestamp}-apply-transaction.json"));
+    durable_replace(&backup_path, &bytes)?;
+    Ok(backup_path)
+}
+
 /// 恢复 pending journal。StateSaving phase：按 next_state 重写 sync_state 并清 journal。
 /// 其他 phase（RemoteOutcomeUnknown/LocalReplaceFailed/TrashMoveFailed）：返回 journal 信息
 /// 供上层报告恢复状态，不重复远端提交或本地动作。证据不一致时 fail closed。
@@ -222,5 +240,40 @@ mod tests {
         assert_eq!(back.next_manifest_hash.as_deref(), Some("sha256:manifest"));
         assert_eq!(back.completed_action_ids, vec!["codex:done".to_string()]);
         assert_eq!(back.pending_action_ids, vec!["codex:pending".to_string()]);
+    }
+
+    #[test]
+    fn backup_journal_copies_exact_active_bytes_before_clear() {
+        let dir = tempfile::tempdir().unwrap();
+        // legacy journal（无新证据字段）
+        let legacy = serde_json::json!({
+            "schema": 1,
+            "task_id": "t-legacy",
+            "phase": "remote_committing",
+            "remote_candidate": null,
+            "next_state_bytes": Vec::<u8>::new(),
+            "next_state_hash": "sha256:x",
+        });
+        let bytes = serde_json::to_vec(&legacy).unwrap();
+        std::fs::write(journal_path(dir.path()), &bytes).unwrap();
+
+        let backup_path = backup_journal(dir.path()).unwrap();
+        let backup_bytes = std::fs::read(&backup_path).unwrap();
+        // 备份字节与 active journal 完全一致
+        assert_eq!(backup_bytes, bytes);
+        // active journal 仍存在（仅被读取，未被改动）
+        assert!(journal_path(dir.path()).exists());
+    }
+
+    #[test]
+    fn backup_journal_fails_when_recovery_backups_is_a_file() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(journal_path(dir.path()), b"{}").unwrap();
+        // recovery-backups 预创建为文件 -> create_dir_all 失败
+        std::fs::write(dir.path().join("recovery-backups"), b"x").unwrap();
+
+        assert!(backup_journal(dir.path()).is_err());
+        // active journal 不受影响
+        assert!(journal_path(dir.path()).exists());
     }
 }
