@@ -4,11 +4,20 @@
 > 评审对象：`src/routes`、`src/app`、`src/modules`、`src/shared/ui` 下的全部 Svelte UI（Onboarding / Sync / Settings 三大页面 + 布局 + 设计系统原语）。
 > 目标：按本文方案落地后，UI 美学 + 交互体验在下述评分体系中从 **60/100 提升到 ≥90/100**。
 
+**v2 复审更新（2026-07-12）** — 对 v1 做了一轮对照代码的复核，改动如下：
+
+- **订正 v1 中三处技术性错误的方案代码**：F1 radius token 原方案在 `@theme inline` 里自引用（无效写法），改为"沿用 Tailwind 内置 scale + 使用约定"；F4 等宽字栈原列了未打包的 JetBrains Mono，改为系统字体优先；F20 原自造 `@utility focus-ring` 写法不成立，改为钦定现有 `focus-visible:ring-2 ring-ring/40` 组合。
+- **新增 6 条遗漏发现**：F0（success/info 缺 `-border` token，Callout 的前置依赖）、F23（原生 number 旋钮）、F24（Dialog 硬编码英文 Close）、F25（对比度实测 9 组全 AA——由"含糊扣分"改为"有硬数据的守成项"）、F26（`<html lang>` 不随语言切换 + 缺 `color-scheme`）、F27（空态语义不分 + 指标卡不可点）；F17 补充 Onboarding 独立壳无纵向留白的问题。
+- **补齐落地配套**：新增 i18n key 清单（`sync.selectedCount` 等方案引用的 key 现在并不存在，先补 key 再写 UI）；修复 v1 路线图被格式化压行的问题并纳入新条目。
+- 总分维持 **60/100** 不变：新发现是对既有维度判分的进一步佐证（D2/D4/D6 简评已更新），而非新扣分；目标分与预测（92/100）同样维持。
+
 ---
 
 ## 一、评分体系（我的评价标准）
 
 按 6 个维度加权打分，总分 100。每个维度既看"绝对水准"（是否达到成熟桌面应用/优秀 SaaS 的观感），也看"内部一致性"（同一系统内是否自洽）。
+
+> 打分是专业主观评估，但可证伪的项尽量给硬证据：颜色对比用 WCAG 相对亮度公式实测（见 D6），控件/圆角/字重用代码计数（见各 Finding 的"现状"）。分数用于排优先级，不是精密刻度。
 
 | #   | 维度               | 权重 | 关注点                                            |
 | --- | ------------------ | ---- | ------------------------------------------------- |
@@ -21,14 +30,14 @@
 
 ### 当前得分：**60 / 100**
 
-| 维度             | 得分    | 简评                                                                                                               |
-| ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| D1 视觉基础      | 16 / 22 | token 体系与暗色模式是亮点；但圆角混乱、扁平面板、字重无阶梯、技术字符串无等宽字体拉低观感                         |
-| D2 设计系统      | 11 / 18 | 存在裸 `<select>`、`<progress>`、原生 `<input type=checkbox>`、`window.confirm`；筛选下拉还渲染了未翻译的 i18n key |
-| D3 交互反馈      | 11 / 20 | 全靠内联 banner/Card，瞬时反馈（复制成功）被渲染成持久布局；无 Toast、无骨架屏                                     |
-| D4 布局与 IA     | 10 / 15 | Sync 页出现重复标题；主操作 Apply 随长列表滚走；Settings 信息卡密集无分隔                                          |
-| D5 动效          | 3 / 12  | 除 Dialog 自带动画外，全站几乎零过渡；页面/卡片/banner 硬切                                                        |
-| D6 可访问性/状态 | 9 / 13  | 焦点环大体统一但有遗漏；EmptyState 过于朴素；`alt=""`、无 `prefers-reduced-motion` 兜底                            |
+| 维度             | 得分    | 简评                                                                                                                                          |
+| ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 视觉基础      | 16 / 22 | token 体系与暗色模式是亮点；但圆角混乱、扁平面板、字重无阶梯、技术字符串无等宽字体拉低观感                                                    |
+| D2 设计系统      | 11 / 18 | 存在裸 `<select>`、`<progress>`、原生 `<input type=checkbox>`、number 旋钮、`window.confirm`；筛选下拉渲染未翻译 key；Dialog 硬编码英文 Close |
+| D3 交互反馈      | 11 / 20 | 全靠内联 banner/Card，瞬时反馈（复制成功）被渲染成持久布局；无 Toast、无骨架屏                                                                |
+| D4 布局与 IA     | 10 / 15 | Sync 页出现重复标题；主操作 Apply 随长列表滚走；Settings 信息卡密集无分隔；空态不区分"全部同步"与"筛选无结果"                                 |
+| D5 动效          | 3 / 12  | 除 Dialog 自带动画外，全站几乎零过渡；页面/卡片/banner 硬切                                                                                   |
+| D6 可访问性/状态 | 9 / 13  | 对比度实测全 AA（加分）；但焦点环有遗漏、`<html lang>` 不随语言切换、无 `color-scheme`、无 `prefers-reduced-motion` 兜底                      |
 
 ---
 
@@ -37,6 +46,7 @@
 **做得好的地方（值得保留）：**
 
 - **语义 token 体系完善。** [src/index.css](src/index.css) 定义了成对的 `surface / border / foreground / primary / warning / destructive / success / info` 及各自的 `-muted`，并通过 `@theme inline` 映射为 Tailwind 颜色类，暗色模式独立提亮（teal `#0f766e → #2dd4bf`）。这是整套 UI 最扎实的地基。
+- **颜色对比合规（已实测）。** 对 9 组高频前景/背景 token 用 WCAG 公式核算，全部 ≥4.5:1（正文 AA），无失败项（详见 F25 表）。这点常被忽视，但当前配色是"能直接过无障碍审计"的，属加分项。
 - **布局骨架专业。** [AppLayout.svelte](src/app/layouts/AppLayout.svelte) 的可折叠侧栏 + sticky 顶栏 + 面包屑 + `max-w-screen-2xl` 内容区，结构清晰、响应式合理。
 - **i18n / 主题基础设施到位**，`t(...)` 贯彻，主题在首帧前同步应用避免闪烁（[+layout.svelte](src/routes/+layout.svelte#L10)）。
 
@@ -52,27 +62,39 @@
 
 ### D1 · 视觉基础与一致性
 
-#### F1｜圆角语言不统一（无 radius token）
+#### F0｜token 体系不对称：`success` / `info` 缺 `-border` 变体（Callout 的前置依赖）
+
+**现状：** `destructive` / `warning` / `primary` 都有成对的 `--*-border`，但 **`--success` 和 `--info` 没有 `-border`**（[src/index.css](src/index.css)）。后果直接可见：成功横幅只能写 `border-success-muted bg-success-muted`（边框色 = 填充色 ≈ 没有边框，[SyncPreviewPage.svelte:453](src/modules/sync/pages/SyncPreviewPage.svelte#L453)），info 横幅被迫借用 `border-primary-muted`（[SyncPreviewPage.svelte:459](src/modules/sync/pages/SyncPreviewPage.svelte#L459)）。
+**问题：** 这是所有 tone 化提示条（F2 的 Callout）无法自洽的根因——5 个 tone 里有 2 个描不出边。不先补齐 token，Callout 就是残缺的。
+**方案：** 先补两个 border token（浅/暗各一份），再做 F2。
+
+```css
+/* :root */
+--success-border: #bbf7d0;
+--info-border: #bfdbfe;
+/* .dark */
+--success-border: #1f4d33;
+--info-border: #1e3a5f;
+/* @theme inline 追加 */
+--color-success-border: var(--success-border);
+--color-info-border: var(--info-border);
+```
+
+> 注：F2 的 Callout `info` tone 用的正是这里补的 `--info-border`；两条须一并落地，顺序为 **F0 → F2**。
+
+#### F1｜圆角语言不统一（缺使用约定）
 
 **现状：** 全站圆角散落 `rounded-md ×11 / rounded-lg ×6 / rounded-xl ×2 / rounded-sm ×1 / rounded-full ×1`，且有 **7 处内联面板完全没有圆角**。Card 是 `rounded-xl`（[card.svelte:14](src/shared/ui/card/card.svelte#L14)），Button/Input/Badge 是 `rounded-md`，StatusBadge 是 `rounded-full`，而 Sync 页的指标卡、Onboarding 的设备码框都是**直角**。
 **问题：** 直角内联面板嵌在圆角卡片里，观感割裂、显廉价。
-**方案：** 引入 radius token，全站三档收敛。
+**方案：** Tailwind v4 本就内置 `--radius-*` 阶梯（md=6px / lg=8px / xl=12px），**问题不在缺 token，而在缺使用约定**。无需重定义 scale（重定义会全局改变 `rounded-md` 等既有类的含义，牵连按钮/输入框），只需三档收敛：
 
-```css
-/* src/index.css :root 与 .dark 各加一份（值相同即可） */
---radius-sm: 0.375rem; /* 6px  → 徽标、内联小块 */
---radius-md: 0.5rem; /* 8px  → 按钮、输入框、内嵌面板 */
---radius-lg: 0.75rem; /* 12px → 卡片、对话框、大容器 */
-```
+| 层级      | 类                   | 适用                                                    |
+| --------- | -------------------- | ------------------------------------------------------- |
+| 容器      | `rounded-xl`（12px） | Card、Dialog（现状已是，保持）                          |
+| 控件/面板 | `rounded-md`（6px）  | 按钮、输入框、**所有内嵌面板/横幅**（Callout 统一携带） |
+| 药丸      | `rounded-full`       | StatusBadge、Stepper 节点                               |
 
-```css
-/* @theme inline 内追加 */
---radius-sm: var(--radius-sm);
---radius-md: var(--radius-md);
---radius-lg: var(--radius-lg);
-```
-
-规则：**卡片/对话框 = `rounded-lg`；按钮/输入/内嵌面板 = `rounded-md`；徽标 = `rounded-full` 或 `rounded-sm`。** 所有当前"无圆角"的内联面板一律补 `rounded-md`（见 F2 统一收口）。
+若想要"一个旋钮调全局"，可选 shadcn 模式（`:root { --radius: 0.625rem }` + `@theme inline` 里用 `calc(var(--radius) ± n)` 派生），但对当前体量**不建议**——先把 7 处无圆角面板收口到 `rounded-md`（随 F2 的 Callout 落地自动完成），`rounded-lg`/`rounded-sm`/`rounded-none` 的散点用法替换归位即可。
 
 #### F2｜扁平内联面板泛滥（应抽象为 Callout / Surface）
 
@@ -93,10 +115,11 @@
     base: 'flex items-start gap-2.5 rounded-md border p-3 text-sm',
     variants: {
       tone: {
-        info: 'border-primary-border bg-primary-muted text-primary-muted-foreground',
+        info: 'border-info-border bg-info-muted text-info-muted-foreground',
         warning: 'border-warning-border bg-warning-muted text-warning',
         danger: 'border-destructive-border bg-destructive-muted text-destructive',
-        success: 'border-success-muted bg-success-muted text-success',
+        success: 'border-success-border bg-success-muted text-success',
+        brand: 'border-primary-border bg-primary-muted text-primary-muted-foreground',
       },
     },
     defaultVariants: { tone: 'info' },
@@ -116,7 +139,7 @@
 </div>
 ```
 
-落地后：所有横幅替换为 `<Callout tone="warning">…</Callout>`，删除内联样式。指标卡改用下方 F3 的 `Card` 风格容器（补 `rounded-lg shadow-sm`）。
+落地后：所有横幅替换为 `<Callout tone="warning">…</Callout>`，删除内联样式。指标卡直接换用 `Card`（自带 `rounded-xl shadow-sm`），或保留轻量 div 但补 `rounded-md`。
 
 #### F3｜字重/标题阶梯混乱
 
@@ -135,21 +158,29 @@
 
 核心动作：**把页面级 `font-bold` 主标题统一改为 `font-semibold`**，`font-bold` 仅保留给需要强调的数字（指标值）与品牌名。视觉立刻更克制、更"设计过"。
 
-#### F4｜技术字符串缺等宽字体（无 `--font-mono`）
+#### F4｜字体栈两问题：技术字符串无等宽、正文栈 CJK 打头拖累 Latin
 
-**现状：** hash（`shortHash`）、`remote_commit`、`installation_id`、设备码 `user_code` 全用默认无衬线字体渲染（[SyncSkillCard.svelte:77-87](src/modules/sync/components/SyncSkillCard.svelte#L77)、[SettingsPage.svelte:242](src/modules/settings/pages/SettingsPage.svelte#L242)、[OnboardingPage.svelte:448](src/modules/onboarding/pages/OnboardingPage.svelte#L448)）。`<code>` 标签也没绑定等宽字族。
-**问题：** 哈希/ID 这类等宽敏感内容用比例字体，`0/O`、`1/l` 难辨认，且不符合"技术工具"的专业观感。
-**方案：** 加 `--font-mono` token + 映射，然后给所有哈希/ID/commit/设备码加 `font-mono`。
+**现状 A（等宽缺位）：** hash（`shortHash`）、`remote_commit`、`installation_id`、设备码 `user_code` 全用默认无衬线字体渲染（[SyncSkillCard.svelte:77-87](src/modules/sync/components/SyncSkillCard.svelte#L77)、[SettingsPage.svelte:242](src/modules/settings/pages/SettingsPage.svelte#L242)、[OnboardingPage.svelte:448](src/modules/onboarding/pages/OnboardingPage.svelte#L448)）。`<code>` 标签也没绑定等宽字族。
+**现状 B（栈顺序）：** 正文栈是 `'Microsoft YaHei', 'PingFang SC', Inter, Arial`（[index.css:58](src/index.css#L58)）——CJK 字体打头意味着**英文与数字也落在雅黑上**，其 Latin 字形与数字观感明显弱于系统 UI 字体；且雅黑只有 Regular/Bold 两档，配合已设置的 `font-synthesis: none`，`font-semibold(600)` 会被就近解析到 Bold——**中文的 semibold/bold 区分会坍缩**。项目未打包任何字体（无 `@fontsource`/`@font-face`），列 `Inter` 是无效期望。
+**问题：** 哈希/ID 这类等宽敏感内容用比例字体，`0/O`、`1/l` 难辨认；Latin/数字质感被雅黑拖低。
+**方案：** 全部用系统字体（桌面端零下载成本），Latin 优先、CJK 兜底：
 
 ```css
-/* :root 内 */
---font-mono:
-  'JetBrains Mono', 'Cascadia Code', 'SF Mono', ui-monospace, monospace;
-/* @theme inline 内 */
---font-mono: var(--font-mono);
+/* :root 内替换现有 font-family（Latin 优先，CJK 随后接管中文字形） */
+font-family:
+  'Segoe UI', system-ui, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+```
+
+```css
+/* @theme 内新增（不随明暗变化，直接定义在 @theme，无需 :root/inline 二段式） */
+@theme {
+  --font-mono:
+    ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace;
+}
 ```
 
 用法：`<span class="font-mono text-xs">{shortHash(entry.local_hash)}</span>`；设备码 `<code class="font-mono text-2xl tracking-widest">`。
+**对 F3 的影响：** 栈序修正后，标题里的英文/数字能获得真正的 600 字重；中文字形 semibold≈bold 是平台现实，型阶靠"字号 + 颜色（strong-foreground vs foreground）"双通道兜底，不单赌字重。
 
 #### F5｜定义了 `shadow-md/lg` 却从不使用
 
@@ -224,6 +255,29 @@ npx shadcn-svelte@latest add alert-dialog
 **问题：** 用户看到的是 `sync.filters.all`、`sync.filters.conflict` 这样的**原始 key**，而非"全部/冲突"。这是当前 UI 上最直接的观感事故。
 **方案：** 包一层 `t()`：`{t(statusFilterLabel(filter))}`。并入 F6 的 `Select` 改造一并处理。
 
+#### F23｜Settings 数值输入用原生 number 旋钮
+
+**现状：** limits 区 5 个 `<Input type="number">`（[SettingsPage.svelte:262-281](src/modules/settings/pages/SettingsPage.svelte#L262)）走的是原生数字微调箭头（spinner）。原生旋钮在 WebView2 下宽度/配色不可控，暗色模式尤其突兀，且与 `Input` 组件的圆角/焦点环不统一。
+**问题：** 5 个输入框右侧挂着一排风格外挂的系统箭头，是 Settings 页最扎眼的"网页毛边"。
+**方案：** 二选一。① 若不需要步进交互，隐藏旋钮更干净：
+
+```css
+/* index.css 全局 */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+```
+
+② 若要保留步进，封装 `NumberInput`（`Input` + 自绘 ▲▼ 按钮，复用 Button/图标），彻底纳入设计系统。字节值这类场景推荐 ①（用户直接输数，旁边已有 `formatBytes` 实时回显）。
+
+#### F24｜Dialog 原语里硬编码英文 "Close"
+
+**现状：** [dialog-content.svelte:42](src/shared/ui/dialog/dialog-content.svelte#L42) `<span class="sr-only">Close</span>`、[dialog-footer.svelte:28](src/shared/ui/dialog/dialog-footer.svelte#L28) `<Button>Close</Button>`，均为 shadcn 生成后未本地化的英文字面量。
+**问题：** 中文界面里读屏用户会听到英文 "Close"；footer 的默认 Close 按钮若被启用会露出英文。与 CLAUDE.md 第 5 条（Chinese copy 走 `t()`）冲突。
+**方案：** 关闭按钮的 `sr-only` 文案与 footer 默认按钮接受 `t('common.actions.close')`（该 key 需在 locales 补齐——现有 `common.actions` 有 apply/cancel/… 但**无 close**）。或给 `DialogContent` 增加 `closeLabel` prop 由调用方传入，默认回退到 `common.actions.close`。
+
 ---
 
 ### D3 · 交互反馈
@@ -254,7 +308,7 @@ npx shadcn-svelte@latest add skeleton
 {#if plan.isLoading}
   <div class="grid gap-3 lg:grid-cols-2">
     {#each Array(4) as _, i (i)}
-      <div class="rounded-lg border border-border bg-card p-4">
+      <div class="rounded-xl border border-border bg-card p-4">
         <Skeleton class="h-5 w-40" />
         <Skeleton class="mt-3 h-3 w-full" />
         <Skeleton class="mt-2 h-3 w-2/3" />
@@ -274,6 +328,7 @@ npx shadcn-svelte@latest add skeleton
 <div class="sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
   <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-3">
     <span class="text-sm text-muted-foreground">
+      <!-- sync.selectedCount 为新增 key，见第四节 i18n 清单 -->
       {t('sync.selectedCount', { count: selectedActionIds.length })} · {commitSummaryText}
     </span>
     <Button disabled={!canApply} loading={apply.isPending} onclick={handleApply}>
@@ -321,6 +376,16 @@ npx shadcn-svelte@latest add skeleton
 **现状：** 授权页把"连接 GitHub"做成普通按钮，设备码框是朴素直角面板；install/branch 等步骤的行动点是下划线文本链接（[:471](src/modules/onboarding/pages/OnboardingPage.svelte#L471)、[:525](src/modules/onboarding/pages/OnboardingPage.svelte#L525)）。
 **问题：** 首次配置是"第一印象"，当前每一步都平淡、行动点不突出。
 **方案：** 每个 stage 卡片顶部给一个**图标徽章**（`size-10 rounded-full bg-primary-muted text-primary-muted-foreground` 包住 lucide 图标），标题—说明—主按钮形成清晰视觉动线；文本链接一律升级为 `Button variant="outline"` 并右接 `ExternalLink` 图标。设备码框套用 F2 的 `Callout`/圆角面板 + F14 复制按钮，做成该步的"英雄区"。
+**附（页面壳层）：** Onboarding 路由绕过 AppLayout 直渲染（[+layout.svelte:43-44](src/routes/app/+layout.svelte#L43)），而 [OnboardingPage.svelte:397](src/modules/onboarding/pages/OnboardingPage.svelte#L397) 根节点只有 `mx-auto max-w-2xl`，**无任何垂直内边距/居中**——内容顶着窗口上边缘。给独立壳补 `min-h-screen px-4 py-10 sm:py-16`（内容纵向留白 + 小窗兜底），第一屏立刻"稳"下来。
+
+#### F27｜Sync 空态语义不分、指标卡是"死"的
+
+**现状 A：** `visibleEntries.length === 0` 时统一渲染同一个 EmptyState（[SyncPreviewPage.svelte:411-416](src/modules/sync/pages/SyncPreviewPage.svelte#L411)），文案固定为"没有匹配的同步条目/调整搜索或状态筛选后再试"。但**触发原因有两种**：真·全部同步完成（值得庆祝的状态）vs 搜索/筛选过滤掉了所有条目（需要引导清除条件）。当前把前者也说成"没匹配、去调筛选"，语义错位。
+**现状 B：** 顶部四张指标卡（发现/待上传/待下载/冲突）纯展示。用户看到"冲突 2"的第一反应是点它——点不动。
+**方案：**
+
+- 空态分叉：`planData.entries.length === 0` → "全部已同步 🎉"（success 图标，无动作按钮）；`entries.length > 0 && visibleEntries.length === 0` → 现文案 + **"清除筛选"按钮**（一键重置 `search`/`statusFilter`）。
+- 指标卡可点：点击"冲突"卡 → `statusFilter = 'conflict'`；点击"待上传/待下载"同理映射。卡片加 `cursor-pointer hover:border-border-strong transition-colors` + `aria-pressed` 表达当前激活的筛选，与下拉双向同步。信息即导航，密度不变、效率翻倍。
 
 ---
 
@@ -369,18 +434,13 @@ npx shadcn-svelte@latest add skeleton
 #### F20｜焦点环不一致 / 部分控件无焦点态
 
 **现状：** Button/Input/Checkbox 用 `focus-visible:ring-ring/40`，但 Onboarding 分支 `<select>`（[:489](src/modules/onboarding/pages/OnboardingPage.svelte#L489)）**完全没有焦点样式**；Badge 用的是 `focus:ring`（非 `focus-visible`）。
-**方案：** 收敛为统一 focus token 工具类。建议在 index.css 定义一个语义类，全控件复用：
+**方案：** 不必新造工具类——项目已有事实标准 `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40`（Button/Input/Textarea 均如此）。把它**钦定为唯一焦点写法**并修掉偏差点：
 
-```css
-@utility focus-ring {
-  outline: none;
-}
-.focus-ring:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 40%, transparent);
-}
-```
+- Onboarding `<select>`：随 F6 换 `Select` 组件后自然消除（过渡期先补上这组类）；
+- Badge：`focus:ring` → `focus-visible:ring-2 focus-visible:ring-ring/40`；
+- Checkbox 当前是 `focus-visible:ring-1 ring-ring`（无透明度），统一到 `ring-2 ring-ring/40`。
 
-F6 换成 `Select` 组件后此问题自然消除；Badge 统一改 `focus-visible`。
+一致的焦点环宽度/颜色是键盘用户感知"这是同一个产品"的最直接信号。
 
 #### F21｜EmptyState 过于朴素
 
@@ -397,6 +457,8 @@ F6 换成 `Select` 组件后此问题自然消除；Badge 统一改 `focus-visib
 
 #### F22｜杂项打磨
 
+- **品牌 logo `alt=""`**（[AppLayout.svelte:43](src/app/layouts/AppLayout.svelte#L43)）：装饰性可接受，但更稳妥是 `alt={t('layout.brandTitle')}`。
+- **语言/主题切换**（SettingsPage 分段按钮）视觉不错，但可抽成通用 `SegmentedControl`，供主题/语言/（未来）筛选复用，减少三处重复的手写高亮逻辑（[SettingsPage.svelte:156-193](src/modules/settings/pages/SettingsPage.svelte#L156)）。
 - **`prefers-reduced-motion` 兜底**：在 index.css 加全局降级，尊重系统偏好（配合 F18）：
   ```css
   @media (prefers-reduced-motion: reduce) {
@@ -408,8 +470,48 @@ F6 换成 `Select` 组件后此问题自然消除；Badge 统一改 `focus-visib
     }
   }
   ```
-- **品牌 logo `alt=""`**（[AppLayout.svelte:43](src/app/layouts/AppLayout.svelte#L43)）：装饰性可接受，但更稳妥是 `alt={t('layout.brandTitle')}`。
-- **语言/主题切换**（SettingsPage 分段按钮）视觉不错，但可抽成通用 `SegmentedControl`，供主题/语言/（未来）筛选复用，减少三处重复的手写高亮逻辑（[SettingsPage.svelte:156-193](src/modules/settings/pages/SettingsPage.svelte#L156)）。
+
+#### F25｜对比度实测（结论：达标，列为基线保护项）
+
+**做法：** 对高频前景/背景 token 对用 WCAG 2.1 相对亮度公式核算对比度（`(L1+0.05)/(L2+0.05)`）。这是本评审唯一"无需主观"的维度，故给硬数据。
+
+| 前景 → 背景                                          | 比值 | 等级 |
+| ---------------------------------------------------- | ---- | ---- |
+| muted-fg `#5b6471` → surface `#fff`（浅）            | 5.99 | AA   |
+| muted-fg → background `#f6f7f9`（浅）                | 5.59 | AA   |
+| muted-fg → surface-muted `#f4f5f7`（浅）             | 5.49 | AA   |
+| warning `#b45309` → warning-muted（浅）              | 4.71 | AA   |
+| success `#15803d` → success-muted（浅）              | 4.79 | AA   |
+| primary link `#0f766e` → 白                          | 5.47 | AA   |
+| primary-muted-fg `#115e59` → primary-muted（浅徽标） | 7.21 | AAA  |
+| muted-fg `#8b949e` → surface `#161b22`（暗）         | 5.62 | AA   |
+| warning `#f59e0b` → warning-muted（暗）              | 7.53 | AAA  |
+
+**结论：** 9 组全部 ≥4.5:1（正文 AA），无失败。**方案是"守成"而非"整改"**：把这些配对写进 `lint:colors` 的期望基线或一条注释约定，避免后续调色时把某个 `-muted` 调亮导致回归。改任何 muted/foreground 值后按上表复算。
+
+#### F26｜切换语言不同步 `<html lang>`、缺 `color-scheme`
+
+**现状 A：** [app.html](src/app.html) 硬编码 `<html lang="zh-CN">`，而 `languageState.setLanguage` 只切 i18next、不改 DOM 的 `lang`（[language.svelte.ts](src/shared/state/language.svelte.ts)）。切到英文后，`<html>` 仍报告 `zh-CN`。
+**现状 B：** 全局未设置 CSS `color-scheme`。暗色仅靠 `.dark` 类切换 token，但**原生控件**（`<select>` 下拉面板、`<input type=number>` 旋钮、滚动条、日期/文件选择器）不会跟随，暗色下会闪出浅色系统 UI。
+**问题：** A 影响读屏发音与 `:lang()` 规则；B 是暗色模式"边角发白"的根因，与 F6/F23 的原生控件问题叠加。
+**方案：**
+
+```ts
+// setLanguage 内追加（DOM 与 i18next 同步）
+document.documentElement.lang = language
+```
+
+```css
+/* index.css：让原生控件跟随明暗 */
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+```
+
+> B 落地后，即便 F6/F23 尚未替换原生控件，暗色下的系统 UI 也会先变协调——性价比极高的一行。
 
 ---
 
@@ -417,55 +519,84 @@ F6 换成 `Select` 组件后此问题自然消除；Badge 统一改 `focus-visib
 
 **Token（[src/index.css](src/index.css)）**
 
-- `--radius-sm/md/lg`（F1）
-- `--font-mono`（F4）
+- `--success-border` / `--info-border`（F0，补齐 tone 对称，Callout 前置）
+- 圆角三档使用约定：容器 `xl` / 控件与面板 `md` / 药丸 `full`（F1，用 Tailwind 内置 scale，不新增 token）
+- `--font-mono` + 修正正文字体栈顺序（F4）
+- `color-scheme: light/dark`（F26，原生控件跟随明暗）
 - `prefers-reduced-motion` 全局降级、`focus-ring` 工具类（F20/F22）
 
 **新增组件（`src/shared/ui/*`，优先 `npx shadcn-svelte@latest add`）**
 
-| 组件                              | 用途               | 解决     |
-| --------------------------------- | ------------------ | -------- |
-| `Select`                          | 分支选择、状态筛选 | F6、F10  |
-| `Progress` 或 `Stepper`           | Onboarding 进度    | F7       |
-| `Toast`（sonner）                 | 瞬时反馈           | F11、F14 |
-| `Skeleton`                        | 加载占位           | F12      |
-| `AlertDialog`                     | 危险操作确认       | F9       |
-| `Callout`（手搓，无 shadcn 等价） | 统一提示条         | F2       |
-| `SegmentedControl`（手搓）        | 主题/语言/筛选分段 | F22      |
+| 组件                              | 用途               | 解决      |
+| --------------------------------- | ------------------ | --------- |
+| `Select`                          | 分支选择、状态筛选 | F6、F10   |
+| `Progress` 或 `Stepper`           | Onboarding 进度    | F7        |
+| `Toast`（sonner）                 | 瞬时反馈           | F11、F14  |
+| `Skeleton`                        | 加载占位           | F12       |
+| `AlertDialog`                     | 危险操作确认       | F9        |
+| `Callout`（手搓，无 shadcn 等价） | 统一提示条         | F2        |
+| `SegmentedControl`（手搓）        | 主题/语言/筛选分段 | F22       |
+| `NumberInput`（手搓，可选）       | limits 数值步进    | F23 方案② |
 
-> 手搓组件（Callout / SegmentedControl / Stepper）符合 CLAUDE.md 第 11 条"无 shadcn 等价时才手建"的约束，与既有 Spinner/EmptyState/StatusBadge 同级别。
+> 手搓组件（Callout / SegmentedControl / Stepper / NumberInput）符合 CLAUDE.md 第 11 条"无 shadcn 等价时才手建"的约束，与既有 Spinner/EmptyState/StatusBadge 同级别。
+
+**需新增的 i18n key（`src/shared/i18n/locales/{zh-CN,en-US}.json`，实现时先补 key 再写 UI，否则 `lint:i18n` 会拦）**
+
+| key                                                      | 用途                                                             | 来源 |
+| -------------------------------------------------------- | ---------------------------------------------------------------- | ---- |
+| `common.actions.close`                                   | Dialog 关闭按钮 / sr-only 文案（现有 `common.actions` 无 close） | F24  |
+| `common.actions.copy`                                    | 设备码复制按钮                                                   | F14  |
+| `sync.selectedCount`                                     | sticky 操作条"已选 N 项"（带 `{{count}}` 插值）                  | F13  |
+| `sync.emptyAllSynced` / `sync.emptyAllSyncedDescription` | 真·全部同步的空态                                                | F27  |
+| `sync.clearFilters`                                      | 空态"清除筛选"按钮                                               | F27  |
+
+> 现有 `sync.filters.*`、`sync.empty*`、`settings.pathCopied` 等已具备，直接复用；上表之外若实现中出现新文案，一律同批补进两份 locale。
 
 ---
 
 ## 五、实施路线图（按性价比排序）
 
-**P0 — 观感事故 & 一致性（半天，收益最大）**
+**P0 — 观感事故 & 一致性 & 零成本高收益（约半天，收益最大）**
 
 1. F10 修复筛选下拉显示原始 key（一行 `t()`）
-2. F1 radius token + 全站补圆角；F2 抽 `Callout` 替换 4+ 处横幅
-3. F8 换掉原生 checkbox；F3 页面主标题 `font-bold → font-semibold`
-4. F15 去除 Sync 页重复标题
-   → 预计 D1/D2/D4 明显回升。
+2. F26 加 `color-scheme` + 同步 `<html lang>`（两行，先让暗色原生控件不发白）
+3. F0 补 `--success-border`/`--info-border` → F2 抽 `Callout` 替换 4+ 处横幅
+4. F1 radius token + 全站补圆角；F23 隐藏 number 旋钮
+5. F8 换掉原生 checkbox；F3 页面主标题 `font-bold → font-semibold`；F15 去除 Sync 页重复标题
 
-**P1 — 交互反馈与关键控件（1–1.5 天）** 5. F11 引入 Toast，迁移瞬时反馈；F14 设备码复制 6. F6 `Select` 组件替换两处原生 select；F9 `AlertDialog` 替换 `window.confirm` 7. F7 Onboarding 进度升级 Stepper；F13 Sync sticky 操作条 8. F4 技术字符串 `font-mono`
+→ 预计 D1/D2/D4 明显回升。
+
+**P1 — 交互反馈与关键控件（约 1–1.5 天）**
+
+6. F11 引入 Toast，迁移瞬时反馈；F14 设备码复制
+7. F6 `Select` 组件替换两处原生 select；F9 `AlertDialog` 替换 `window.confirm`；F24 本地化 Dialog 的 Close
+8. F7 Onboarding 进度升级 Stepper；F13 Sync sticky 操作条
+9. F4 修正字体栈 + 技术字符串 `font-mono`
+
 → 预计 D2/D3 达标。
 
-**P2 — 打磨与动效（1 天）** 9. F18/F19 全站过渡与 active/hover 微交互 + `prefers-reduced-motion` 10. F12 Skeleton；F16 Settings 定义列表；F17 Onboarding hero 化；F21 EmptyState；F5 阴影层级；F20 焦点统一
+**P2 — 打磨与动效（约 1 天）**
+
+10. F18/F19 全站过渡与 active/hover 微交互 + `prefers-reduced-motion`
+11. F12 Skeleton；F16 Settings 定义列表；F17 Onboarding hero 化 + 独立壳纵向留白
+12. F27 空态语义分叉 + 指标卡可点筛选；F21 EmptyState；F5 阴影层级；F20 焦点统一；F22 杂项
+13. F25 把实测对比配对写入 `lint:colors` 基线注释，防回归
+
 → 预计 D5/D6 达标。
 
 ---
 
 ## 六、改造后评分预测
 
-| 维度             | 现状   | 改造后       | 关键提升                                        |
-| ---------------- | ------ | ------------ | ----------------------------------------------- |
-| D1 视觉基础      | 16/22  | **20/22**    | radius/mono/字重阶梯统一、面板收口              |
-| D2 设计系统      | 11/18  | **17/18**    | 消灭裸原生控件、Select/AlertDialog/Callout 沉淀 |
-| D3 交互反馈      | 11/20  | **18/20**    | Toast + Skeleton + sticky 主操作 + 复制         |
-| D4 布局/IA       | 10/15  | **14/15**    | 标题去重、统一页头、Settings 定义列表           |
-| D5 动效          | 3/12   | **11/12**    | 克制过渡贯穿状态切换/列表/横幅                  |
-| D6 可访问性/状态 | 9/13   | **12/13**    | 焦点统一、reduced-motion、空态打磨              |
-| **合计**         | **60** | **92 / 100** | ✅ 达标（≥90）                                  |
+| 维度             | 现状   | 改造后       | 关键提升                                                   |
+| ---------------- | ------ | ------------ | ---------------------------------------------------------- |
+| D1 视觉基础      | 16/22  | **20/22**    | tone token 补齐、圆角/mono/字重阶梯统一、面板收口          |
+| D2 设计系统      | 11/18  | **17/18**    | 消灭全部裸原生控件、Select/AlertDialog/Callout 沉淀        |
+| D3 交互反馈      | 11/20  | **18/20**    | Toast + Skeleton + sticky 主操作 + 复制                    |
+| D4 布局/IA       | 10/15  | **14/15**    | 标题去重、统一页头、空态分叉、指标卡即筛选                 |
+| D5 动效          | 3/12   | **11/12**    | 克制过渡贯穿状态切换/列表/横幅                             |
+| D6 可访问性/状态 | 9/13   | **12/13**    | 焦点统一、lang/color-scheme 同步、reduced-motion、对比基线 |
+| **合计**         | **60** | **92 / 100** | ✅ 达标（≥90）                                             |
 
 > 说明：满分未拉满是刻意的——`92` 对应"成熟、精致、自洽"的桌面应用水准；剩余 8 分属于品牌化插画、深色/浅色双主题的逐像素微调、以及真实用户可用性测试驱动的迭代，超出本轮重构范围。
 
@@ -485,11 +616,12 @@ npm run lint && npm run build
 
 **逐屏视觉 QA（浅色 + 深色各一遍）：**
 
-- [ ] Onboarding：Stepper 高亮正确；每步有图标徽章；设备码等宽 + 可复制；链接为 outline 按钮；stage 切换有淡入
-- [ ] Sync：筛选下拉显示中文标签（非 key）；加载走 Skeleton；卡片 hover 抬升 + 选中态清晰；sticky 操作条常驻可点；结果走 Toast
-- [ ] Settings：断开走 AlertDialog（非系统弹窗）；GitHub 信息为定义列表 + 分隔线 + 等宽值；复制路径走 Toast
-- [ ] 全局：无重复 h1；无直角内联面板；所有可交互元素 `focus-visible` 一致；`prefers-reduced-motion` 下动效降级
-- [ ] 圆角/字重/阴影三者在同屏内自洽（卡片 lg、按钮 md、徽标 full；标题 semibold、数字 bold）
+- [ ] Onboarding：Stepper 高亮正确；每步有图标徽章；设备码等宽 + 可复制；链接为 outline 按钮；stage 切换有淡入；独立壳有纵向留白（内容不顶窗口边）
+- [ ] Sync：筛选下拉显示中文标签（非 key）；加载走 Skeleton；卡片 hover 抬升 + 选中态清晰；sticky 操作条常驻可点；结果走 Toast；"全部同步"与"筛选无结果"空态文案不同，后者有清除筛选按钮；指标卡点击可切筛选
+- [ ] Settings：断开走 AlertDialog（非系统弹窗）；GitHub 信息为定义列表 + 分隔线 + 等宽值；复制路径走 Toast；数字输入无原生旋钮（或旋钮已设计系统化）
+- [ ] 全局：无重复 h1；无直角内联面板；所有可交互元素 `focus-visible` 一致（ring-2 ring-ring/40）；`prefers-reduced-motion` 下动效降级
+- [ ] 无障碍抽查：切换语言后 `document.documentElement.lang` 同步变化；暗色下原生下拉/滚动条随 `color-scheme` 变深；Dialog 关闭按钮读屏文案为中文；success/info 横幅有可见边框（F0 token 生效）
+- [ ] 圆角/字重/阴影三者在同屏内自洽（卡片/对话框 xl、控件与内嵌面板 md、徽标 full；标题 semibold、数字 bold）
 
 ---
 
