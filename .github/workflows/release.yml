@@ -30,9 +30,23 @@ jobs:
         with:
           targets: ${{ matrix.targets }}
       - run: npm ci
+      - name: Validate GitHub App build variables
+        run: |
+          if [ -z "${{ vars.SKILL_SYNC_GITHUB_APP_CLIENT_ID }}" ]; then
+            echo "::error::SKILL_SYNC_GITHUB_APP_CLIENT_ID repository variable is empty"
+            exit 1
+          fi
+          if [ -z "${{ vars.SKILL_SYNC_GITHUB_APP_SLUG }}" ]; then
+            echo "::error::SKILL_SYNC_GITHUB_APP_SLUG repository variable is empty"
+            exit 1
+          fi
+        shell: bash
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 公开 repository variables（非 secrets），build.rs 注入为编译期 env!
+          SKILL_SYNC_GITHUB_APP_CLIENT_ID: ${{ vars.SKILL_SYNC_GITHUB_APP_CLIENT_ID }}
+          SKILL_SYNC_GITHUB_APP_SLUG: ${{ vars.SKILL_SYNC_GITHUB_APP_SLUG }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Skill Sync v__VERSION__'

@@ -1688,7 +1688,7 @@ git commit -m "feat: apply vault sync plan with deletes"
 - Create/Modify: `src-tauri/src/github_credentials.rs`
 - Modify: `src-tauri/src/errors.rs`
 
-- [ ] **Step 1: 写公开构建配置测试**
+- [x] **Step 1: 写公开构建配置测试**
 
 ```rust
 #[test]
@@ -1723,11 +1723,11 @@ fn main() {
 
 release workflow 在 validate step 与 `tauri-action` env 都传 `${{ vars.SKILL_SYNC_GITHUB_APP_CLIENT_ID }}` / `${{ vars.SKILL_SYNC_GITHUB_APP_SLUG }}`。它们是公开 repository variables，不是 GitHub secrets；现有 `GITHUB_TOKEN` 仍只用于发布 release artifact。
 
-- [ ] **Step 2: 写 Device Flow 请求与状态测试**
+- [x] **Step 2: 写 Device Flow 请求与状态测试**
 
 wiremock 覆盖：start 只发送 `client_id`，明确断言没有 `scope`；poll 发送 client id、device code 和 device grant type；pending 保持 interval，slow_down 增加 5 秒，expired/denied 终止；成功响应解析 `access_token/refresh_token/expires_in/refresh_token_expires_in`，但公共 `DeviceFlowPoll` JSON 不含任何 token。
 
-- [ ] **Step 3: 实现 Device Flow client**
+- [x] **Step 3: 实现 Device Flow client**
 
 ```rust
 pub struct GithubAuthClient {
@@ -1744,11 +1744,11 @@ pub async fn refresh(&self, current: &GithubCredential) -> Result<GithubCredenti
 
 生产 web/API base 固定 `https://github.com/` 与 `https://api.github.com/`，测试注入 wiremock。首次 token 成功后用该 token调用 `/user` 取得 login，再构造完整 credential；无法取得 login 不保存半成品。refresh 只发送 client id、`grant_type=refresh_token` 和 current refresh token，并沿用已验证 login；Device Flow token 不需要也不得发送 client secret。所有 token 请求使用 form encoding 与 `Accept: application/json`。内部 token DTO 使用 `secrecy::SecretString`，禁止 `Debug` 输出明文。
 
-- [ ] **Step 4: 写 credential store 与刷新测试**
+- [x] **Step 4: 写 credential store 与刷新测试**
 
 覆盖：授权成功把完整 credential 作为单个 versioned JSON value 保存；尚未临近过期直接复用；临近过期只刷新一次；20 个并发 caller 共享一次 refresh；轮换后 access/refresh token 和绝对过期时间一起更新；HTTP refresh 失败保留仍可用旧 credential；GitHub refresh 成功但 store overwrite 失败时 best-effort clear 并返回 `CredentialPersistenceFailed`；bad/expired refresh 或撤销授权清除并返回 `ReauthorizationRequired`；任何 error/serialized public DTO 不含 token。
 
-- [ ] **Step 5: 实现 keyring 与 `GithubCredentialManager`**
+- [x] **Step 5: 实现 keyring 与 `GithubCredentialManager`**
 
 ```rust
 pub struct GithubCredential {
@@ -1776,7 +1776,7 @@ keyring adapter 的 load/replace/clear 各自在一个 `spawn_blocking` closure 
 
 同文件定义共享 `GithubAuthenticatedClient`。所有生产 GitHub API 请求都通过它发送，并由 `lib.rs` 作为单个 `Arc` managed state 注入 commands/services/stores：首次 401 调用 `force_refresh(rejected_generation)`；锁内若 keyring generation 已变化则复用新 token，否则无视 access expiry 强制 refresh；只重放原请求一次；第二次 401 best-effort clear 并返回 `ReauthorizationRequired`。GET 和幂等 status 请求可按该规则重放；Contents PUT/Git Database 写请求只有收到明确 401 且 GitHub 未执行请求时才重放一次，其他网络/409/422 不在 wrapper 内重试。
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml github_app_config
@@ -1787,7 +1787,7 @@ rg -n "std::env::var\(|client_secret\s*:|private_key\s*:|scope\s*[:=].*repo" src
 
 Expected: 默认测试只访问 wiremock；禁止项无产品代码命中。OS keyring adapter 可 gated，但内存 store 的完整授权与轮换测试必须默认运行。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src-tauri/build.rs .github/workflows/release.yml src-tauri/Cargo.toml src-tauri/src/github_app_config.rs src-tauri/src/github_auth.rs src-tauri/src/github_credentials.rs src-tauri/src/errors.rs

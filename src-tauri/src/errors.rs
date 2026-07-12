@@ -36,6 +36,12 @@ pub(crate) enum AppError {
     #[allow(dead_code)]
     #[error("recovery pending: {0}")]
     RecoveryPending(String),
+    #[allow(dead_code)]
+    #[error("credential persistence failed: {0}")]
+    CredentialPersistenceFailed(String),
+    #[allow(dead_code)]
+    #[error("reauthorization required: {0}")]
+    ReauthorizationRequired(String),
     #[error("{0}")]
     Other(String),
 }
@@ -55,6 +61,8 @@ impl AppError {
             AppError::Auth(_) => "auth",
             AppError::Blocked(_) => "blocked",
             AppError::RecoveryPending(_) => "recovery_pending",
+            AppError::CredentialPersistenceFailed(_) => "credential_persistence_failed",
+            AppError::ReauthorizationRequired(_) => "reauthorization_required",
             AppError::Other(_) => "other",
         }
     }
