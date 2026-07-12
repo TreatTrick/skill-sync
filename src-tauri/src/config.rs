@@ -1,11 +1,14 @@
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::errors::{AppError, Result};
+use crate::vault_binding::VaultBindingStore;
 
-const CONFIG_VERSION: u32 = 1;
+const CONFIG_VERSION: u32 = 2;
 const CONFIG_DIR_NAME: &str = "skill-sync";
 const CONFIG_FILE_NAME: &str = "config.yaml";
 
@@ -13,21 +16,13 @@ const CONFIG_FILE_NAME: &str = "config.yaml";
 pub(crate) struct AppConfig {
     #[serde(default = "default_version")]
     pub version: u32,
-    #[serde(default)]
-    pub repository: RepositoryConfig,
-    #[serde(default)]
-    pub defaults: DefaultsConfig,
-    pub hosts: HostsConfig,
-    #[serde(default)]
-    pub custom_paths: Vec<String>,
     #[serde(default = "default_ignore")]
     pub ignore: Vec<String>,
-    // 新 vault 字段（Task 8 build_plan 需要；Task 13 原子迁移时删除旧 repository/hosts/custom_paths/defaults）。
     #[serde(default)]
     pub remote: Option<RemoteConfig>,
     #[serde(default)]
     pub limits: LimitsConfig,
-    #[serde(default)]
+    #[serde(default = "default_device_id")]
     pub device_id: String,
 }
 
@@ -49,38 +44,11 @@ fn default_ignore() -> Vec<String> {
     ]
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub(crate) struct RepositoryConfig {
-    #[serde(default)]
-    pub local_path: String,
-    #[serde(default)]
-    pub remote: String,
-    #[serde(default = "default_branch")]
-    pub branch: String,
-}
-
-fn default_branch() -> String {
-    "main".into()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub(crate) struct DefaultsConfig {
-    #[serde(default = "default_true")]
-    pub backup: bool,
-    #[serde(default = "default_install_mode")]
-    pub install_mode: String,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-fn default_install_mode() -> String {
-    "copy".into()
+fn default_device_id() -> String {
+    Uuid::new_v4().to_string()
 }
 
 /// GitHub vault 远端配置：绑定到固定的 installation/repository/branch。
-/// 本任务只新增 DTO，不接入 AppConfig（Task 13 原子迁移）。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct RemoteConfig {
     pub installation_id: u64,
@@ -161,47 +129,28 @@ impl LimitsConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct HostsConfig {
-    pub codex: HostConfig,
-    pub claude: HostConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct HostConfig {
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-    pub paths: Vec<String>,
+#[derive(Debug, Deserialize, Default)]
+struct StoredConfig {
+    #[serde(default)]
+    version: u32,
+    #[serde(default)]
+    ignore: Option<Vec<String>>,
+    #[serde(default)]
+    remote: Option<RemoteConfig>,
+    #[serde(default)]
+    limits: Option<LimitsConfig>,
+    #[serde(default)]
+    device_id: Option<String>,
 }
 
 impl AppConfig {
     pub(crate) fn default_config() -> Self {
         Self {
             version: CONFIG_VERSION,
-            repository: RepositoryConfig {
-                local_path: String::new(),
-                remote: String::new(),
-                branch: "main".into(),
-            },
-            defaults: DefaultsConfig {
-                backup: true,
-                install_mode: "copy".into(),
-            },
-            hosts: HostsConfig {
-                codex: HostConfig {
-                    enabled: true,
-                    paths: vec!["~/.codex/skills".into(), "~/.agents/skills".into()],
-                },
-                claude: HostConfig {
-                    enabled: true,
-                    paths: vec!["~/.claude/skills".into()],
-                },
-            },
-            custom_paths: vec![],
             ignore: default_ignore(),
             remote: None,
             limits: LimitsConfig::default(),
-            device_id: String::new(),
+            device_id: default_device_id(),
         }
     }
 
@@ -216,12 +165,15 @@ impl AppConfig {
     pub(crate) fn load() -> Result<Self> {
         let path = Self::config_path()
             .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
+        let dir = path
+            .parent()
+            .ok_or_else(|| AppError::Config("config path has no parent".into()))?;
+        VaultBindingStore::recover_if_needed(dir)?;
         if !path.exists() {
             return Ok(Self::default_config());
         }
         let text = fs::read_to_string(&path)?;
-        let cfg: AppConfig = serde_yaml::from_str(&text)?;
-        Ok(cfg)
+        Self::from_yaml(&text)
     }
 
     pub(crate) fn save(&self) -> Result<()> {
@@ -231,55 +183,61 @@ impl AppConfig {
         let path = Self::config_path()
             .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
         let text = serde_yaml::to_string(self)?;
-        fs::write(&path, text)?;
-        Ok(())
+        durable_replace(&path, text.as_bytes())
     }
 
     pub(crate) fn is_configured(&self) -> bool {
-        !self.repository.local_path.trim().is_empty() || !self.repository.remote.trim().is_empty()
+        self.remote.is_some()
     }
 
-    /// Default managed repo path used when the user does not supply a local_path.
-    pub(crate) fn default_repo_path() -> Result<PathBuf> {
-        let dir = Self::config_dir()
-            .ok_or_else(|| AppError::Config("cannot determine config dir".into()))?;
-        Ok(dir.join("sync-repo"))
+    pub(crate) fn from_yaml(text: &str) -> Result<Self> {
+        let stored: StoredConfig = serde_yaml::from_str(text)?;
+        if stored.version > CONFIG_VERSION {
+            return Err(AppError::Config(format!(
+                "unsupported config version: {}",
+                stored.version
+            )));
+        }
+        let mut config = Self::default_config();
+        config.ignore = stored.ignore.unwrap_or_else(default_ignore);
+        config.limits = stored.limits.unwrap_or_default();
+        config.device_id = stored.device_id.unwrap_or_else(default_device_id);
+        if stored.version >= CONFIG_VERSION {
+            config.remote = stored.remote;
+        }
+        config.limits.validate()?;
+        Ok(config)
     }
 
-    /// Resolve the sync repo path: use the configured local_path, or fall back
-    /// to the managed default under the config dir.
-    pub(crate) fn resolve_repo_path(&self) -> Result<PathBuf> {
-        if !self.repository.local_path.trim().is_empty() {
-            return expand_path(&self.repository.local_path);
+    pub(crate) fn validate_save_candidate(&self, candidate: &Self) -> Result<()> {
+        if self.version != candidate.version
+            || self.remote != candidate.remote
+            || self.device_id != candidate.device_id
+        {
+            return Err(AppError::Blocked(
+                "only ignore and limits may be changed by save_config".into(),
+            ));
         }
-        Self::default_repo_path()
-    }
-
-    /// Returns `(host_name, host_config)` for each enabled host (codex + claude only).
-    pub(crate) fn enabled_hosts(&self) -> Vec<(&'static str, &HostConfig)> {
-        let mut hosts = Vec::new();
-        if self.hosts.codex.enabled {
-            hosts.push(("codex", &self.hosts.codex));
-        }
-        if self.hosts.claude.enabled {
-            hosts.push(("claude", &self.hosts.claude));
-        }
-        hosts
+        candidate.limits.validate()
     }
 }
 
-pub(crate) fn expand_path(p: &str) -> Result<PathBuf> {
-    let trimmed = p.trim();
-    if trimmed == "~" {
-        return dirs::home_dir()
-            .ok_or_else(|| AppError::Config("cannot determine home dir".into()));
+fn durable_replace(target: &std::path::Path, bytes: &[u8]) -> Result<()> {
+    let parent = target
+        .parent()
+        .ok_or_else(|| AppError::Config("config path has no parent".into()))?;
+    fs::create_dir_all(parent)?;
+    let temp = target.with_extension("tmp");
+    {
+        let mut file = fs::File::create(&temp)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
     }
-    if let Some(rest) = trimmed.strip_prefix("~/") {
-        let home =
-            dirs::home_dir().ok_or_else(|| AppError::Config("cannot determine home dir".into()))?;
-        return Ok(home.join(rest));
+    fs::rename(&temp, target)?;
+    if let Ok(dir) = fs::File::open(parent) {
+        drop(dir.sync_all());
     }
-    Ok(PathBuf::from(trimmed))
+    Ok(())
 }
 
 #[cfg(test)]
@@ -287,35 +245,60 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_config_has_codex_and_claude() {
+    fn legacy_hosts_and_custom_paths_are_ignored_on_migration() {
+        let cfg = AppConfig::from_yaml(include_str!("../tests/fixtures/config-v1.yaml")).unwrap();
+        let saved = serde_yaml::to_string(&cfg).unwrap();
+
+        assert_eq!(cfg.version, 2);
+        assert_eq!(cfg.remote, None);
+        assert!(!saved.contains("repository:"));
+        assert!(!saved.contains("hosts:"));
+        assert!(!saved.contains("custom_paths:"));
+        assert!(!saved.contains("defaults:"));
+    }
+
+    #[test]
+    fn legacy_config_gets_all_pack_unpack_limit_defaults() {
+        let cfg = AppConfig::from_yaml(include_str!("../tests/fixtures/config-v1.yaml")).unwrap();
+
+        assert_eq!(cfg.limits.max_skill_zip_bytes, 1234);
+        assert_eq!(cfg.limits.max_skill_files, 7);
+        assert_eq!(cfg.limits.max_single_file_unpacked_bytes, 50 * 1024 * 1024);
+        assert_eq!(cfg.limits.max_skill_unpacked_bytes, 100 * 1024 * 1024);
+    }
+
+    #[test]
+    fn default_config_has_no_unvalidated_remote() {
         let cfg = AppConfig::default_config();
-        assert!(cfg.hosts.codex.enabled);
-        assert!(cfg.hosts.claude.enabled);
-        assert!(cfg.hosts.codex.paths.iter().any(|p| p.contains(".codex")));
-        assert!(cfg.hosts.claude.paths.iter().any(|p| p.contains(".claude")));
+
+        assert_eq!(cfg.remote, None);
+        assert!(!serde_yaml::to_string(&cfg).unwrap().contains("repository:"));
+    }
+
+    #[test]
+    fn save_config_cannot_change_remote_identity() {
+        let mut current = AppConfig::default_config();
+        current.remote = Some(RemoteConfig {
+            installation_id: 1,
+            repository_id: 2,
+            owner: "owner".into(),
+            repo: "repo".into(),
+            branch: "main".into(),
+        });
+        let mut candidate = current.clone();
+        candidate.remote.as_mut().unwrap().branch = "other".into();
+
+        assert!(current.validate_save_candidate(&candidate).is_err());
     }
 
     #[test]
     fn roundtrip_serialization() {
         let cfg = AppConfig::default_config();
         let text = serde_yaml::to_string(&cfg).unwrap();
-        let back: AppConfig = serde_yaml::from_str(&text).unwrap();
-        assert_eq!(back.hosts.codex.paths, cfg.hosts.codex.paths);
-        assert_eq!(back.hosts.claude.paths, cfg.hosts.claude.paths);
-        assert!(back.is_configured() == cfg.is_configured());
-    }
-
-    #[test]
-    fn expand_tilde_uses_home() {
-        let expanded = expand_path("~/foo/bar").unwrap();
-        assert!(!expanded.starts_with("~"));
-        assert!(expanded.ends_with("foo/bar"));
-    }
-
-    #[test]
-    fn expand_plain_path_unchanged() {
-        let expanded = expand_path("D:/agent-skills").unwrap();
-        assert_eq!(expanded.to_string_lossy(), "D:/agent-skills");
+        let back = AppConfig::from_yaml(&text).unwrap();
+        assert_eq!(back.ignore, cfg.ignore);
+        assert_eq!(back.limits.max_skill_files, cfg.limits.max_skill_files);
+        assert_eq!(back.is_configured(), cfg.is_configured());
     }
 
     #[test]

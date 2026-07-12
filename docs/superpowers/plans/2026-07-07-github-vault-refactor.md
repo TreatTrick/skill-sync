@@ -1975,11 +1975,11 @@ git commit -m "feat: add github vault store"
 - Create: `src-tauri/src/vault_binding.rs`
 - Create: `src-tauri/tests/fixtures/config-v1.yaml`
 
-- [ ] **Step 1: 原子迁移 AppConfig 和所有 Rust consumers**
+- [x] **Step 1: 原子迁移 AppConfig 和所有 Rust consumers**
 
 先写 `legacy_hosts_and_custom_paths_are_ignored_on_migration`、`legacy_config_gets_all_pack_unpack_limit_defaults`、`default_config_has_no_unvalidated_remote`、`save_config_cannot_change_remote_identity` 测试。将 AppConfig 改为 `remote: Option<RemoteConfig> + limits + ignore`，配置版本递增，旧 YAML 迁移已有 ignore/limits，并为缺失的 file/single/total unpack limits 填安全默认值；Git/OAuth remote、hosts/custom_paths/defaults 保存后消失。所有 AppConfig load 先调用 `VaultBindingStore::recover_if_needed`。同步修改 commands/detect/sync engine 的所有字段引用，删除 Task 5 暂留的 Rust host/platform/enabled/repo_path compatibility 字段和 Task 7-9 暂留的 legacy engine adapter；扫描只用 fixed registry，未绑定 remote 返回 OnboardingRequired。不得保留只为编译而继续生效的 legacy config/identity 字段。
 
-- [ ] **Step 2: 删除旧 commands**
+- [x] **Step 2: 删除旧 commands**
 
 删除：
 
@@ -1991,7 +1991,7 @@ list_backups
 restore_backup
 ```
 
-- [ ] **Step 3: 暴露新 commands**
+- [x] **Step 3: 暴露新 commands**
 
 ```rust
 async get_app_state()
@@ -2066,7 +2066,7 @@ bind 在 write gate 内先比较 `expected_previous_binding` 与锁内当前 ins
 
 `scan_skills` 不再读取 AppConfig roots，直接调用固定 registry，返回 `skills + roots + collisions + warnings`。Task 17 的 Settings 复用该响应显示只读路径状态。
 
-- [ ] **Step 4: 更新 AppState**
+- [x] **Step 4: 更新 AppState**
 
 移除 `git_available` / `git_version`，新增：
 
@@ -2088,7 +2088,7 @@ pub pending_recovery: Option<RecoveryInfo>,
 
 `pending_recovery` 只暴露 task/phase/remote commit/完成与待完成 action ids/消毒后的 message，不暴露 stage、rollback、trash 或 journal 绝对路径。
 
-- [ ] **Step 5: 验证**
+- [x] **Step 5: 验证**
 
 Run:
 

@@ -1,0 +1,24 @@
+version: 1
+repository:
+  local_path: C:/legacy/sync-repo
+  remote: https://github.com/example/skills.git
+  branch: legacy
+defaults:
+  backup: true
+  install_mode: copy
+hosts:
+  codex:
+    enabled: true
+    paths:
+      - ~/.codex/skills
+  claude:
+    enabled: true
+    paths:
+      - ~/.claude/skills
+custom_paths:
+  - ~/custom/skills
+ignore:
+  - '**/.git/**'
+limits:
+  max_skill_zip_bytes: 1234
+  max_skill_files: 7

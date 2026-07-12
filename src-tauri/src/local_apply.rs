@@ -129,6 +129,10 @@ pub(crate) fn load_journal(config_dir: &Path) -> Option<ApplyJournal> {
     serde_json::from_slice(&bytes).ok()
 }
 
+pub(crate) fn load_pending(config_dir: &Path) -> Option<ApplyJournal> {
+    load_journal(config_dir)
+}
+
 pub(crate) fn clear_journal(config_dir: &Path) -> Result<()> {
     let path = journal_path(config_dir);
     if path.exists() {
@@ -156,6 +160,7 @@ pub(crate) fn recover_pending(config_dir: &Path) -> Result<Option<ApplyJournal>>
             .map_err(|e| AppError::Vault(format!("journal state decode failed: {e}")))?;
         state.save_to(config_dir)?;
         clear_journal(config_dir)?;
+        return Ok(None);
     }
     Ok(Some(journal))
 }

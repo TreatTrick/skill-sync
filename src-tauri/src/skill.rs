@@ -23,16 +23,6 @@ pub(crate) fn namespace_value(namespace: SkillNamespace) -> &'static str {
     }
 }
 
-/// Legacy host 字符串到 namespace 的映射（custom 等未知 host 回退到 Agents 占位，
-/// 不参与新 identity/扫描/计划）。
-pub(crate) fn namespace_from_host(host: &str) -> SkillNamespace {
-    match host {
-        "codex" => SkillNamespace::Codex,
-        "claude" => SkillNamespace::ClaudeCode,
-        _ => SkillNamespace::Agents,
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct SkillMeta {
     pub name: String,
@@ -54,10 +44,6 @@ pub(crate) struct Skill {
     /// canonical zip 字节数；扫描阶段为 0，build_plan 打包后填充。
     pub zip_size: u64,
     pub modified_at: String,
-    // Transitional fields used only by legacy consumers until Task 13.
-    pub host: String,
-    pub repo_path: String,
-    pub enabled: bool,
 }
 
 /// 规范化 skill name：lowercase、trim、空格和 `_` 转 `-`、只保留 ASCII 字母数字和 `-`、

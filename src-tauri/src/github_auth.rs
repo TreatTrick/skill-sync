@@ -4,6 +4,7 @@
 
 use chrono::{Duration, Utc};
 use secrecy::{ExposeSecret, SecretString};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::errors::{AppError, Result};
@@ -14,7 +15,7 @@ const DEVICE_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:device_code";
 const REFRESH_GRANT_TYPE: &str = "refresh_token";
 
 /// Device Flow 启动响应（公共，不含任何 token）。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub(crate) struct DeviceFlowStart {
     pub device_code: String,
     pub user_code: String,

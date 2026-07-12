@@ -1,5 +1,15 @@
-use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
+use serde::Serializer;
+
+#[derive(Debug, Serialize)]
+pub(crate) struct AppErrorPayload {
+    pub kind: &'static str,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_check: Option<serde_json::Value>,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum AppError {
@@ -7,12 +17,8 @@ pub(crate) enum AppError {
     Io(String),
     #[error("config error: {0}")]
     Config(String),
-    #[error("git error: {0}")]
-    Git(String),
     #[error("skill error: {0}")]
     Skill(String),
-    #[error("sync error: {0}")]
-    Sync(String),
     #[error("not configured: {0}")]
     NotConfigured(String),
     #[error("vault error: {0}")]
@@ -48,6 +54,12 @@ pub(crate) enum AppError {
     #[allow(dead_code)]
     #[error("vault state changed: {0}")]
     VaultStateChanged(String),
+    #[allow(dead_code)]
+    #[error("vault state changed: {message}")]
+    VaultStateChangedWithCheck {
+        message: String,
+        latest_check: serde_json::Value,
+    },
     #[error("{0}")]
     Other(String),
 }
@@ -57,9 +69,7 @@ impl AppError {
         match self {
             AppError::Io(_) => "io",
             AppError::Config(_) => "config",
-            AppError::Git(_) => "git",
             AppError::Skill(_) => "skill",
-            AppError::Sync(_) => "sync",
             AppError::NotConfigured(_) => "not_configured",
             AppError::Vault(_) => "vault",
             AppError::RemoteChanged(_) => "remote_changed",
@@ -71,6 +81,7 @@ impl AppError {
             AppError::ReauthorizationRequired(_) => "reauthorization_required",
             AppError::RateLimited { .. } => "rate_limited",
             AppError::VaultStateChanged(_) => "vault_state_changed",
+            AppError::VaultStateChangedWithCheck { .. } => "vault_state_changed",
             AppError::Other(_) => "other",
         }
     }
@@ -96,14 +107,80 @@ impl From<serde_json::Error> for AppError {
 
 impl Serialize for AppError {
     fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
-        let mut st = s.serialize_struct("AppError", 3)?;
-        st.serialize_field("kind", self.kind())?;
-        st.serialize_field("message", &self.to_string())?;
-        if let AppError::RateLimited { retry_after } = self {
-            st.serialize_field("retry_after", retry_after)?;
-        }
-        st.end()
+        let payload = AppErrorPayload {
+            kind: self.kind(),
+            message: redact_sensitive(&self.to_string()),
+            retry_after: match self {
+                AppError::RateLimited { retry_after } => retry_after.clone(),
+                _ => None,
+            },
+            latest_check: match self {
+                AppError::VaultStateChangedWithCheck { latest_check, .. } => {
+                    Some(latest_check.clone())
+                }
+                _ => None,
+            },
+        };
+        payload.serialize(s)
     }
 }
 
+fn redact_sensitive(message: &str) -> String {
+    let mut redacted = message.to_string();
+    for marker in [
+        "access_token=",
+        "refresh_token=",
+        "access_token:",
+        "refresh_token:",
+        "\"access_token\":\"",
+        "\"refresh_token\":\"",
+        "token=",
+        "token:",
+        "client_secret=",
+        "private_key=",
+        "Bearer ",
+    ] {
+        let mut offset = 0;
+        while let Some(found) = redacted[offset..].find(marker) {
+            let start = offset + found + marker.len();
+            let end = redacted[start..]
+                .find(|c: char| c.is_whitespace() || c == ',' || c == '}' || c == '"')
+                .map(|value| start + value)
+                .unwrap_or(redacted.len());
+            redacted.replace_range(start..end, "[REDACTED]");
+            offset = start + "[REDACTED]".len();
+        }
+    }
+    redacted
+}
+
 pub(crate) type Result<T> = std::result::Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialized_error_redacts_token_values_and_preserves_conditional_fields() {
+        let error = AppError::Auth("access_token=secret refresh_token=refresh".into());
+        let value = serde_json::to_value(error).unwrap();
+        assert!(!value.to_string().contains("secret"));
+        assert!(!value.to_string().contains("refresh refresh"));
+        assert!(value.get("retry_after").is_none());
+
+        let rate_limited = AppError::RateLimited {
+            retry_after: Some("12".into()),
+        };
+        let value = serde_json::to_value(rate_limited).unwrap();
+        assert_eq!(value["retry_after"], "12");
+        assert!(value.get("latest_check").is_none());
+
+        let changed = AppError::VaultStateChangedWithCheck {
+            message: "stale".into(),
+            latest_check: serde_json::json!({ "status": "ready" }),
+        };
+        let value = serde_json::to_value(changed).unwrap();
+        assert_eq!(value["latest_check"]["status"], "ready");
+        assert!(value.get("retry_after").is_none());
+    }
+}

@@ -68,6 +68,7 @@ pub(crate) struct GithubRepositoryContext {
 }
 
 /// 显式初始化请求。expected_status 只允许 empty_repository 或 missing_manifest。
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct InitializeGithubVaultRequest {
     pub remote: RemoteConfig,
     pub expected_status: GithubVaultStatus,
@@ -206,15 +207,18 @@ impl GithubRepositoryService {
         let resp = match self.client.get(&self.url(&branches_path)).await {
             Ok(r) => r,
             Err(AppError::RateLimited { retry_after }) => {
-                return Ok(check_rate_limited(remote, retry_after));
+                return Err(AppError::RateLimited { retry_after });
             }
             Err(e) => return Err(e),
         };
         let status = resp.status().as_u16();
         if status == 403 || status == 429 {
             let retry_after = header_str(&resp, "retry-after");
-            if let Some(rl) = classify_rate_limit(resp, retry_after.clone()).await {
-                return Ok(check_status(remote, rl, retry_after));
+            if classify_rate_limit(resp, retry_after.clone())
+                .await
+                .is_some()
+            {
+                return Err(AppError::RateLimited { retry_after });
             }
             return Ok(check_status(
                 remote,
@@ -265,7 +269,7 @@ impl GithubRepositoryService {
         let resp = match self.client.get(&self.url(&manifest_path)).await {
             Ok(r) => r,
             Err(AppError::RateLimited { retry_after }) => {
-                return Ok(check_rate_limited(remote, retry_after));
+                return Err(AppError::RateLimited { retry_after });
             }
             Err(e) => return Err(e),
         };
@@ -330,12 +334,7 @@ impl GithubRepositoryService {
                 ));
             }
         };
-        if repo.repository_id != remote.repository_id {
-            return Err(AppError::Blocked(format!(
-                "repository id mismatch: {} != {}",
-                repo.repository_id, remote.repository_id
-            )));
-        }
+        validate_repository_identity(&repo, remote)?;
         let check = self.check_vault(remote).await?;
         if check.status != GithubVaultStatus::Ready {
             return Err(AppError::Blocked(format!(
@@ -372,14 +371,14 @@ impl GithubRepositoryService {
             return Ok(check);
         }
         if check.status != request.expected_status {
-            return Err(AppError::VaultStateChanged(format!(
-                "vault state changed to {:?}",
-                check.status
-            )));
+            return Err(vault_state_changed(
+                format!("vault state changed to {:?}", check.status),
+                &check,
+            ));
         }
         if let Some(expected_head) = &request.expected_head_sha {
             if check.head_sha.as_deref() != Some(expected_head.as_str()) {
-                return Err(AppError::VaultStateChanged("head sha changed".into()));
+                return Err(vault_state_changed("head sha changed".into(), &check));
             }
         }
 
@@ -406,10 +405,10 @@ impl GithubRepositoryService {
                     if recheck.status == GithubVaultStatus::Ready {
                         return Ok(recheck);
                     }
-                    return Err(AppError::VaultStateChanged(format!(
-                        "initialize conflict, recheck: {:?}",
-                        recheck.status
-                    )));
+                    return Err(vault_state_changed(
+                        format!("initialize conflict, recheck: {:?}", recheck.status),
+                        &recheck,
+                    ));
                 }
                 if !r.status().is_success() {
                     return Err(AppError::Vault(format!(
@@ -429,10 +428,10 @@ impl GithubRepositoryService {
         if recheck.status == GithubVaultStatus::Ready {
             Ok(recheck)
         } else {
-            Err(AppError::Vault(format!(
-                "initialize succeeded but recheck: {:?}",
-                recheck.status
-            )))
+            Err(vault_state_changed(
+                format!("initialize succeeded but recheck: {:?}", recheck.status),
+                &recheck,
+            ))
         }
     }
 
@@ -471,6 +470,25 @@ impl GithubRepositoryService {
         }
         Ok(results)
     }
+}
+
+fn validate_repository_identity(
+    repository: &GithubRepositorySelection,
+    remote: &RemoteConfig,
+) -> Result<()> {
+    if repository.installation_id != remote.installation_id {
+        return Err(AppError::Blocked(format!(
+            "installation id mismatch: {} != {}",
+            repository.installation_id, remote.installation_id
+        )));
+    }
+    if repository.repository_id != remote.repository_id {
+        return Err(AppError::Blocked(format!(
+            "repository id mismatch: {} != {}",
+            repository.repository_id, remote.repository_id
+        )));
+    }
+    Ok(())
 }
 
 fn parse_repo_owner_name(repo: &serde_json::Value) -> Result<(String, String)> {
@@ -547,12 +565,15 @@ fn check_status(
     }
 }
 
-fn check_rate_limited(remote: &RemoteConfig, retry_after: Option<String>) -> GithubVaultCheck {
-    check_status(
-        remote,
-        GithubVaultStatus::RepositoryUnavailable,
-        retry_after,
-    )
+fn vault_state_changed(message: String, check: &GithubVaultCheck) -> AppError {
+    let latest_check = match serde_json::to_value(check) {
+        Ok(value) => value,
+        Err(_) => serde_json::json!({ "status": "unavailable" }),
+    };
+    AppError::VaultStateChangedWithCheck {
+        message,
+        latest_check,
+    }
 }
 
 fn check_with_head(
@@ -602,6 +623,18 @@ mod tests {
             repo: "vault".into(),
             branch: "main".into(),
         }
+    }
+
+    #[test]
+    fn side_effect_validation_rejects_installation_identity_mismatch() {
+        let repository = GithubRepositorySelection {
+            installation_id: 101,
+            repository_id: 200,
+            owner: "octocat".into(),
+            repo: "vault".into(),
+        };
+
+        assert!(validate_repository_identity(&repository, &remote_cfg()).is_err());
     }
 
     async fn build_service(server: &MockServer) -> GithubRepositoryService {
@@ -725,6 +758,27 @@ mod tests {
         let svc = build_service(&server).await;
         let check = svc.check_vault(&remote_cfg()).await.unwrap();
         assert_eq!(check.status, GithubVaultStatus::EmptyRepository);
+    }
+
+    #[tokio::test]
+    async fn check_vault_rate_limit_is_tagged_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/repos/octocat/vault/branches"))
+            .respond_with(
+                ResponseTemplate::new(429)
+                    .insert_header("retry-after", "17")
+                    .set_body_json(serde_json::json!({ "message": "rate limit" })),
+            )
+            .mount(&server)
+            .await;
+        let svc = build_service(&server).await;
+        assert!(matches!(
+            svc.check_vault(&remote_cfg()).await,
+            Err(AppError::RateLimited {
+                retry_after: Some(value)
+            }) if value == "17"
+        ));
     }
 
     #[tokio::test]

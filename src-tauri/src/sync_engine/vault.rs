@@ -1704,7 +1704,13 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         next_state_bytes,
     };
     save_journal(config_dir, &journal)?;
-    if let Err(e) = working.save_to(config_dir) {
+    let state_to_save = working.clone();
+    let state_dir = config_dir.to_path_buf();
+    let save_result =
+        tauri::async_runtime::spawn_blocking(move || state_to_save.save_to(&state_dir))
+            .await
+            .map_err(|e| AppError::Vault(format!("state save task failed: {e}")))?;
+    if let Err(e) = save_result {
         return Ok(ApplySyncResponse::RecoveryRequired {
             recovery: RecoveryInfo {
                 task_id,
