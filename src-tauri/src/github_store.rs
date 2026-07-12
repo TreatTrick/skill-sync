@@ -47,7 +47,7 @@ impl RemoteStore for GitHubVaultStore {
                 self.repository.head_sha, commit_sha
             )));
         }
-        let content_path = self.contents_path("manifest.json");
+        let content_path = self.contents_path("manifest.json", &commit_sha);
         let response = self.api.get_path(&content_path).await?;
         let body = response_json(response, "fetch manifest").await?;
         let bytes = decode_content(&body, "manifest")?;
@@ -67,7 +67,10 @@ impl RemoteStore for GitHubVaultStore {
                 "blob path {blob_path:?} != expected {expected_path:?}"
             )));
         }
-        let response = self.api.get_path(&self.contents_path(blob_path)).await?;
+        let response = self
+            .api
+            .get_path(&self.contents_path(blob_path, &self.repository.branch))
+            .await?;
         let body = response_json(response, "fetch blob").await?;
         let bytes = decode_content(&body, "blob")?;
         let actual_hash = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
@@ -249,12 +252,12 @@ impl GitHubVaultStore {
         format!("{}/git/{}", self.repository_prefix(), resource)
     }
 
-    fn contents_path(&self, path: &str) -> String {
+    fn contents_path(&self, path: &str, reference: &str) -> String {
         format!(
             "{}/contents/{}?ref={}",
             self.repository_prefix(),
             path,
-            self.repository.branch
+            reference
         )
     }
 
@@ -451,7 +454,7 @@ mod tests {
             .await;
         Mock::given(method("GET"))
             .and(path("/repos/owner/vault/contents/manifest.json"))
-            .and(query_param("ref", "main"))
+            .and(query_param("ref", "head"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(content_body(&manifest_bytes(), "msha")),
             )
@@ -461,6 +464,33 @@ mod tests {
         let snapshot = store(&server).await.fetch_manifest().await.unwrap();
         assert_eq!(snapshot.commit_sha, "head");
         assert_eq!(snapshot.branch, "main");
+        assert_eq!(snapshot.manifest.updated_by, "device-test");
+    }
+
+    #[tokio::test]
+    async fn fetch_manifest_pins_contents_to_observed_head() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/repos/owner/vault/git/ref/heads/main"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "object": { "sha": "head-a" }
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/repos/owner/vault/contents/manifest.json"))
+            .and(query_param("ref", "head-a"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(content_body(&manifest_bytes(), "msha")),
+            )
+            .mount(&server)
+            .await;
+        let mut vault_store = store(&server).await;
+        vault_store.repository.head_sha = "head-a".into();
+
+        let snapshot = vault_store.fetch_manifest().await.unwrap();
+
+        assert_eq!(snapshot.commit_sha, "head-a");
         assert_eq!(snapshot.manifest.updated_by, "device-test");
     }
 
@@ -495,7 +525,7 @@ mod tests {
             .await;
         Mock::given(method("GET"))
             .and(path("/repos/owner/vault/contents/manifest.json"))
-            .and(query_param("ref", "main"))
+            .and(query_param("ref", "head"))
             .respond_with(ResponseTemplate::new(200).set_body_json(content_body(b"{}", "msha")))
             .mount(&server)
             .await;
