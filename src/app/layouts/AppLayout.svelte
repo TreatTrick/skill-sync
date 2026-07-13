@@ -45,9 +45,6 @@
         <div class="truncate text-base font-extrabold text-strong-foreground">
           {t('layout.brandTitle')}
         </div>
-        <div class="mt-0.5 truncate text-xs text-muted-foreground">
-          {t('layout.brandSubtitle')}
-        </div>
       </div>
     </div>
 
@@ -119,15 +116,7 @@
       class="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur"
     >
       <div class="mx-auto w-full max-w-screen-2xl px-4 py-4 sm:px-6">
-        <nav
-          aria-label="breadcrumb"
-          class="flex items-center gap-1.5 text-sm text-muted-foreground"
-        >
-          <a class="hover:text-foreground" href="/app">{t('common.workspace')}</a>
-          <span aria-hidden="true">/</span>
-          <span class="text-foreground">{t(currentRoute.title)}</span>
-        </nav>
-        <h1 class="mt-1.5 text-2xl font-semibold tracking-tight text-strong-foreground">
+        <h1 class="text-2xl font-semibold tracking-tight text-strong-foreground">
           {t(currentRoute.title)}
         </h1>
       </div>
