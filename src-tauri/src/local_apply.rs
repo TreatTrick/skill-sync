@@ -41,6 +41,11 @@ pub(crate) fn trash_dir(root: &Path, task_id: &str, folder: &str) -> PathBuf {
 /// 第二次 rename 失败时立即 rollback -> target 恢复。
 pub(crate) fn commit_staged(stage: &Path, target: &Path, rollback: &Path) -> Result<()> {
     if target.exists() {
+        // rollback 父目录（如 `.skill-sync-rollback/<task>`）须先存在，
+        // 否则 `rename(target, rollback)` 会因目标路径父目录缺失报 ENOENT。
+        if let Some(parent) = rollback.parent() {
+            fs::create_dir_all(parent)?;
+        }
         if rollback.exists() {
             drop(fs::remove_dir_all(rollback));
         }
@@ -274,5 +279,42 @@ mod tests {
         assert!(backup_journal(dir.path()).is_err());
         // active journal 不受影响
         assert!(journal_path(dir.path()).exists());
+    }
+
+    #[test]
+    fn commit_staged_replaces_existing_target_and_creates_rollback_parent() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let stage = dir
+            .path()
+            .join(".skill-sync-staging")
+            .join("t")
+            .join("skill");
+        let target = dir.path().join("skill");
+        let rollback = dir
+            .path()
+            .join(".skill-sync-rollback")
+            .join("t")
+            .join("skill");
+
+        // stage 准备好新内容
+        std::fs::create_dir_all(&stage).expect("create stage");
+        std::fs::write(stage.join("SKILL.md"), "new").expect("write stage");
+        // target 已存在旧内容；rollback 父目录尚未创建（复现 ENOENT 场景）
+        std::fs::create_dir_all(&target).expect("create target");
+        std::fs::write(target.join("SKILL.md"), "old").expect("write target");
+
+        commit_staged(&stage, &target, &rollback).expect("replace succeeds");
+
+        // 新内容落到 target，旧内容滚到 rollback
+        assert_eq!(
+            std::fs::read_to_string(target.join("SKILL.md")).expect("read target"),
+            "new"
+        );
+        assert_eq!(
+            std::fs::read_to_string(rollback.join("SKILL.md")).expect("read rollback"),
+            "old"
+        );
+        // stage 已被 rename 走
+        assert!(!stage.exists());
     }
 }
