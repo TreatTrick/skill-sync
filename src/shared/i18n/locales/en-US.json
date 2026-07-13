@@ -27,11 +27,9 @@
       "error": "Error",
       "loading": "Loading…",
       "ready": "Ready"
-    },
-    "workspace": "Workspace"
+    }
   },
   "layout": {
-    "brandSubtitle": "Agent Skills Sync",
     "brandTitle": "Skill Sync",
     "collapse": "Collapse sidebar",
     "environment": "Local",

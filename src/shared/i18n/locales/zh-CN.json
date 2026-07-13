@@ -27,11 +27,9 @@
       "error": "出错",
       "loading": "加载中…",
       "ready": "就绪"
-    },
-    "workspace": "工作台"
+    }
   },
   "layout": {
-    "brandSubtitle": "Agent Skills 同步",
     "brandTitle": "Skill Sync",
     "collapse": "折叠侧边栏",
     "environment": "本地",
