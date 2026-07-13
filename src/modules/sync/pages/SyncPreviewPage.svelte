@@ -1,38 +1,20 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query'
   import { goto } from '$app/navigation'
-  import {
-    AlertTriangle,
-    ArrowDownToLine,
-    ArrowUpFromLine,
-    CheckCircle,
-    Package,
-    RefreshCw,
-    Sparkles,
-  } from '@lucide/svelte'
-  import type { Component } from 'svelte'
+  import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle, Package, RefreshCw, Sparkles } from '@lucide/svelte'
   import { fade, fly } from 'svelte/transition'
   import { flip } from 'svelte/animate'
 
-  import { cn, errorMessage } from '@/shared/lib'
+  import { errorMessage } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import type { RecoveryInfo } from '@/shared/schemas'
   import {
-    Badge,
     Button,
     Callout,
     Card,
     CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
     Checkbox,
     EmptyState,
-    Input,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
     Skeleton,
     Spinner,
     toast,
@@ -46,9 +28,13 @@
     resumeSyncRecovery,
   } from '../api/syncApi'
   import ConflictDetailDialog from '../components/ConflictDetailDialog.svelte'
+  import RecoveryCard from '../components/RecoveryCard.svelte'
+  import SyncApplyBar from '../components/SyncApplyBar.svelte'
+  import SyncCommitSummary from '../components/SyncCommitSummary.svelte'
+  import SyncFilterBar from '../components/SyncFilterBar.svelte'
+  import SyncMetric from '../components/SyncMetric.svelte'
   import SyncSkillCard from '../components/SyncSkillCard.svelte'
   import {
-    SYNC_STATUS_FILTERS,
     isDeleteEntry,
     matchesEntry,
     summarizeSyncSelection,
@@ -127,10 +113,6 @@
         deleteGuardAck),
   )
   const recheckLoading = $derived(plan.isFetching || scan.isFetching)
-
-  const statusFilterLabel = (
-    filter: SyncStatusFilter,
-  ): `sync.filters.${SyncStatusFilter}` => `sync.filters.${filter}`
 
   const isSelectable = (entry: SyncSkillEntry): boolean =>
     entry.status === 'local_update' ||
@@ -293,36 +275,6 @@
   }
 </script>
 
-{#snippet metric(
-  label: string,
-  value: number | string,
-  Icon: Component<{ class?: string }>,
-  tone: 'neutral' | 'warning' = 'neutral',
-  filter?: SyncStatusFilter,
-)}
-  <button
-    type="button"
-    class={cn(
-      'grid w-full gap-2 rounded-md border bg-surface p-4 text-left transition-colors disabled:opacity-100',
-      filter ? 'cursor-pointer hover:border-border-strong' : 'cursor-default border-border',
-      filter && statusFilter === filter ? 'border-primary ring-1 ring-primary' : '',
-    )}
-    aria-pressed={filter ? statusFilter === filter : undefined}
-    disabled={filter ? undefined : true}
-    onclick={filter ? () => { statusFilter = filter } : undefined}
-  >
-    <div class="flex items-center justify-between gap-3">
-      <div class="text-sm font-medium text-muted-foreground">{label}</div>
-      <span class={tone === 'warning' ? 'text-warning' : 'text-muted-foreground'}>
-        <Icon class="size-4" />
-      </span>
-    </div>
-    <div class={cn('text-3xl font-bold', tone === 'warning' ? 'text-warning' : 'text-strong-foreground')}>
-      {value}
-    </div>
-  </button>
-{/snippet}
-
 <ConflictDetailDialog
   bind:open={conflictDialogOpen}
   conflict={selectedConflict}
@@ -358,28 +310,11 @@
       </EmptyState>
     </Card>
   {:else if recovery}
-    <Card class="border-warning-border bg-warning-muted">
-      <CardHeader>
-        <CardTitle>{t('sync.recoveryRequired')}</CardTitle>
-        <CardDescription>{recovery.message}</CardDescription>
-      </CardHeader>
-      <CardContent class="grid gap-3 text-sm">
-        <div class="grid gap-1 text-muted-foreground sm:grid-cols-3">
-          <span>{t('sync.recoveryPhase')}: {recovery.phase}</span>
-          <span>{t('sync.recoveryCompletedCount')}: {recovery.completed_action_ids.length}</span>
-          <span>{t('sync.recoveryPendingCount')}: {recovery.pending_action_ids.length}</span>
-        </div>
-        <div class="flex justify-end">
-          <Button
-            disabled={resume.isPending}
-            loading={resume.isPending}
-            onclick={() => resume.mutate(recovery.task_id)}
-          >
-            {t('sync.resumeRecovery')}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <RecoveryCard
+      recovery={recovery}
+      resumePending={resume.isPending}
+      onResume={() => resume.mutate(recovery.task_id)}
+    />
   {:else}
     <div class="grid gap-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
@@ -398,10 +333,38 @@
       </div>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {@render metric(t('dashboard.metrics.discovered'), skills.length, Package)}
-        {@render metric(t('dashboard.metrics.toUpload'), planData?.uploads.length ?? 0, ArrowUpFromLine, 'neutral', 'local_update')}
-        {@render metric(t('dashboard.metrics.toDownload'), planData?.downloads.length ?? 0, ArrowDownToLine, 'neutral', 'remote_update')}
-        {@render metric(t('dashboard.metrics.conflicts'), planData?.conflicts.length ?? 0, AlertTriangle, (planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral', 'conflict')}
+        <SyncMetric
+          label={t('dashboard.metrics.discovered')}
+          value={skills.length}
+          icon={Package}
+        />
+        <SyncMetric
+          label={t('dashboard.metrics.toUpload')}
+          value={planData?.uploads.length ?? 0}
+          icon={ArrowUpFromLine}
+          tone="neutral"
+          filter="local_update"
+          activeFilter={statusFilter}
+          onFilter={(f) => { statusFilter = f }}
+        />
+        <SyncMetric
+          label={t('dashboard.metrics.toDownload')}
+          value={planData?.downloads.length ?? 0}
+          icon={ArrowDownToLine}
+          tone="neutral"
+          filter="remote_update"
+          activeFilter={statusFilter}
+          onFilter={(f) => { statusFilter = f }}
+        />
+        <SyncMetric
+          label={t('dashboard.metrics.conflicts')}
+          value={planData?.conflicts.length ?? 0}
+          icon={AlertTriangle}
+          tone={(planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral'}
+          filter="conflict"
+          activeFilter={statusFilter}
+          onFilter={(f) => { statusFilter = f }}
+        />
       </div>
 
       {#if planNotice}
@@ -426,37 +389,14 @@
         </Callout>
       {/if}
 
-      <div class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row">
-        <Input bind:value={search} placeholder={t('sync.searchPlaceholder')} />
-        <Select type="single" bind:value={statusFilter}>
-          <SelectTrigger aria-label={t('sync.filterLabel')} class="sm:w-52">
-            {t(statusFilterLabel(statusFilter))}
-          </SelectTrigger>
-          <SelectContent>
-            {#each SYNC_STATUS_FILTERS as filter (filter)}
-              <SelectItem value={filter}>{t(statusFilterLabel(filter))}</SelectItem>
-            {/each}
-          </SelectContent>
-        </Select>
-        <div class="flex gap-2">
-          <Button
-            variant="outline"
-            class="flex-1 sm:flex-none"
-            onclick={selectAllVisible}
-            disabled={!canSelectAll}
-          >
-            {t('sync.selectAll')}
-          </Button>
-          <Button
-            variant="outline"
-            class="flex-1 sm:flex-none"
-            onclick={selectNoneVisible}
-            disabled={!canSelectNone}
-          >
-            {t('sync.selectNone')}
-          </Button>
-        </div>
-      </div>
+      <SyncFilterBar
+        bind:search
+        bind:statusFilter
+        canSelectAll={canSelectAll}
+        canSelectNone={canSelectNone}
+        onSelectAll={selectAllVisible}
+        onSelectNone={selectNoneVisible}
+      />
 
       {#if plan.isLoading}
         <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -511,39 +451,21 @@
       {/if}
 
       {#if planData}
-        <div class="grid gap-2 border-t border-border pt-4 text-sm">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="font-semibold text-strong-foreground">{t('sync.commitSummary')}</span>
-            <Badge variant="secondary">
-              {selectionSummary.willCreateCommit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
-            </Badge>
-          </div>
-          <div class="grid gap-1 text-muted-foreground sm:grid-cols-2 lg:grid-cols-5">
-            <span>{t('sync.commitSummaryUploads')}: {selectionSummary.uploads}</span>
-            <span>{t('sync.commitSummaryDownloads')}: {selectionSummary.downloads}</span>
-            <span>{t('sync.commitSummaryDeleteRemote')}: {selectionSummary.deleteRemote}</span>
-            <span>{t('sync.commitSummaryDeleteLocal')}: {selectionSummary.deleteLocal}</span>
-            <span>{t('sync.commitSummaryState')}: {planData.commit_summary.local_state_updates}</span>
-          </div>
-          {#if hasLocalStateUpdates && !selectionSummary.willCreateCommit}
-            <p class="text-xs text-muted-foreground">{t('sync.localBaseOnly')}</p>
-          {/if}
-        </div>
+        <SyncCommitSummary
+          summary={selectionSummary}
+          localStateUpdates={planData.commit_summary.local_state_updates}
+          hasLocalStateUpdates={hasLocalStateUpdates}
+        />
       {/if}
 
-      <div class="sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <span class="text-sm text-muted-foreground">
-            {t('sync.selectedCount', { count: selectionSummary.selected })}
-            {#if planData}
-              · {selectionSummary.willCreateCommit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
-            {/if}
-          </span>
-          <Button disabled={!canApply} loading={apply.isPending} onclick={handleApply}>
-            {t('common.actions.apply')}
-          </Button>
-        </div>
-      </div>
+      <SyncApplyBar
+        selectedCount={selectionSummary.selected}
+        willCreateCommit={selectionSummary.willCreateCommit}
+        showCommitHint={planData !== undefined}
+        canApply={canApply}
+        applyPending={apply.isPending}
+        onApply={handleApply}
+      />
     </div>
   {/if}
 </div>
