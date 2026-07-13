@@ -51,6 +51,7 @@
     SYNC_STATUS_FILTERS,
     isDeleteEntry,
     matchesEntry,
+    summarizeSyncSelection,
     type SyncStatusFilter,
   } from '../lib/syncStatus'
   import type {
@@ -107,39 +108,11 @@
       selectedActionIds.includes(entry.action_id),
     ) ?? [],
   )
-  const selectedDecisions = $derived(
-    Object.values(syncDecisions.decisions),
-  )
-  const selectedCount = $derived(
-    selectedActionIds.length + selectedDecisions.length,
-  )
-  const selectedUploadCount = $derived(
-    selectedEntries.filter((entry) => entry.status === 'local_update').length +
-      selectedDecisions.filter((decision) => decision === 'keep_local').length,
-  )
-  const selectedDownloadCount = $derived(
-    selectedEntries.filter((entry) => entry.status === 'remote_update').length +
-      selectedDecisions.filter(
-        (decision) => decision === 'use_remote' || decision === 'restore_remote',
-      ).length,
-  )
-  const selectedDeleteRemoteCount = $derived(
-    selectedEntries.filter((entry) => entry.status === 'local_deleted').length +
-      selectedDecisions.filter((decision) => decision === 'delete_remote').length,
-  )
-  const selectedDeleteLocalCount = $derived(
-    selectedEntries.filter((entry) => entry.status === 'remote_deleted').length +
-      selectedDecisions.filter((decision) => decision === 'accept_delete').length,
-  )
-  const selectedDelete = $derived(
-    selectedEntries.some(isDeleteEntry) ||
-      selectedDecisions.some(
-        (decision) => decision === 'delete_remote' || decision === 'accept_delete',
-      ),
-  )
-  const hasDecisions = $derived(selectedDecisions.length > 0)
-  const willCreateCommit = $derived(
-    selectedUploadCount > 0 || selectedDeleteRemoteCount > 0,
+  const selectionSummary = $derived(
+    summarizeSyncSelection(
+      selectedEntries,
+      Object.values(syncDecisions.decisions),
+    ),
   )
   const hasLocalStateUpdates = $derived(
     (planData?.base_adoptions.length ?? 0) > 0 ||
@@ -148,8 +121,10 @@
   const canApply = $derived(
     planData !== undefined &&
       !recovery &&
-      (selectedActionIds.length > 0 || hasDecisions || hasLocalStateUpdates) &&
-      (!selectedDelete || !planData.delete_guard_tripped || deleteGuardAck),
+      (selectionSummary.selected > 0 || hasLocalStateUpdates) &&
+      (!selectionSummary.hasDelete ||
+        !planData.delete_guard_tripped ||
+        deleteGuardAck),
   )
   const recheckLoading = $derived(plan.isFetching || scan.isFetching)
 
@@ -496,17 +471,17 @@
           <div class="flex flex-wrap items-center justify-between gap-2">
             <span class="font-semibold text-strong-foreground">{t('sync.commitSummary')}</span>
             <Badge variant="secondary">
-              {willCreateCommit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
+              {selectionSummary.willCreateCommit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
             </Badge>
           </div>
           <div class="grid gap-1 text-muted-foreground sm:grid-cols-2 lg:grid-cols-5">
-            <span>{t('sync.commitSummaryUploads')}: {selectedUploadCount}</span>
-            <span>{t('sync.commitSummaryDownloads')}: {selectedDownloadCount}</span>
-            <span>{t('sync.commitSummaryDeleteRemote')}: {selectedDeleteRemoteCount}</span>
-            <span>{t('sync.commitSummaryDeleteLocal')}: {selectedDeleteLocalCount}</span>
+            <span>{t('sync.commitSummaryUploads')}: {selectionSummary.uploads}</span>
+            <span>{t('sync.commitSummaryDownloads')}: {selectionSummary.downloads}</span>
+            <span>{t('sync.commitSummaryDeleteRemote')}: {selectionSummary.deleteRemote}</span>
+            <span>{t('sync.commitSummaryDeleteLocal')}: {selectionSummary.deleteLocal}</span>
             <span>{t('sync.commitSummaryState')}: {planData.commit_summary.local_state_updates}</span>
           </div>
-          {#if hasLocalStateUpdates && !willCreateCommit}
+          {#if hasLocalStateUpdates && !selectionSummary.willCreateCommit}
             <p class="text-xs text-muted-foreground">{t('sync.localBaseOnly')}</p>
           {/if}
         </div>
@@ -515,9 +490,9 @@
       <div class="sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <span class="text-sm text-muted-foreground">
-            {t('sync.selectedCount', { count: selectedCount })}
+            {t('sync.selectedCount', { count: selectionSummary.selected })}
             {#if planData}
-              · {willCreateCommit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
+              · {selectionSummary.willCreateCommit ? t('sync.commitWillBeCreated') : t('sync.commitNone')}
             {/if}
           </span>
           <Button disabled={!canApply} loading={apply.isPending} onclick={handleApply}>

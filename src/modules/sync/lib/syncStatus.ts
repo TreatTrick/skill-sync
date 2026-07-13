@@ -16,6 +16,32 @@ export const SYNC_STATUS_FILTERS = [
 
 export type SyncStatusFilter = (typeof SYNC_STATUS_FILTERS)[number]
 
+export const summarizeSyncSelection = (
+  entries: SyncSkillEntry[],
+  decisions: SyncDecision[],
+) => {
+  const actions: (SyncStatus | SyncDecision)[] = [
+    ...entries.map((entry) => entry.status),
+    ...decisions,
+  ]
+  const count = (...types: (SyncStatus | SyncDecision)[]): number =>
+    actions.filter((action) => types.includes(action)).length
+  const uploads = count('local_update', 'keep_local')
+  const downloads = count('remote_update', 'use_remote', 'restore_remote')
+  const deleteRemote = count('local_deleted', 'delete_remote')
+  const deleteLocal = count('remote_deleted', 'accept_delete')
+
+  return {
+    selected: actions.length,
+    uploads,
+    downloads,
+    deleteRemote,
+    deleteLocal,
+    hasDelete: deleteRemote > 0 || deleteLocal > 0,
+    willCreateCommit: uploads > 0 || deleteRemote > 0,
+  }
+}
+
 export const isDeleteEntry = (entry: SyncSkillEntry): boolean =>
   entry.delete_direction !== null ||
   entry.status === 'local_deleted' ||
