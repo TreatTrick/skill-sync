@@ -7,8 +7,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::errors::{AppError, Result};
-use crate::github_app_config::GithubAppPublicConfig;
-use crate::github_credentials::GithubCredential;
+use crate::github::app_config::GithubAppPublicConfig;
+use crate::github::credentials::GithubCredential;
 
 const DEVICE_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:device_code";
 const REFRESH_GRANT_TYPE: &str = "refresh_token";
@@ -273,7 +273,7 @@ fn get_u64(body: &serde_json::Value, key: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::github_app_config::GithubAppPublicConfig;
+    use crate::github::app_config::GithubAppPublicConfig;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 

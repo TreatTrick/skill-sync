@@ -8,8 +8,8 @@ use base64::Engine;
 use sha2::{Digest, Sha256};
 
 use crate::errors::{AppError, Result};
-use crate::github_credentials::GithubAuthenticatedClient;
-use crate::github_repository::GithubRepositoryContext;
+use crate::github::credentials::GithubAuthenticatedClient;
+use crate::github::repository::GithubRepositoryContext;
 use crate::remote_store::{
     blob_path_for_hash, validate_blob_write, RemoteChanges, RemoteCommit, RemoteSnapshot,
     RemoteStore,
@@ -361,9 +361,9 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use crate::config::RemoteConfig;
-    use crate::github_app_config::GithubAppPublicConfig;
-    use crate::github_auth::GithubAuthClient;
-    use crate::github_credentials::{
+    use crate::github::app_config::GithubAppPublicConfig;
+    use crate::github::auth::GithubAuthClient;
+    use crate::github::credentials::{
         GithubCredential, GithubCredentialManager, InMemoryCredentialStore,
     };
     use crate::remote_store::{BlobWrite, RemoteChanges};

@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::RemoteConfig;
 use crate::errors::{AppError, Result};
-use crate::github_app_config::GithubAppPublicConfig;
-use crate::github_credentials::GithubAuthenticatedClient;
+use crate::github::app_config::GithubAppPublicConfig;
+use crate::github::credentials::GithubAuthenticatedClient;
 use crate::vault_manifest::VaultManifest;
 
 const INIT_COMMIT_MESSAGE: &str = "Initialize Skill Sync vault";
@@ -601,9 +601,9 @@ fn map_http_err(e: reqwest::Error) -> AppError {
 mod tests {
     use super::*;
     use crate::config::RemoteConfig;
-    use crate::github_app_config::GithubAppPublicConfig;
-    use crate::github_auth::GithubAuthClient;
-    use crate::github_credentials::{
+    use crate::github::app_config::GithubAppPublicConfig;
+    use crate::github::auth::GithubAuthClient;
+    use crate::github::credentials::{
         GithubCredential, GithubCredentialManager, InMemoryCredentialStore,
     };
     use chrono::{Duration, Utc};

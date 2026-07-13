@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::errors::{AppError, Result};
-use crate::github_auth::GithubAuthClient;
+use crate::github::auth::GithubAuthClient;
 
 #[cfg(test)]
 const SCHEMA: u32 = 1;
@@ -594,8 +594,8 @@ fn is_transient_status(status: reqwest::StatusCode) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::github_app_config::GithubAppPublicConfig;
-    use crate::github_auth::InternalPollResult;
+    use crate::github::app_config::GithubAppPublicConfig;
+    use crate::github::auth::InternalPollResult;
     use secrecy::SecretString;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
