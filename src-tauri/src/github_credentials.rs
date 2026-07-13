@@ -370,15 +370,7 @@ impl GithubAuthenticatedClient {
 
     pub(crate) async fn get(&self, url: &str) -> Result<reqwest::Response> {
         let cred = self.manager.valid_credential(&self.app_client_id).await?;
-        let resp = self
-            .http
-            .get(url)
-            .bearer_auth(cred.access_token.expose_secret())
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .send()
-            .await
-            .map_err(map_http_err)?;
+        let resp = self.send_get(url, &cred.access_token).await?;
         if resp.status().as_u16() == 401 {
             return self.retry_get(url, cred.generation).await;
         }
@@ -396,20 +388,50 @@ impl GithubAuthenticatedClient {
                 "refresh did not produce new generation".into(),
             ));
         }
-        let resp = self
-            .http
-            .get(url)
-            .bearer_auth(cred.access_token.expose_secret())
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .send()
-            .await
-            .map_err(map_http_err)?;
+        let resp = self.send_get(url, &cred.access_token).await?;
         if resp.status().as_u16() == 401 {
             drop(self.manager.clear().await);
             return Err(AppError::ReauthorizationRequired("second 401".into()));
         }
         Ok(resp)
+    }
+
+    /// 发送带认证的 GET。对瞬时 5xx（500/502/503/504）与网络错误按指数退避重试，
+    /// 401 不在此处理（由调用方触发凭证刷新重放），其余状态原样返回。
+    /// 仅用于读请求：写请求即使 5xx 也可能已落库，不重试以避免重复写入。
+    async fn send_get(&self, url: &str, token: &SecretString) -> Result<reqwest::Response> {
+        const MAX_ATTEMPTS: u32 = 4;
+        const BASE_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+        const MAX_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        let mut delay = BASE_DELAY;
+        for attempt in 0..MAX_ATTEMPTS {
+            let last = attempt + 1 == MAX_ATTEMPTS;
+            match self
+                .http
+                .get(url)
+                .bearer_auth(token.expose_secret())
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .send()
+                .await
+            {
+                Ok(resp) if !last && is_transient_status(resp.status()) => {
+                    drop(resp);
+                    tokio::time::sleep(delay).await;
+                    delay = (delay * 2).min(MAX_DELAY);
+                    continue;
+                }
+                Ok(resp) => return Ok(resp),
+                Err(_) if !last => {
+                    tokio::time::sleep(delay).await;
+                    delay = (delay * 2).min(MAX_DELAY);
+                    continue;
+                }
+                Err(e) => return Err(map_http_err(e)),
+            }
+        }
+        unreachable!("send_get 最后一次迭代必然 return")
     }
 
     /// PUT JSON。写请求只有明确 401（GitHub 未执行）才重放一次；409/422/网络错误不重试。
@@ -562,6 +584,11 @@ impl GithubAuthenticatedClient {
 
 fn map_http_err(e: reqwest::Error) -> AppError {
     AppError::Auth(format!("http error: {e}"))
+}
+
+/// GitHub 偶发的瞬时服务端错误，读请求可安全重试。
+fn is_transient_status(status: reqwest::StatusCode) -> bool {
+    matches!(status.as_u16(), 500 | 502 | 503 | 504)
 }
 
 #[cfg(test)]
@@ -760,6 +787,37 @@ mod tests {
             store.load().await.unwrap().unwrap().generation,
             cred.generation
         );
+    }
+
+    #[tokio::test]
+    async fn authenticated_client_retries_transient_5xx_on_get() {
+        let store = Arc::new(InMemoryCredentialStore::new());
+        let server = MockServer::start().await;
+        // GET /api/resource 首次 503，重试后 200
+        Mock::given(method("GET"))
+            .and(path("/api/resource"))
+            .respond_with(ResponseTemplate::new(503))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/resource"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"ok": true})))
+            .mount(&server)
+            .await;
+
+        let manager = Arc::new(GithubCredentialManager::new(
+            store.clone(),
+            auth_client(&server),
+        ));
+        let cred = fresh_credential("octocat", "Iv1.test", 3600);
+        manager.save_initial(&cred).await.unwrap();
+        let client = GithubAuthenticatedClient::new(manager, "Iv1.test".into()).unwrap();
+        let resp = client
+            .get(&format!("{}/api/resource", server.uri()))
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), 200);
     }
 
     #[tokio::test]
