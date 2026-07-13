@@ -217,6 +217,8 @@
     "resumeRecovery": "Continue recovery",
     "searchPlaceholder": "Search name, namespace, or path",
     "selectAction": "Select {{name}}",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
     "selectedCount": "{{count}} selected",
     "skip": "Skip this round",
     "status": {

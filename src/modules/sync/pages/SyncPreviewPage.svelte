@@ -148,6 +148,18 @@
       )
       .map((entry) => entry.action_id)
 
+  const visibleSelectableActionIds = $derived(
+    visibleEntries
+      .filter((entry) => isSelectable(entry))
+      .map((entry) => entry.action_id),
+  )
+  const canSelectAll = $derived(
+    visibleSelectableActionIds.some((id) => !selectedActionIds.includes(id)),
+  )
+  const canSelectNone = $derived(
+    visibleSelectableActionIds.some((id) => selectedActionIds.includes(id)),
+  )
+
   $effect(() => {
     const currentPlan = plan.data
     const fingerprint = currentPlan?.plan_fingerprint
@@ -233,6 +245,20 @@
     selectedActionIds = selected
       ? [...selectedActionIds, actionId]
       : selectedActionIds.filter((id) => id !== actionId)
+  }
+
+  const selectAllVisible = (): void => {
+    const next = [...selectedActionIds]
+    for (const id of visibleSelectableActionIds) {
+      if (!next.includes(id)) next.push(id)
+    }
+    selectedActionIds = next
+  }
+
+  const selectNoneVisible = (): void => {
+    selectedActionIds = selectedActionIds.filter(
+      (id) => !visibleSelectableActionIds.includes(id),
+    )
   }
 
   const openConflict = (entry: SyncSkillEntry): void => {
@@ -412,6 +438,24 @@
             {/each}
           </SelectContent>
         </Select>
+        <div class="flex gap-2">
+          <Button
+            variant="outline"
+            class="flex-1 sm:flex-none"
+            onclick={selectAllVisible}
+            disabled={!canSelectAll}
+          >
+            {t('sync.selectAll')}
+          </Button>
+          <Button
+            variant="outline"
+            class="flex-1 sm:flex-none"
+            onclick={selectNoneVisible}
+            disabled={!canSelectNone}
+          >
+            {t('sync.selectNone')}
+          </Button>
+        </div>
       </div>
 
       {#if plan.isLoading}

@@ -217,6 +217,8 @@
     "resumeRecovery": "继续恢复",
     "searchPlaceholder": "搜索名称、namespace 或路径",
     "selectAction": "选择 {{name}}",
+    "selectAll": "全选",
+    "selectNone": "全不选",
     "selectedCount": "已选 {{count}} 项",
     "skip": "跳过本次",
     "status": {
