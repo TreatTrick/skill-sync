@@ -449,6 +449,7 @@
           {#each visibleEntries as entry (entry.action_id)}
             <div in:fade={{ duration: 100 }} animate:flip={{ duration: 150 }}>
               <SyncSkillCard
+                decision={syncDecisions.decisions[entry.skill_id]}
                 entry={entry}
                 onOpenConflict={entry.conflict_reason ? () => openConflict(entry) : undefined}
                 onToggle={isSelectable(entry) ? (selected) => toggleAction(entry.action_id, selected) : undefined}

@@ -13,13 +13,15 @@
   } from '@/shared/ui'
 
   import {
+    decisionLabelKey,
     statusLabelKey,
     statusTone,
   } from '../lib/syncStatus'
-  import type { SyncSkillEntry } from '../schemas/syncPlan'
+  import type { SyncDecision, SyncSkillEntry } from '../schemas/syncPlan'
 
   interface Props {
     entry: SyncSkillEntry
+    decision?: SyncDecision
     selected?: boolean
     requiresConfirmation?: boolean
     onToggle?: (selected: boolean) => void
@@ -28,6 +30,7 @@
 
   let {
     entry,
+    decision,
     selected = false,
     requiresConfirmation = false,
     onToggle,
@@ -47,9 +50,19 @@
     return null
   }
 
+  const decisionTone = (
+    choice: SyncDecision,
+  ): 'neutral' | 'success' | 'warning' | 'destructive' | 'remote' => {
+    if (choice === 'keep_local') return 'success'
+    if (choice === 'use_remote' || choice === 'restore_remote') return 'remote'
+    if (choice === 'delete_remote' || choice === 'accept_delete') {
+      return 'destructive'
+    }
+    return 'neutral'
+  }
 </script>
 
-<Card class={cn('h-full transition-shadow hover:shadow-md', selected && 'border-primary bg-primary-muted/30')}>
+<Card class={cn('h-full transition-shadow hover:shadow-md', (selected || decision) && 'border-primary bg-primary-muted/30')}>
   <CardContent class="grid gap-3 p-4">
     <div class="flex items-start gap-3">
       {#if onToggle}
@@ -68,6 +81,11 @@
           <StatusBadge tone={statusTone(entry.status)}>
             {t(statusLabelKey(entry.status))}
           </StatusBadge>
+          {#if decision}
+            <StatusBadge tone={decisionTone(decision)}>
+              {t(decisionLabelKey(decision))}
+            </StatusBadge>
+          {/if}
         </div>
         <p class="mt-1 truncate font-mono text-xs text-muted-foreground">{entry.skill_id}</p>
       </div>

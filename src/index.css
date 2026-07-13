@@ -25,6 +25,11 @@
   --info-muted-foreground: #1d4ed8;
   --info-border: #bfdbfe;
 
+  /* 云端操作 - 紫色 */
+  --remote: #7e22ce;
+  --remote-muted: #f3e8ff;
+  --remote-border: #d8b4fe;
+
   /* Warning */
   --warning: #b45309;
   --warning-muted: #fff7e6;
@@ -94,6 +99,11 @@
   --info-muted-foreground: #93b4ff;
   --info-border: #1e3a5f;
 
+  /* 云端操作 - 紫色 */
+  --remote: #d8b4fe;
+  --remote-muted: #2e1065;
+  --remote-border: #6b21a8;
+
   /* Warning */
   --warning: #f59e0b;
   --warning-muted: #2a1f0a;
@@ -149,6 +159,10 @@
   --color-info-muted: var(--info-muted);
   --color-info-muted-foreground: var(--info-muted-foreground);
   --color-info-border: var(--info-border);
+
+  --color-remote: var(--remote);
+  --color-remote-muted: var(--remote-muted);
+  --color-remote-border: var(--remote-border);
 
   --color-warning: var(--warning);
   --color-warning-muted: var(--warning-muted);

@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte'
   import { cn } from '@/shared/lib/utils'
 
-  type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'info'
+  type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'info' | 'remote'
 
   interface Props {
     tone?: Tone
@@ -18,6 +18,7 @@
     warning: 'bg-warning-muted text-warning',
     destructive: 'bg-destructive-muted text-destructive',
     info: 'bg-primary-muted text-primary-muted-foreground',
+    remote: 'bg-remote-muted text-remote',
   }
 </script>
 
