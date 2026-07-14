@@ -52,10 +52,12 @@
   <Input bind:value={search} placeholder={t('sync.searchPlaceholder')} />
   <Select type="single" bind:value={statusFilter}>
     <SelectTrigger aria-label={t('sync.filterLabel')} class="sm:w-52">
-      <span class="truncate">{t(statusFilterLabel(statusFilter))}</span>
-      {#if totalChanges > 0}
-        {@render countBadge(totalChanges)}
-      {/if}
+      <span class="flex min-w-0 items-center gap-1.5">
+        <span class="truncate">{t(statusFilterLabel(statusFilter))}</span>
+        {#if totalChanges > 0}
+          {@render countBadge(totalChanges)}
+        {/if}
+      </span>
     </SelectTrigger>
     <SelectContent>
       {#each SYNC_STATUS_FILTERS as filter (filter)}
