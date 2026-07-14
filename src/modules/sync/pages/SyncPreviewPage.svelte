@@ -384,7 +384,7 @@
           label={t('dashboard.metrics.conflicts')}
           value={planData?.conflicts.length ?? 0}
           icon={TriangleAlert}
-          tone={(planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral'}
+          tone="warning"
           filter="conflict"
           activeFilter={statusFilter}
           onFilter={(f) => { statusFilter = f }}
