@@ -35,6 +35,8 @@
   import SyncMetric from '../components/SyncMetric.svelte'
   import SyncSkillCard from '../components/SyncSkillCard.svelte'
   import {
+    countSyncChanges,
+    EMPTY_SYNC_CHANGE_COUNTS,
     isDeleteEntry,
     matchesEntry,
     summarizeSyncSelection,
@@ -99,6 +101,15 @@
       selectedEntries,
       Object.values(syncDecisions.decisions),
     ),
+  )
+  const changeCounts = $derived(
+    planData ? countSyncChanges(planData.entries) : EMPTY_SYNC_CHANGE_COUNTS,
+  )
+  const totalChanges = $derived(
+    changeCounts.local_update +
+      changeCounts.remote_update +
+      changeCounts.deleted +
+      changeCounts.conflict,
   )
   const hasLocalStateUpdates = $derived(
     (planData?.base_adoptions.length ?? 0) > 0 ||
@@ -401,6 +412,8 @@
       <SyncFilterBar
         bind:search
         bind:statusFilter
+        changeCounts={changeCounts}
+        totalChanges={totalChanges}
         canSelectAll={canSelectAll}
         canSelectNone={canSelectNone}
         onSelectAll={selectAllVisible}
