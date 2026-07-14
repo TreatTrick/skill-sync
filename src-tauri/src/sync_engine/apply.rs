@@ -645,14 +645,19 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
 
     // 上传 + 删云端 -> next_manifest
     let mut blobs: Vec<BlobWrite> = Vec::new();
+    // 内容寻址去重：相同 hash 推导出相同 blob path，多个 skill 在 manifest 中共享同一 blob；
+    // git tree 每个 path 唯一，故相同内容只写入一次，避免触发远端重复路径断言。
+    let mut seen_blob_paths: HashSet<String> = HashSet::new();
     for up in &uploads {
-        let bytes = fs::read(&up.zip_path)?;
         let blob_path = blob_path_for_hash(&up.hash)?;
-        blobs.push(BlobWrite {
-            path: blob_path.clone(),
-            bytes,
-            expected_hash: up.hash.clone(),
-        });
+        if seen_blob_paths.insert(blob_path.clone()) {
+            let bytes = fs::read(&up.zip_path)?;
+            blobs.push(BlobWrite {
+                path: blob_path.clone(),
+                bytes,
+                expected_hash: up.hash.clone(),
+            });
+        }
         next_manifest.skills.insert(
             up.skill_id.clone(),
             VaultSkill {
@@ -1221,6 +1226,58 @@ mod tests {
                 assert!(result.remote_commit.is_some());
                 assert_eq!(*store.commit_count.lock().unwrap(), 1);
                 assert!(state.skills.contains_key("codex:demo"));
+            }
+            _ => panic!("expected Applied"),
+        }
+    }
+
+    #[tokio::test]
+    async fn uploading_identical_skills_across_namespaces_dedupes_single_blob() {
+        let home = temp_home();
+        // 两个不同 namespace 下内容完全相同的 skill：skill_id 不同，但打包 hash 相同。
+        make_skill(home.path(), Codex, "demo", "demo");
+        make_skill(home.path(), Agents, "demo", "demo");
+        let config = apply_config();
+        let mut state = apply_state();
+        let store = mock_store(VaultManifest::empty("d"));
+        let prepared = prepare_plan(&config, &state, &store, home.path())
+            .await
+            .unwrap();
+        let plan = prepared.plan.clone();
+        drop(prepared);
+        let req = apply_request(
+            &plan,
+            vec![
+                action_id_of(&plan, "codex:demo"),
+                action_id_of(&plan, "agents:demo"),
+            ],
+            HashMap::new(),
+            false,
+        );
+        let cfgdir = tempfile::tempdir().unwrap();
+        let resp = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap();
+        match resp {
+            ApplySyncResponse::Applied { result } => {
+                // 去重后仅一次远端提交：一个 blob + manifest 含两个 skill。
+                assert_eq!(*store.commit_count.lock().unwrap(), 1);
+                assert!(result.remote_commit.is_some());
+                assert!(state.skills.contains_key("codex:demo"));
+                assert!(state.skills.contains_key("agents:demo"));
+                // manifest 中两个 skill 共享同一 blob path。
+                let captured = store.captured_manifest.lock().unwrap().clone().unwrap();
+                let codex = captured.skills.get("codex:demo").unwrap();
+                let agents = captured.skills.get("agents:demo").unwrap();
+                assert_eq!(codex.hash, agents.hash);
+                assert_eq!(codex.blob, agents.blob);
             }
             _ => panic!("expected Applied"),
         }
