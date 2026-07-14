@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query'
   import { goto } from '$app/navigation'
-  import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle, Package, RefreshCw, Sparkles } from '@lucide/svelte'
+  import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle, Package, RefreshCw, Sparkles, Trash2 } from '@lucide/svelte'
   import { fade, fly } from 'svelte/transition'
   import { flip } from 'svelte/animate'
 
@@ -332,7 +332,7 @@
         </Button>
       </div>
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <SyncMetric
           label={t('dashboard.metrics.discovered')}
           value={skills.length}
@@ -342,7 +342,7 @@
           label={t('dashboard.metrics.toUpload')}
           value={planData?.uploads.length ?? 0}
           icon={ArrowUpFromLine}
-          tone="neutral"
+          tone="info"
           filter="local_update"
           activeFilter={statusFilter}
           onFilter={(f) => { statusFilter = f }}
@@ -351,8 +351,17 @@
           label={t('dashboard.metrics.toDownload')}
           value={planData?.downloads.length ?? 0}
           icon={ArrowDownToLine}
-          tone="neutral"
+          tone="success"
           filter="remote_update"
+          activeFilter={statusFilter}
+          onFilter={(f) => { statusFilter = f }}
+        />
+        <SyncMetric
+          label={t('dashboard.metrics.toDelete')}
+          value={(planData?.delete_remote.length ?? 0) + (planData?.delete_local.length ?? 0)}
+          icon={Trash2}
+          tone="destructive"
+          filter="deleted"
           activeFilter={statusFilter}
           onFilter={(f) => { statusFilter = f }}
         />
@@ -360,7 +369,7 @@
           label={t('dashboard.metrics.conflicts')}
           value={planData?.conflicts.length ?? 0}
           icon={AlertTriangle}
-          tone={(planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral'}
+          tone="warning"
           filter="conflict"
           activeFilter={statusFilter}
           onFilter={(f) => { statusFilter = f }}

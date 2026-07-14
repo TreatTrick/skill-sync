@@ -113,6 +113,7 @@
       "lastSync": "最近同步",
       "never": "尚未同步",
       "toDownload": "待下载",
+      "toDelete": "待删除",
       "toUpload": "待上传"
     },
     "notConfigured": "尚未配置同步仓库，请先完成初始配置。",

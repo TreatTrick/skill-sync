@@ -113,6 +113,7 @@
       "lastSync": "Last sync",
       "never": "Never synced",
       "toDownload": "To download",
+      "toDelete": "To delete",
       "toUpload": "To upload"
     },
     "notConfigured": "No sync repository configured. Please complete setup first.",
