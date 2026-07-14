@@ -18,6 +18,16 @@
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20Apple%20Silicon-0078D4" alt="Platform: Windows x64 and Apple Silicon" /></a>
 </p>
 
+## Application preview
+
+### English interface
+
+![Skill Sync sync preview in English](docs/images/skill-sync-english.png)
+
+### Chinese interface
+
+![Skill Sync sync preview in Chinese](docs/images/skill-sync-chinese.png)
+
 ## Why Skill Sync
 
 Copying Skills by hand between computers is slow and makes it easy to overwrite a newer edit. Skill Sync gives Codex, Claude Code, and general agent Skills one private GitHub Vault, while keeping scanning, comparison, and apply operations on your machine.

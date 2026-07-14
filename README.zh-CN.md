@@ -18,6 +18,16 @@
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20Apple%20Silicon-0078D4" alt="平台：Windows x64 与 Apple Silicon" /></a>
 </p>
 
+## 软件截图
+
+### 中文界面
+
+![Skill Sync 中文同步预览](docs/images/skill-sync-chinese.png)
+
+### 英文界面
+
+![Skill Sync 英文同步预览](docs/images/skill-sync-english.png)
+
 ## 为什么选择 Skill Sync
 
 在不同电脑之间手动复制 Skills 不仅费事，也很容易用旧内容覆盖新修改。Skill Sync 为 Codex、Claude Code 和通用 agent Skills 提供一个私有 GitHub Vault，同时在本机完成扫描、比较和 apply。
