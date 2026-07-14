@@ -42,9 +42,6 @@
     "settings": "设置",
     "sync": "同步"
   },
-  "routeGroups": {
-    "main": "工作区"
-  },
   "onboarding": {
     "branch": "分支",
     "bindingRequired": "完成 Vault 连接后才能进入同步与设置",

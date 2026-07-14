@@ -6,17 +6,9 @@
   import { t } from '@/shared/i18n'
   import { uiState } from '@/shared/state'
 
-  import { appRoutes, type RouteGroupKey } from '../router/routeConfig'
+  import { appRoutes } from '../router/routeConfig'
 
   let { children } = $props()
-
-  const routeGroups = appRoutes.reduce<Record<string, typeof appRoutes>>(
-    (groups, route) => {
-      groups[route.group] = [...(groups[route.group] ?? []), route]
-      return groups
-    },
-    {},
-  )
 
   const currentRoute = $derived(
     appRoutes.find((route) => route.path === page.url.pathname) ?? appRoutes[0],
@@ -52,38 +44,28 @@
       aria-label={t('layout.navLabel')}
       class="grid flex-1 content-start gap-4 px-3 pb-4 pt-2 sm:grid-cols-2 lg:grid-cols-1 lg:overflow-auto"
     >
-      {#each Object.entries(routeGroups) as [group, routes] (group)}
-        <div class="grid gap-1">
-          <div
+      <div class="grid gap-1">
+        {#each appRoutes as route (route.path)}
+          {@const Icon = route.icon}
+          {@const isActive = page.url.pathname === route.path}
+          <a
             class={cn(
-              'px-2.5 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground',
-              uiState.sidebarCollapsed && 'lg:hidden',
+              'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
+              uiState.sidebarCollapsed && 'lg:justify-center lg:px-0',
+              isActive
+                ? 'bg-primary-muted font-bold text-primary-muted-foreground'
+                : 'text-foreground hover:bg-surface-hover',
             )}
+            href={route.path}
+            title={uiState.sidebarCollapsed ? t(route.title) : undefined}
           >
-            {t(group as RouteGroupKey)}
-          </div>
-          {#each routes as route (route.path)}
-            {@const Icon = route.icon}
-            {@const isActive = page.url.pathname === route.path}
-            <a
-              class={cn(
-                'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
-                uiState.sidebarCollapsed && 'lg:justify-center lg:px-0',
-                isActive
-                  ? 'bg-primary-muted font-bold text-primary-muted-foreground'
-                  : 'text-foreground hover:bg-surface-hover',
-              )}
-              href={route.path}
-              title={uiState.sidebarCollapsed ? t(route.title) : undefined}
-            >
-              <Icon class="size-4 shrink-0" />
-              <span class={cn('truncate', uiState.sidebarCollapsed && 'lg:hidden')}>
-                {t(route.title)}
-              </span>
-            </a>
-          {/each}
-        </div>
-      {/each}
+            <Icon class="size-4 shrink-0" />
+            <span class={cn('truncate', uiState.sidebarCollapsed && 'lg:hidden')}>
+              {t(route.title)}
+            </span>
+          </a>
+        {/each}
+      </div>
     </nav>
 
     <div class="hidden shrink-0 px-3 pb-4 pt-2 lg:block">

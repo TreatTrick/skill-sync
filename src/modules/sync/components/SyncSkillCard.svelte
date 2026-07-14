@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AlertTriangle, ChevronRight } from '@lucide/svelte'
+  import { ChevronRight, FolderOpen, TriangleAlert } from '@lucide/svelte'
 
   import { cn } from '@/shared/lib'
   import { t } from '@/shared/i18n'
@@ -26,6 +26,7 @@
     requiresConfirmation?: boolean
     onToggle?: (selected: boolean) => void
     onOpenConflict?: () => void
+    onOpenFolder?: () => void
   }
 
   let {
@@ -35,12 +36,8 @@
     requiresConfirmation = false,
     onToggle,
     onOpenConflict,
+    onOpenFolder,
   }: Props = $props()
-
-  const shortHash = (hash: string | null): string => {
-    if (!hash) return t('sync.notAvailable')
-    return hash.length > 12 ? hash.slice(0, 12) : hash
-  }
 
   const deleteLabelKey = (
     entry: SyncSkillEntry,
@@ -91,29 +88,27 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-      <div class="truncate">
-        <span class="text-foreground">{t('sync.entry.localHash')}:</span>
-        <span class="font-mono">{shortHash(entry.local_hash)}</span>
-      </div>
-      <div class="truncate">
-        <span class="text-foreground">{t('sync.entry.remoteHash')}:</span>
-        <span class="font-mono">{shortHash(entry.remote_hash)}</span>
-      </div>
-      <div class="truncate">
-        <span class="text-foreground">{t('sync.entry.baseHash')}:</span>
-        <span class="font-mono">{shortHash(entry.base_hash)}</span>
-      </div>
-    </div>
-
     <div class="grid gap-1 text-xs text-muted-foreground">
       <div class="truncate">
         <span class="text-foreground">{t('sync.entry.path')}:</span>
         <span class="font-mono">{entry.local_path ?? entry.relative_dir ?? t('sync.notAvailable')}</span>
       </div>
-      <div class="truncate">
-        <span class="text-foreground">{t('sync.entry.folder')}:</span>
-        {entry.folder_name}
+      <div class="flex items-center justify-between gap-2">
+        <div class="min-w-0 truncate">
+          <span class="text-foreground">{t('sync.entry.folder')}:</span>
+          {entry.folder_name}
+        </div>
+        {#if onOpenFolder}
+          <Button
+            aria-label={t('skills.openFolder')}
+            class="size-6 shrink-0 p-0"
+            onclick={onOpenFolder}
+            title={t('skills.openFolder')}
+            variant="ghost"
+          >
+            <FolderOpen class="size-4" />
+          </Button>
+        {/if}
       </div>
     </div>
 
@@ -125,7 +120,7 @@
 
     {#if requiresConfirmation}
       <div class="flex items-center gap-2 text-xs font-medium text-warning">
-        <AlertTriangle class="size-4 shrink-0" />
+        <TriangleAlert class="size-4 shrink-0" />
         {t('sync.confirmDelete')}
       </div>
     {/if}

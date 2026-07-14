@@ -42,9 +42,6 @@
     "settings": "Settings",
     "sync": "Sync"
   },
-  "routeGroups": {
-    "main": "Workspace"
-  },
   "onboarding": {
     "branch": "Branch",
     "bindingRequired": "Connect a Vault before entering Sync or Settings",

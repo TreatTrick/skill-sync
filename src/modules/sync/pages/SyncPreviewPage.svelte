@@ -1,11 +1,11 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query'
   import { goto } from '$app/navigation'
-  import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle, Package, RefreshCw, Sparkles, Trash2 } from '@lucide/svelte'
+  import { ArrowDownToLine, ArrowUpFromLine, CheckCircle, Package, RefreshCw, Sparkles, Trash2, TriangleAlert } from '@lucide/svelte'
   import { fade, fly } from 'svelte/transition'
   import { flip } from 'svelte/animate'
 
-  import { errorMessage } from '@/shared/lib'
+  import { errorMessage, openPath } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import type { RecoveryInfo } from '@/shared/schemas'
   import {
@@ -261,6 +261,10 @@
     conflictDialogOpen = selectedConflict !== null
   }
 
+  const openSkillFolder = (entry: SyncSkillEntry): void => {
+    if (entry.local_path) void openPath(entry.local_path)
+  }
+
   const handleDecision = (choice: SyncDecision): void => {
     if (selectedConflict) {
       syncDecisions.setDecision(selectedConflict.skill_id, choice)
@@ -379,8 +383,8 @@
         <SyncMetric
           label={t('dashboard.metrics.conflicts')}
           value={planData?.conflicts.length ?? 0}
-          icon={AlertTriangle}
-          tone="warning"
+          icon={TriangleAlert}
+          tone={(planData?.conflicts.length ?? 0) > 0 ? 'warning' : 'neutral'}
           filter="conflict"
           activeFilter={statusFilter}
           onFilter={(f) => { statusFilter = f }}
@@ -396,7 +400,7 @@
       {#if planData?.delete_guard_tripped}
         <Callout tone="warning">
           {#snippet icon()}
-            <AlertTriangle class="size-4" />
+            <TriangleAlert class="size-4" />
           {/snippet}
           <div class="grid gap-1">
             <strong class="font-semibold">{t('sync.deleteGuard.title')}</strong>
@@ -463,6 +467,7 @@
                 decision={syncDecisions.decisions[entry.skill_id]}
                 entry={entry}
                 onOpenConflict={entry.conflict_reason ? () => openConflict(entry) : undefined}
+                onOpenFolder={entry.local_path ? () => openSkillFolder(entry) : undefined}
                 onToggle={isSelectable(entry) ? (selected) => toggleAction(entry.action_id, selected) : undefined}
                 requiresConfirmation={isDeleteEntry(entry)}
                 selected={selectedActionIds.includes(entry.action_id)}

@@ -8,7 +8,7 @@
   import { errorMessage, isWorkspaceReady, openPath, SkillSyncError } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { useQueryClient, createQuery } from '@tanstack/svelte-query'
-  import { AlertTriangle, ExternalLink, LoaderCircle } from '@lucide/svelte'
+  import { ExternalLink, LoaderCircle, TriangleAlert } from '@lucide/svelte'
   import {
     Button,
     Callout,
@@ -437,7 +437,7 @@
   {#if message}
     <Callout tone="danger">
       {#snippet icon()}
-        <AlertTriangle class="size-4" />
+        <TriangleAlert class="size-4" />
       {/snippet}
       {message}
     </Callout>
