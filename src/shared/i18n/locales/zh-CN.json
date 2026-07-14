@@ -280,6 +280,9 @@
     "singleLimitTooLarge": "单文件解压上限不能大于单个 Skill 累计解压上限。",
     "skillRoots": "Skill 目录",
     "skillRootsReadOnly": "目录由对应工具约定，只读展示；项目级目录不在 V1 管理范围。",
+    "supportOnGithub": "在 GitHub 上支持",
+    "supportProject": "支持 Skill Sync",
+    "supportProjectDescription": "如果 Skill Sync 对你有帮助，可以在 GitHub 上为项目点个 Star。",
     "themeDark": "暗色",
     "themeLight": "亮色",
     "themeSystem": "跟随系统"

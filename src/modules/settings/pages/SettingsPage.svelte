@@ -1,16 +1,18 @@
 <script lang="ts">
   import { createQuery, useQueryClient } from '@tanstack/svelte-query'
   import { goto } from '$app/navigation'
-  import { Monitor, Moon, Sun } from '@lucide/svelte'
+  import { Monitor, Moon, Star, Sun } from '@lucide/svelte'
   import type { Component } from 'svelte'
 
   import { errorMessage, openPath } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { languageState, themeState, type ThemeMode } from '@/shared/state'
   import {
+    Button,
     Card,
     CardContent,
     CardDescription,
+    CardFooter,
     CardHeader,
     CardTitle,
     SegmentedControl,
@@ -33,6 +35,7 @@
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
+  const PROJECT_REPOSITORY_URL = 'https://github.com/TreatTrick/skill-sync'
 
   const queryClient = useQueryClient()
   const appState = createQuery(() => ({
@@ -111,6 +114,14 @@
     try {
       await navigator.clipboard.writeText(path)
       toast.success(t('settings.pathCopied'))
+    } catch (error) {
+      toast.error(errorMessage(error))
+    }
+  }
+
+  const openProjectRepository = async (): Promise<void> => {
+    try {
+      await openPath(PROJECT_REPOSITORY_URL)
     } catch (error) {
       toast.error(errorMessage(error))
     }
@@ -204,6 +215,19 @@
       onOpenPath={(path) => void openPath(path)}
       onCopyPath={(path) => void copyPath(path)}
     />
+
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('settings.supportProject')}</CardTitle>
+        <CardDescription>{t('settings.supportProjectDescription')}</CardDescription>
+      </CardHeader>
+      <CardFooter>
+        <Button variant="outline" onclick={() => void openProjectRepository()}>
+          <Star />
+          {t('settings.supportOnGithub')}
+        </Button>
+      </CardFooter>
+    </Card>
   {/if}
 
   <DisconnectGithubDialog bind:open={disconnectDialogOpen} onConfirm={() => void handleDisconnect()} />

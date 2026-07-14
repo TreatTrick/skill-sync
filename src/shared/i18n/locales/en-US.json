@@ -280,6 +280,9 @@
     "singleLimitTooLarge": "The single-file unpacked limit cannot exceed the total unpacked limit per Skill.",
     "skillRoots": "Skill directories",
     "skillRootsReadOnly": "Directories are defined by the corresponding tools and are read-only; project-level directories are outside V1.",
+    "supportOnGithub": "Support on GitHub",
+    "supportProject": "Support Skill Sync",
+    "supportProjectDescription": "If Skill Sync is useful to you, you can support the project with a Star on GitHub.",
     "themeDark": "Dark",
     "themeLight": "Light",
     "themeSystem": "System"
