@@ -236,7 +236,7 @@
     "localBaseUpdated": "Updated {{count}} local sync base item(s)",
     "notAvailable": "Unavailable",
     "notConfigured": "No sync repository configured.",
-    "planChanged": "The sync plan changed. Review it again before applying.",
+    "planChanged": "Skills changed. Press \"Recheck\" to refresh.",
     "recheck": "Recheck",
     "recoveryCompleted": "Sync recovery completed.",
     "recoveryCompletedCount": "Completed actions",

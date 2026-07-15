@@ -236,7 +236,7 @@
     "localBaseUpdated": "已更新 {{count}} 个本机同步基线",
     "notAvailable": "暂无",
     "notConfigured": "尚未配置同步仓库。",
-    "planChanged": "同步计划已变化，请重新确认",
+    "planChanged": "skill已变化，请点击“重新检查”刷新",
     "recheck": "重新检查",
     "recoveryCompleted": "同步恢复已完成。",
     "recoveryCompletedCount": "已完成动作",
