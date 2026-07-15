@@ -62,6 +62,8 @@
     | 'rate_limited'
     | 'ready'
 
+  const CREATE_GITHUB_REPOSITORY_URL = 'https://github.com/new'
+
   const appState = createQuery(() => ({
     queryKey: ['app-state'],
     queryFn: getAppState,
@@ -468,6 +470,7 @@
     <InstallAppStage
       stage={stage}
       installUrl={appInfo?.install_url ?? null}
+      createRepositoryUrl={CREATE_GITHUB_REPOSITORY_URL}
       busy={busy}
       onOpenExternal={(event, url) => void openExternal(event, url)}
       onCheckInstallation={() => void discoverRepository()}

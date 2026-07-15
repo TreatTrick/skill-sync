@@ -7,6 +7,7 @@
   interface Props {
     stage: 'install_app' | 'repository_scope_blocked'
     installUrl: string | null
+    createRepositoryUrl: string
     busy: boolean
     onOpenExternal: (event: MouseEvent, url: string) => void
     onCheckInstallation: () => void
@@ -15,6 +16,7 @@
   let {
     stage,
     installUrl,
+    createRepositoryUrl,
     busy,
     onOpenExternal,
     onCheckInstallation,
@@ -27,13 +29,24 @@
     <p class="text-sm text-muted-foreground">
       {stage === 'repository_scope_blocked' ? t('github.adjustScope') : t('github.installDescription')}
     </p>
+    {#if stage === 'install_app'}
+      <Button
+        class="w-fit"
+        onclick={(event: MouseEvent) => onOpenExternal(event, createRepositoryUrl)}
+        variant="outline"
+      >
+        {t('github.createRepository')} <ExternalLink class="size-4" />
+      </Button>
+    {/if}
     {#if installUrl}
       <Button
         class="w-fit"
         onclick={(event: MouseEvent) => onOpenExternal(event, installUrl ?? '')}
         variant="outline"
       >
-        {t('github.installApp')} <ExternalLink class="size-4" />
+        {stage === 'repository_scope_blocked'
+          ? t('github.adjustInstallation')
+          : t('github.installApp')} <ExternalLink class="size-4" />
       </Button>
     {/if}
     <Button disabled={busy} loading={busy} onclick={onCheckInstallation} variant="outline">

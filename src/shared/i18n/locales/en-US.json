@@ -46,7 +46,7 @@
     "branch": "Branch",
     "bindingRequired": "Connect a Vault before entering Sync or Settings",
     "cancelReconfigure": "Cancel reconfiguration",
-    "description": "Connect one private Vault repository through the GitHub App before entering the sync workspace.",
+    "description": "Connect one Vault repository (private recommended) through the GitHub App before entering the sync workspace.",
     "progress": "Step {{current}}/{{total}}",
     "stage": {
       "appNotConfigured": "Release setup",
@@ -59,6 +59,7 @@
     "title": "Initial Setup"
   },
   "github": {
+    "adjustInstallation": "Adjust GitHub App installation",
     "adjustScope": "This GitHub App installation is not limited to one vault repository. Adjust its scope and check again.",
     "appNotConfigured": "GitHub App is not configured",
     "appNotConfiguredDescription": "This release does not contain the public GitHub App client id / slug, so authorization cannot start.",
@@ -73,6 +74,7 @@
     "confirmRebind": "I confirm switching Vaults and archiving the current local sync base",
     "confirmRebindRequired": "Confirm archiving the current local sync base before switching Vaults.",
     "connectGithub": "Authorize with GitHub",
+    "createRepository": "Create Vault repository",
     "deviceAuthorizationFailed": "GitHub Device Flow did not complete. Start authorization again.",
     "deviceCodeLabel": "Enter this code on the GitHub verification page",
     "deviceCodeCopied": "Code copied",
@@ -80,7 +82,7 @@
     "initializeCreatesCommit": "This creates an initialization commit containing manifest.json in the target repository.",
     "initializeVault": "Initialize Vault",
     "installApp": "Install GitHub App",
-    "installDescription": "Install the GitHub App into an installation containing exactly one vault repository, then check again.",
+    "installDescription": "Install the GitHub App directly if you already have a repository. Otherwise, create one on GitHub first. A private repository is recommended, but the visibility is your choice.",
     "installTitle": "Install GitHub App",
     "invalidManifest": "manifest.json is invalid",
     "invalidManifestDescription": "The app will not overwrite an invalid manifest.json. Fix the repository contents and check again.",

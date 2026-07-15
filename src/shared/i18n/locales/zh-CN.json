@@ -46,7 +46,7 @@
     "branch": "分支",
     "bindingRequired": "完成 Vault 连接后才能进入同步与设置",
     "cancelReconfigure": "取消重新配置",
-    "description": "通过 GitHub App 连接一个私有 Vault 仓库，完成绑定后才能进入同步工作区。",
+    "description": "通过 GitHub App 连接一个 Vault 仓库（推荐私有），完成绑定后才能进入同步工作区。",
     "progress": "第 {{current}}/{{total}} 步",
     "stage": {
       "appNotConfigured": "发布配置",
@@ -59,6 +59,7 @@
     "title": "初始配置"
   },
   "github": {
+    "adjustInstallation": "调整 GitHub App 安装",
     "adjustScope": "当前 GitHub App 授权范围不是单个 vault 仓库，请调整安装范围后重新检查。",
     "appNotConfigured": "GitHub App 尚未配置",
     "appNotConfiguredDescription": "当前发布包没有注入公开的 GitHub App client id / slug，无法开始授权。",
@@ -73,6 +74,7 @@
     "confirmRebind": "我确认切换 Vault，并归档当前本机同步基线",
     "confirmRebindRequired": "切换到其他 Vault 前必须确认归档当前本机同步基线。",
     "connectGithub": "使用 GitHub 授权",
+    "createRepository": "新建 Vault 仓库",
     "deviceAuthorizationFailed": "GitHub Device Flow 未完成，请重新开始授权。",
     "deviceCodeLabel": "请在 GitHub 验证页面输入以下验证码",
     "deviceCodeCopied": "验证码已复制",
@@ -80,7 +82,7 @@
     "initializeCreatesCommit": "这会在目标仓库创建 manifest.json commit。",
     "initializeVault": "初始化 Vault",
     "installApp": "安装 GitHub App",
-    "installDescription": "请将 GitHub App 安装到只包含一个 vault 仓库的 installation，然后重新检查。",
+    "installDescription": "已有仓库可直接安装 GitHub App；没有仓库时先在 GitHub 新建一个。推荐使用私有仓库，公开或私有由你选择。",
     "installTitle": "安装 GitHub App",
     "invalidManifest": "manifest.json 存在但格式无效",
     "invalidManifestDescription": "应用不会覆盖无效的 manifest.json，请修复仓库内容后重新检查。",
