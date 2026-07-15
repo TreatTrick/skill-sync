@@ -5,7 +5,7 @@
 <h1 align="center">Skill Sync</h1>
 
 <p align="center">
-  <strong>Keep your AI agent Skills in sync across machines through your own private GitHub Vault.</strong>
+  <strong>Keep your AI agent Skills in sync across machines through your own GitHub Vault.</strong>
 </p>
 
 <p align="center">
@@ -30,13 +30,13 @@
 
 ## Why Skill Sync
 
-Copying Skills by hand between computers is slow and makes it easy to overwrite a newer edit. Skill Sync gives Codex, Claude Code, and general agent Skills one private GitHub Vault, while keeping scanning, comparison, and apply operations on your machine.
+Copying Skills by hand between computers is slow and makes it easy to overwrite a newer edit. Skill Sync gives Codex, Claude Code, and general agent Skills one GitHub Vault (a private repository is recommended), while keeping scanning, comparison, and apply operations on your machine.
 
 There is no SaaS account or custom sync server, no Git, PAT, or SSH setup, and no telemetry.
 
 ## Highlights
 
-- **Local-first:** your Skills stay in their normal tool directories and sync through a private repository you control.
+- **Local-first:** your Skills stay in their normal tool directories and sync through a repository you control (a private one is recommended).
 - **Preview before apply:** review uploads, downloads, conflicts, and proposed deletes before anything changes.
 - **Explicit conflict choices:** when both sides changed, you decide whether to keep local content, use remote content, or skip.
 - **Content-based comparison:** a three-way `base` / `local` / `remote` content-hash comparison detects real changes without relying on timestamps.
@@ -46,7 +46,7 @@ There is no SaaS account or custom sync server, no Git, PAT, or SSH setup, and n
 ## How it works
 
 1. Start in-app **Onboarding** and authorize with the GitHub App Device Flow.
-2. Install the GitHub App for selected repositories and bind exactly one private repository as the Vault.
+2. Install the GitHub App for selected repositories and bind exactly one repository (private recommended) as the Vault.
 3. Open **Sync**, preview the plan, resolve any conflicts, and explicitly apply the selected changes.
 
 The workspace is available only after the Vault is ready. Ongoing configuration lives in **Settings**.
@@ -65,7 +65,7 @@ Project-level directories and custom roots are outside V1. The reserved `~/.code
 
 ## Vault and sync model
 
-The private Vault has exactly this content layout:
+The Vault has exactly this content layout:
 
 ```text
 manifest.json
@@ -79,7 +79,8 @@ The remote Vault does not contain credentials, local sync state, trash, or recov
 ## Privacy and safety
 
 - The GitHub App requests only **Contents: read and write** and **Metadata: read-only**.
-- Installation must use **selected repositories** and expose exactly one private Vault repository to Skill Sync.
+- Installation must use **selected repositories** and expose exactly one Vault repository to Skill Sync.
+- A private repository is the recommended default. A public repository is allowed, but its Skill files and Git history are visible to everyone; Skill Sync asks you to confirm before binding a public Vault.
 - Credentials are stored in the operating system keyring. The desktop app contains no GitHub App client secret or private key.
 - Skill Sync has no telemetry and does not operate a SaaS account or custom sync server.
 - Remote deletes remove manifest entries. Accepted local deletes move Skill directories into the local trash area instead of permanently deleting them.
@@ -92,7 +93,7 @@ The remote Vault does not contain credentials, local sync state, trash, or recov
 3. Complete authorization and Vault binding from the in-app **Onboarding** flow.
 4. Preview and apply your first plan from **Sync**.
 
-Onboarding is the normal authorization path. If needed, you can open the [direct GitHub App installation page](https://github.com/apps/tt-skills-sync/installations/new), select repositories, and grant the App access to exactly one private Vault repository.
+Onboarding is the normal authorization path. If you do not yet have a repository, Onboarding can open GitHub's new-repository page for you; after creating one, install or adjust the GitHub App and re-check. If needed, you can also open the [direct GitHub App installation page](https://github.com/apps/tt-skills-sync/installations/new), select repositories, and grant the App access to exactly one Vault repository (private recommended).
 
 ## Build from source
 

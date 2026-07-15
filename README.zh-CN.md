@@ -5,7 +5,7 @@
 <h1 align="center">Skill Sync</h1>
 
 <p align="center">
-  <strong>通过你自己的私有 GitHub Vault，让 AI agent Skills 在多台电脑之间保持同步。</strong>
+  <strong>通过你自己的 GitHub Vault，让 AI agent Skills 在多台电脑之间保持同步。</strong>
 </p>
 
 <p align="center">
@@ -30,13 +30,13 @@
 
 ## 为什么选择 Skill Sync
 
-在不同电脑之间手动复制 Skills 不仅费事，也很容易用旧内容覆盖新修改。Skill Sync 为 Codex、Claude Code 和通用 agent Skills 提供一个私有 GitHub Vault，同时在本机完成扫描、比较和 apply。
+在不同电脑之间手动复制 Skills 不仅费事，也很容易用旧内容覆盖新修改。Skill Sync 为 Codex、Claude Code 和通用 agent Skills 提供一个 GitHub Vault（推荐私有），同时在本机完成扫描、比较和 apply。
 
 无需 SaaS 账号或自建同步服务，无需配置 Git、PAT 或 SSH，也没有遥测。
 
 ## 核心亮点
 
-- **本地优先：** Skills 保留在各工具原本的目录中，通过你掌控的私有仓库同步。
+- **本地优先：** Skills 保留在各工具原本的目录中，通过你掌控的仓库同步（推荐私有）。
 - **apply 前预览：** 在发生变更前检查上传、下载、冲突和建议删除项。
 - **冲突由你决定：** 两端都发生修改时，可明确选择保留本地、采用远端或跳过。
 - **按内容比较：** 使用 `base` / `local` / `remote` 三方内容 hash 判断真实变化，不依赖文件时间。
@@ -46,7 +46,7 @@
 ## 工作方式
 
 1. 从应用内 **Onboarding** 开始，通过 GitHub App Device Flow 授权。
-2. 使用 selected repositories 安装 GitHub App，并将唯一一个私有仓库绑定为 Vault。
+2. 使用 selected repositories 安装 GitHub App，并将唯一一个仓库（推荐私有）绑定为 Vault。
 3. 进入 **Sync** 预览计划、处理冲突，再显式 apply 已选变更。
 
 只有 Vault 就绪后才能进入工作区，后续配置位于 **Settings**。
@@ -65,7 +65,7 @@ V1 扫描以下固定的用户级 root：
 
 ## Vault 与同步模型
 
-私有 Vault 只使用以下内容布局：
+Vault 只使用以下内容布局：
 
 ```text
 manifest.json
@@ -79,7 +79,8 @@ blobs/sha256/<sha256>.skill.zip
 ## 隐私与安全
 
 - GitHub App 仅申请 **Contents: read and write** 与 **Metadata: read-only** 权限。
-- installation 必须使用 **selected repositories**，并且只向 Skill Sync 开放一个私有 Vault 仓库。
+- installation 必须使用 **selected repositories**，并且只向 Skill Sync 开放一个 Vault 仓库。
+- 私有仓库是推荐默认。公开仓库也可以使用，但其 Skill 文件和 Git 历史对所有人可见；绑定公开 Vault 前 Skill Sync 会要求你确认。
 - 凭证保存在操作系统 keyring 中，桌面应用不包含 GitHub App client secret 或 private key。
 - Skill Sync 没有遥测，也不运营 SaaS 账号或自建同步服务。
 - 删除远端内容只会移除 manifest 条目；接受本地删除时，Skill 目录会移入本机 trash，而不是永久删除。
@@ -92,7 +93,7 @@ blobs/sha256/<sha256>.skill.zip
 3. 在应用内 **Onboarding** 完成授权和 Vault 绑定。
 4. 进入 **Sync** 预览并 apply 第一份同步计划。
 
-正常授权入口是 Onboarding。如有需要，也可打开 [GitHub App 直接安装页面](https://github.com/apps/tt-skills-sync/installations/new)，选择 repositories，并且只向 App 授予一个私有 Vault 仓库的访问权限。
+正常授权入口是 Onboarding。如果还没有仓库，Onboarding 可为你打开 GitHub 新建仓库页面；创建后安装或调整 GitHub App 并重新检查。如有需要，也可打开 [GitHub App 直接安装页面](https://github.com/apps/tt-skills-sync/installations/new)，选择 repositories，并且只向 App 授予一个 Vault 仓库的访问权限（推荐私有）。
 
 ## 从源码构建
 
