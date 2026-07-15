@@ -24,6 +24,7 @@
   import DeviceAuthorizationStage from '../components/DeviceAuthorizationStage.svelte'
   import InstallAppStage from '../components/InstallAppStage.svelte'
   import OnboardingStepper from '../components/OnboardingStepper.svelte'
+  import PublicRepositoryWarningStage from '../components/PublicRepositoryWarningStage.svelte'
   import SelectBranchStage from '../components/SelectBranchStage.svelte'
   import VaultReadyStage from '../components/VaultReadyStage.svelte'
 
@@ -54,6 +55,7 @@
     | 'device_pending'
     | 'install_app'
     | 'repository_scope_blocked'
+    | 'confirm_public_repository'
     | 'select_branch'
     | 'checking_vault'
     | 'vault_unavailable'
@@ -91,7 +93,7 @@
   const progressStep = (currentStage: OnboardingStage): number => {
     if (currentStage === 'app_not_configured' || currentStage === 'authorize' || currentStage === 'device_pending') return 1
     if (currentStage === 'install_app' || currentStage === 'repository_scope_blocked') return 2
-    if (currentStage === 'select_branch' || currentStage === 'checking_vault' || currentStage === 'vault_unavailable') return 3
+    if (currentStage === 'confirm_public_repository' || currentStage === 'select_branch' || currentStage === 'checking_vault' || currentStage === 'vault_unavailable') return 3
     if (currentStage === 'confirm_initialize' || currentStage === 'invalid_manifest' || currentStage === 'rate_limited') return 4
     return 5
   }
@@ -100,7 +102,7 @@
     if (currentStage === 'app_not_configured') return t('onboarding.stage.appNotConfigured')
     if (currentStage === 'authorize' || currentStage === 'device_pending') return t('onboarding.stage.authorize')
     if (currentStage === 'install_app' || currentStage === 'repository_scope_blocked') return t('onboarding.stage.installApp')
-    if (currentStage === 'select_branch' || currentStage === 'checking_vault' || currentStage === 'vault_unavailable') return t('onboarding.stage.branch')
+    if (currentStage === 'confirm_public_repository' || currentStage === 'select_branch' || currentStage === 'checking_vault' || currentStage === 'vault_unavailable') return t('onboarding.stage.branch')
     if (currentStage === 'confirm_initialize' || currentStage === 'invalid_manifest' || currentStage === 'rate_limited') return t('onboarding.stage.vault')
     return t('onboarding.stage.ready')
   }
@@ -192,6 +194,33 @@
     pollTimer = setTimeout(() => void pollDeviceFlow(), deviceInterval * 1000)
   }
 
+  const continueWithSelectedRepository = async (): Promise<void> => {
+    const currentRemote = remote
+    if (!currentRemote) return
+    branchNames = await listGithubRepositoryBranches(currentRemote)
+    if (branchNames.length > 0) {
+      selectedBranch = branchNames.includes(currentRemote.branch)
+        ? currentRemote.branch
+        : branchNames[0]
+      stage = 'select_branch'
+    } else {
+      stage = 'checking_vault'
+      await checkVault()
+    }
+  }
+
+  const continueWithPublicRepository = async (): Promise<void> => {
+    busy = true
+    message = ''
+    try {
+      await continueWithSelectedRepository()
+    } catch (error) {
+      setError(error)
+    } finally {
+      busy = false
+    }
+  }
+
   const discoverRepository = async (): Promise<void> => {
     busy = true
     message = ''
@@ -215,20 +244,23 @@
         return
       }
       const repositories = await listInstallationRepositories(discovery.repository.installation_id)
-      selectedRepository = repositories.find(
-        (repository) => repository.repository_id === discovery.repository.repository_id,
-      ) ?? null
-      const defaultBranch = selectedRepository?.default_branch || 'main'
+      const repository = repositories.find(
+        (candidate) => candidate.repository_id === discovery.repository.repository_id,
+      )
+      if (!repository) {
+        stage = 'install_app'
+        message = t('github.repositoryUnavailable')
+        return
+      }
+      selectedRepository = repository
+      const defaultBranch = repository.default_branch || 'main'
       remote = { ...discovery.repository, branch: defaultBranch }
       selectedBranch = defaultBranch
-      branchNames = await listGithubRepositoryBranches(remote)
-      if (branchNames.length > 0) {
-        selectedBranch = branchNames.includes(defaultBranch) ? defaultBranch : branchNames[0]
-        stage = 'select_branch'
-      } else {
-        stage = 'checking_vault'
-        await checkVault()
+      if (!repository.private) {
+        stage = 'confirm_public_repository'
+        return
       }
+      await continueWithSelectedRepository()
     } catch (error) {
       setError(error)
     } finally {
@@ -474,6 +506,15 @@
       busy={busy}
       onOpenExternal={(event, url) => void openExternal(event, url)}
       onCheckInstallation={() => void discoverRepository()}
+    />
+  {:else if stage === 'confirm_public_repository' && selectedRepository}
+    <PublicRepositoryWarningStage
+      repository={selectedRepository}
+      installUrl={appInfo?.install_url ?? null}
+      createRepositoryUrl={CREATE_GITHUB_REPOSITORY_URL}
+      busy={busy}
+      onContinue={() => void continueWithPublicRepository()}
+      onOpenExternal={(event, url) => void openExternal(event, url)}
     />
   {:else if stage === 'select_branch'}
     <SelectBranchStage
