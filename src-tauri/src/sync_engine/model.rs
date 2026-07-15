@@ -39,7 +39,7 @@ pub(crate) enum DeleteDirection {
     DeleteRemote,
 }
 
-/// 用户对冲突的决策；必须落在对应 ConflictReason 的白名单内。
+/// 用户对冲突或纯删除条目的决策；必须落在对应 ConflictReason 或 SyncStatus 的白名单内。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SyncDecision {
@@ -137,7 +137,7 @@ pub(crate) struct SyncPlan {
 }
 
 /// apply 请求：携带预览时的 expected_remote_commit + plan_fingerprint + 用户选择。
-/// selected_action_ids 只控制普通可执行项；冲突由 decisions 控制。
+/// selected_action_ids 控制普通可执行项；decisions 控制冲突，并可覆盖纯删除条目。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct ApplySyncRequest {
     pub expected_remote_commit: String,

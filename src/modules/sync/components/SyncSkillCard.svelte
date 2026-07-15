@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { ChevronRight, FolderOpen, TriangleAlert } from '@lucide/svelte'
+  import {
+    ArrowDownToLine,
+    ArrowUpFromLine,
+    ChevronRight,
+    FolderOpen,
+    TriangleAlert,
+    Undo2,
+  } from '@lucide/svelte'
 
   import { cn } from '@/shared/lib'
   import { t } from '@/shared/i18n'
@@ -13,6 +20,7 @@
   } from '@/shared/ui'
 
   import {
+    deleteDecisionOptions,
     decisionLabelKey,
     statusLabelKey,
     statusTone,
@@ -25,6 +33,7 @@
     selected?: boolean
     requiresConfirmation?: boolean
     onToggle?: (selected: boolean) => void
+    onDecision?: (choice: SyncDecision) => void
     onOpenConflict?: () => void
     onOpenFolder?: () => void
   }
@@ -35,9 +44,19 @@
     selected = false,
     requiresConfirmation = false,
     onToggle,
+    onDecision,
     onOpenConflict,
     onOpenFolder,
   }: Props = $props()
+
+  const recoveryDecision = $derived(
+    deleteDecisionOptions(entry).find(
+      (choice) => choice === 'restore_remote' || choice === 'keep_local',
+    ),
+  )
+  const recoverySelected = $derived(
+    recoveryDecision !== undefined && decision === recoveryDecision,
+  )
 
   const deleteLabelKey = (
     entry: SyncSkillEntry,
@@ -66,6 +85,7 @@
         <Checkbox
           aria-label={t('sync.selectAction', { name: entry.name })}
           checked={selected}
+          disabled={recoverySelected}
           onCheckedChange={(checked) => onToggle?.(checked === true)}
         />
       {/if}
@@ -118,7 +138,27 @@
       </StatusBadge>
     {/if}
 
-    {#if requiresConfirmation}
+    {#if recoveryDecision && onDecision}
+      <Button
+        class="w-full"
+        onclick={() => onDecision?.(recoveryDecision)}
+        size="sm"
+        variant={recoverySelected ? 'outline' : 'default'}
+      >
+        {#if recoverySelected}
+          <Undo2 class="size-4" />
+          {t('sync.deleteRecovery.undo')}
+        {:else if recoveryDecision === 'restore_remote'}
+          <ArrowDownToLine class="size-4" />
+          {t('sync.deleteRecovery.download')}
+        {:else}
+          <ArrowUpFromLine class="size-4" />
+          {t('sync.deleteRecovery.upload')}
+        {/if}
+      </Button>
+    {/if}
+
+    {#if requiresConfirmation && !recoverySelected}
       <div class="flex items-center gap-2 text-xs font-medium text-warning">
         <TriangleAlert class="size-4 shrink-0" />
         {t('sync.confirmDelete')}

@@ -191,6 +191,23 @@ fn allowed_decisions(reason: ConflictReason) -> &'static [SyncDecision] {
     }
 }
 
+/// 纯删除条目的 decision 白名单。
+fn allowed_decisions_for_status(status: SyncStatus) -> &'static [SyncDecision] {
+    match status {
+        SyncStatus::LocalDeleted => &[
+            SyncDecision::RestoreRemote,
+            SyncDecision::DeleteRemote,
+            SyncDecision::Skip,
+        ],
+        SyncStatus::RemoteDeleted => &[
+            SyncDecision::KeepLocal,
+            SyncDecision::AcceptDelete,
+            SyncDecision::Skip,
+        ],
+        _ => &[],
+    }
+}
+
 struct UploadItem {
     skill_id: String,
     name: String,
@@ -433,16 +450,60 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
 
     // 5. 校验 decisions 白名单
     for (skill_id, decision) in &request.decisions {
-        let conflict = plan
+        let allowed = if let Some(conflict) = plan
             .conflicts
             .iter()
-            .find(|c| &c.skill_id == skill_id)
-            .ok_or_else(|| {
-                AppError::Blocked(format!("decision for non-conflict skill: {skill_id}"))
-            })?;
-        if !allowed_decisions(conflict.conflict_reason).contains(decision) {
+            .find(|conflict| &conflict.skill_id == skill_id)
+        {
+            allowed_decisions(conflict.conflict_reason)
+        } else {
+            let entry = plan
+                .entries
+                .iter()
+                .find(|entry| &entry.skill_id == skill_id)
+                .ok_or_else(|| {
+                    AppError::Blocked(format!(
+                        "decision for unknown/non-deletable skill: {skill_id}"
+                    ))
+                })?;
+            let allowed = allowed_decisions_for_status(entry.status);
+            if allowed.is_empty() {
+                return Err(AppError::Blocked(format!(
+                    "decision for unknown/non-deletable skill: {skill_id}"
+                )));
+            }
+            allowed
+        };
+        if !allowed.contains(decision) {
             return Err(AppError::Blocked(format!(
                 "invalid decision for {skill_id}"
+            )));
+        }
+    }
+
+    for (skill_id, decision) in &request.decisions {
+        if !matches!(
+            decision,
+            SyncDecision::RestoreRemote | SyncDecision::KeepLocal
+        ) {
+            continue;
+        }
+        let entry = plan
+            .entries
+            .iter()
+            .find(|entry| &entry.skill_id == skill_id)
+            .ok_or_else(|| {
+                AppError::Blocked(format!(
+                    "decision for unknown/non-deletable skill: {skill_id}"
+                ))
+            })?;
+        if matches!(
+            entry.status,
+            SyncStatus::LocalDeleted | SyncStatus::RemoteDeleted
+        ) && selected_set.contains(entry.action_id.as_str())
+        {
+            return Err(AppError::Blocked(format!(
+                "conflicting delete + recovery decision: {skill_id}"
             )));
         }
     }
@@ -531,13 +592,11 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     }
 
     for (skill_id, decision) in &request.decisions {
-        let conflict = plan
-            .conflicts
+        let entry = plan
+            .entries
             .iter()
-            .find(|c| &c.skill_id == skill_id)
-            .ok_or_else(|| {
-                AppError::Blocked(format!("decision for non-conflict skill: {skill_id}"))
-            })?;
+            .find(|entry| &entry.skill_id == skill_id)
+            .ok_or_else(|| AppError::Blocked(format!("decision entry missing: {skill_id}")))?;
         match decision {
             SyncDecision::KeepLocal => {
                 let pl = prepared.packed.get(skill_id).ok_or_else(|| {
@@ -547,9 +606,9 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
                     skill_id: skill_id.clone(),
                     name: pl.info.name.clone(),
                     description: pl.info.description.clone(),
-                    namespace: conflict.namespace,
-                    folder_name: conflict.folder_name.clone(),
-                    relative_dir: conflict.relative_dir.clone(),
+                    namespace: entry.namespace,
+                    folder_name: entry.folder_name.clone(),
+                    relative_dir: entry.relative_dir.clone(),
                     hash: pl.info.hash.clone(),
                     zip_size: pl.info.zip_size,
                     zip_path: pl.zip_path.clone(),
@@ -561,8 +620,8 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
                 })?;
                 download_items.push(DownloadItem {
                     skill_id: skill_id.clone(),
-                    entry_ns: conflict.namespace,
-                    entry_folder: conflict.folder_name.clone(),
+                    entry_ns: entry.namespace,
+                    entry_folder: entry.folder_name.clone(),
                     vskill,
                 });
             }
@@ -572,7 +631,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
             SyncDecision::AcceptDelete => {
                 delete_local_items.push(DeleteLocalItem {
                     skill_id: skill_id.clone(),
-                    entry_ns: conflict.namespace,
+                    entry_ns: entry.namespace,
                 });
             }
             SyncDecision::Skip => {}
@@ -1443,6 +1502,239 @@ mod tests {
             }
             _ => panic!("expected Applied"),
         }
+    }
+
+    #[tokio::test]
+    async fn local_deleted_with_restore_remote_downloads_and_aligns_state() {
+        let home = temp_home();
+        let (vskill, blob_path, bytes) = make_blob(Codex, "demo", "demo");
+        let mut manifest = VaultManifest::empty("d");
+        manifest.skills.insert(vskill.id.clone(), vskill.clone());
+        let mut blobs = HashMap::new();
+        blobs.insert(blob_path, bytes);
+        let store = ApplyMockStore {
+            manifest,
+            blobs,
+            ..Default::default()
+        };
+        let config = apply_config();
+        let mut state = apply_state();
+        state.skills.insert(
+            "codex:demo".into(),
+            SkillSyncState {
+                base_hash: vskill.hash.clone(),
+                last_remote_hash: vskill.hash.clone(),
+                last_synced_at: String::new(),
+                namespace: Codex,
+                relative_dir: "demo".into(),
+            },
+        );
+        let prepared = prepare_plan(&config, &state, &store, home.path())
+            .await
+            .unwrap();
+        let plan = prepared.plan.clone();
+        drop(prepared);
+        let mut decisions = HashMap::new();
+        decisions.insert("codex:demo".into(), SyncDecision::RestoreRemote);
+        let req = apply_request(&plan, vec![], decisions, false);
+        let cfgdir = tempfile::tempdir().unwrap();
+
+        let resp = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap();
+
+        match resp {
+            ApplySyncResponse::Applied { result } => {
+                assert_eq!(result.applied, vec!["codex:demo"]);
+                assert!(result.remote_commit.is_none());
+                assert_eq!(*store.commit_count.lock().unwrap(), 0);
+                assert_eq!(
+                    state.skills.get("codex:demo").unwrap().base_hash,
+                    vskill.hash
+                );
+                let target = namespace_root(home.path(), Codex).unwrap().join("demo");
+                assert!(target.join("SKILL.md").exists());
+            }
+            _ => panic!("expected Applied"),
+        }
+    }
+
+    #[tokio::test]
+    async fn remote_deleted_with_keep_local_uploads_and_aligns_state() {
+        let home = temp_home();
+        make_skill(home.path(), Codex, "demo", "demo");
+        let (vskill, _, _) = make_blob(Codex, "demo", "demo");
+        let store = mock_store(VaultManifest::empty("d"));
+        let config = apply_config();
+        let mut state = apply_state();
+        state.skills.insert(
+            "codex:demo".into(),
+            SkillSyncState {
+                base_hash: vskill.hash.clone(),
+                last_remote_hash: vskill.hash.clone(),
+                last_synced_at: String::new(),
+                namespace: Codex,
+                relative_dir: "demo".into(),
+            },
+        );
+        let prepared = prepare_plan(&config, &state, &store, home.path())
+            .await
+            .unwrap();
+        let plan = prepared.plan.clone();
+        let local_hash = plan
+            .entries
+            .iter()
+            .find(|entry| entry.skill_id == "codex:demo")
+            .and_then(|entry| entry.local_hash.clone())
+            .unwrap();
+        drop(prepared);
+        let mut decisions = HashMap::new();
+        decisions.insert("codex:demo".into(), SyncDecision::KeepLocal);
+        let req = apply_request(&plan, vec![], decisions, false);
+        let cfgdir = tempfile::tempdir().unwrap();
+
+        let resp = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap();
+
+        match resp {
+            ApplySyncResponse::Applied { result } => {
+                assert_eq!(result.applied, vec!["codex:demo"]);
+                assert!(result.remote_commit.is_some());
+                assert_eq!(*store.commit_count.lock().unwrap(), 1);
+                assert_eq!(
+                    state.skills.get("codex:demo").unwrap().base_hash,
+                    local_hash
+                );
+                let captured = store.captured_manifest.lock().unwrap().clone().unwrap();
+                assert_eq!(captured.skills.get("codex:demo").unwrap().hash, local_hash);
+            }
+            _ => panic!("expected Applied"),
+        }
+    }
+
+    #[tokio::test]
+    async fn local_deleted_with_delete_remote_via_decision_equivalent_to_selected() {
+        let home = temp_home();
+        let (vskill, _, _) = make_blob(Codex, "demo", "demo");
+        let mut manifest = VaultManifest::empty("d");
+        manifest.skills.insert(vskill.id.clone(), vskill.clone());
+        let store = mock_store(manifest);
+        let config = apply_config();
+        let mut state = apply_state();
+        state.skills.insert(
+            "codex:demo".into(),
+            SkillSyncState {
+                base_hash: vskill.hash.clone(),
+                last_remote_hash: vskill.hash,
+                last_synced_at: String::new(),
+                namespace: Codex,
+                relative_dir: "demo".into(),
+            },
+        );
+        let prepared = prepare_plan(&config, &state, &store, home.path())
+            .await
+            .unwrap();
+        let plan = prepared.plan.clone();
+        drop(prepared);
+        let mut decisions = HashMap::new();
+        decisions.insert("codex:demo".into(), SyncDecision::DeleteRemote);
+        let req = apply_request(&plan, vec![], decisions, true);
+        let cfgdir = tempfile::tempdir().unwrap();
+
+        let resp = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap();
+
+        match resp {
+            ApplySyncResponse::Applied { result } => {
+                assert_eq!(result.applied, vec!["codex:demo"]);
+                assert!(result.remote_commit.is_some());
+                assert_eq!(*store.commit_count.lock().unwrap(), 1);
+                assert!(!state.skills.contains_key("codex:demo"));
+                let captured = store.captured_manifest.lock().unwrap().clone().unwrap();
+                assert!(!captured.skills.contains_key("codex:demo"));
+            }
+            _ => panic!("expected Applied"),
+        }
+    }
+
+    #[tokio::test]
+    async fn recovery_decision_conflicting_with_selected_delete_blocks() {
+        let home = temp_home();
+        let (vskill, _, _) = make_blob(Codex, "demo", "demo");
+        let mut manifest = VaultManifest::empty("d");
+        manifest.skills.insert(vskill.id.clone(), vskill.clone());
+        let store = mock_store(manifest);
+        let config = apply_config();
+        let mut state = apply_state();
+        state.skills.insert(
+            "codex:demo".into(),
+            SkillSyncState {
+                base_hash: vskill.hash.clone(),
+                last_remote_hash: vskill.hash,
+                last_synced_at: String::new(),
+                namespace: Codex,
+                relative_dir: "demo".into(),
+            },
+        );
+        let original_state = state.clone();
+        let prepared = prepare_plan(&config, &state, &store, home.path())
+            .await
+            .unwrap();
+        let plan = prepared.plan.clone();
+        drop(prepared);
+        let mut decisions = HashMap::new();
+        decisions.insert("codex:demo".into(), SyncDecision::RestoreRemote);
+        let req = apply_request(
+            &plan,
+            vec![action_id_of(&plan, "codex:demo")],
+            decisions,
+            true,
+        );
+        let cfgdir = tempfile::tempdir().unwrap();
+
+        let err = apply_plan(
+            &config,
+            &mut state,
+            &req,
+            &store,
+            home.path(),
+            cfgdir.path(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(
+            matches!(err, AppError::Blocked(message) if message == "conflicting delete + recovery decision: codex:demo")
+        );
+        assert_eq!(*store.commit_count.lock().unwrap(), 0);
+        assert_eq!(state, original_state);
+        assert!(!namespace_root(home.path(), Codex)
+            .unwrap()
+            .join("demo")
+            .exists());
     }
 
     #[tokio::test]

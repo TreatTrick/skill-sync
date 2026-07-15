@@ -146,6 +146,18 @@ export const conflictDecisionOptions = (
   return ['keep_local', 'use_remote', 'skip']
 }
 
+export const deleteDecisionOptions = (
+  entry: SyncSkillEntry,
+): readonly SyncDecision[] => {
+  if (entry.status === 'local_deleted') {
+    return ['restore_remote', 'delete_remote', 'skip']
+  }
+  if (entry.status === 'remote_deleted') {
+    return ['keep_local', 'accept_delete', 'skip']
+  }
+  return []
+}
+
 export const decisionLabelKey = (
   choice: SyncDecision,
 ): `sync.decisions.${SyncDecision}` => `sync.decisions.${choice}`

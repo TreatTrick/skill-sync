@@ -159,6 +159,11 @@
       "skip": "Skip",
       "use_remote": "Use remote"
     },
+    "deleteRecovery": {
+      "download": "Re-download to local",
+      "undo": "Undo recovery",
+      "upload": "Re-upload to remote"
+    },
     "deleteGuard": {
       "description": "This plan contains many deletions. Confirm that the skill roots are readable and the deletions are expected.",
       "title": "Unusually many deletions"

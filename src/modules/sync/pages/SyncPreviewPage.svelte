@@ -36,6 +36,7 @@
   import SyncSkillCard from '../components/SyncSkillCard.svelte'
   import {
     countSyncChanges,
+    deleteDecisionOptions,
     EMPTY_SYNC_CHANGE_COUNTS,
     isDeleteEntry,
     matchesEntry,
@@ -131,6 +132,9 @@
     entry.status === 'local_deleted' ||
     entry.status === 'remote_deleted'
 
+  const isRecoveryDecision = (decision?: SyncDecision): boolean =>
+    decision === 'restore_remote' || decision === 'keep_local'
+
   const defaultSelectedActionIds = (data: SyncPlan): string[] =>
     data.entries
       .filter(
@@ -143,7 +147,11 @@
 
   const visibleSelectableActionIds = $derived(
     visibleEntries
-      .filter((entry) => isSelectable(entry))
+      .filter(
+        (entry) =>
+          isSelectable(entry) &&
+          !isRecoveryDecision(syncDecisions.decisions[entry.skill_id]),
+      )
       .map((entry) => entry.action_id),
   )
   const canSelectAll = $derived(
@@ -269,6 +277,26 @@
     if (selectedConflict) {
       syncDecisions.setDecision(selectedConflict.skill_id, choice)
     }
+  }
+
+  const handleDeleteDecision = (
+    entry: SyncSkillEntry,
+    choice: SyncDecision,
+  ): void => {
+    if (!deleteDecisionOptions(entry).includes(choice)) return
+    if (syncDecisions.decisions[entry.skill_id] === choice) {
+      const nextDecisions = { ...syncDecisions.decisions }
+      delete nextDecisions[entry.skill_id]
+      syncDecisions.decisions = nextDecisions
+      return
+    }
+    if (
+      isRecoveryDecision(choice) &&
+      selectedActionIds.includes(entry.action_id)
+    ) {
+      toggleAction(entry.action_id, false)
+    }
+    syncDecisions.setDecision(entry.skill_id, choice)
   }
 
   const handleApply = (): void => {
@@ -466,6 +494,7 @@
               <SyncSkillCard
                 decision={syncDecisions.decisions[entry.skill_id]}
                 entry={entry}
+                onDecision={deleteDecisionOptions(entry).length > 0 ? (choice) => handleDeleteDecision(entry, choice) : undefined}
                 onOpenConflict={entry.conflict_reason ? () => openConflict(entry) : undefined}
                 onOpenFolder={entry.local_path ? () => openSkillFolder(entry) : undefined}
                 onToggle={isSelectable(entry) ? (selected) => toggleAction(entry.action_id, selected) : undefined}
