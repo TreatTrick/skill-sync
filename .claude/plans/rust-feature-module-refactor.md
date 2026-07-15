@@ -7,12 +7,12 @@
 
 ## 现状（问题文件）
 
-| 文件 | 行数 | 问题 |
-|---|---|---|
-| `sync_engine/vault.rs` | 3859 | DTO 模型 + plan 推导 + fingerprint + apply 执行 + 巨型 tests 全堆一个文件 |
-| `commands.rs` | 1464 | AppRuntime + 21 个 tauri command + 共享 helper + tests |
-| `github_*.rs`（5 个根文件） | 68~1166 | 同属 GitHub feature 却散落在 crate 根 |
-| `pack.rs` | 1291（生产 ~565） | pack/unpack 较内聚，生产代码不大 |
+| 文件                        | 行数              | 问题                                                                      |
+| --------------------------- | ----------------- | ------------------------------------------------------------------------- |
+| `sync_engine/vault.rs`      | 3859              | DTO 模型 + plan 推导 + fingerprint + apply 执行 + 巨型 tests 全堆一个文件 |
+| `commands.rs`               | 1464              | AppRuntime + 21 个 tauri command + 共享 helper + tests                    |
+| `github_*.rs`（5 个根文件） | 68~1166           | 同属 GitHub feature 却散落在 crate 根                                     |
+| `pack.rs`                   | 1291（生产 ~565） | pack/unpack 较内聚，生产代码不大                                          |
 
 爆炸半径很小：仅 `commands.rs` 引用 `vault::*`；仅 `commands.rs` + 4 个 github 文件引用 `crate::github_*`。
 
@@ -30,6 +30,7 @@
 `sync_engine.rs`（2 行）改为 `sync_engine/mod.rs`，声明子模块。
 
 ### `sync_engine/model.rs`（~220 行，原 1–220）
+
 DTO 与决策模型：`SyncStatus` `ConflictReason` `DeleteDirection` `SyncDecision`
 `SyncSkillEntry` `BaseAdoption` `Conflict` `BlockedSkill` `CommitSummary` `SyncPlan`
 `ApplySyncRequest` `PlanChangeReason` `RecoveryPhase` `RecoveryInfo` `ApplyResult`
@@ -37,24 +38,29 @@ DTO 与决策模型：`SyncStatus` `ConflictReason` `DeleteDirection` `SyncDecis
 配套序列化测试（`status_reason_decision_serialize_to_snake_case`、`apply_response_uses_status_tag`、`sync_plan_roundtrips`）迁入本模块 `mod tests`。
 
 ### `sync_engine/plan.rs`（~700 行，原 221–971 "Task 8" + "plan fingerprint"）
+
 plan 推导 + fingerprint + build_plan 入口：
 `RawEntry` `derive_entry` `action_kind_for` `ensure_unique_action_ids`
 `collision_entry` `namespace_matches_id` `merge_plan` `block_entry`
 `FpEntry` `FpAdoption` `FpInput` `fingerprint_input` `canonical_fingerprint_bytes`
 `compute_fingerprint` `validate_remote` `build_plan`。
+
 - `merge_plan` `build_plan` `compute_fingerprint` 维持/提升为 `pub(crate)`（apply 与 commands 跨模块用）。
 - 其余 helper 保持私有。
 - merge 真值表 / fingerprint golden / collision / delete-guard 测试迁入本模块 `mod tests`。
 
 ### `sync_engine/apply.rs`（~900 行，原 972–1883 "Task 9"）
+
 apply 执行：`PackedLocal` `PreparedSyncPlan` `prepare_plan` `now_iso`
 `is_executable` `allowed_decisions` `UploadItem` `DownloadItem` `DeleteLocalItem`
 `download_target` `delete_local_target` `execute_download` `save_recovery_journal`
 `cleanup_task_artifacts` `apply_plan` `upload_skills` `download_skills` `batch_apply`。
+
 - `apply_plan` `upload_skills` `download_skills` 为 `pub(crate)`；`prepare_plan` 为 `pub(super)`/`pub(crate)` 供 apply 内部。
 - ApplyMockStore / apply 流程测试迁入本模块 `mod tests`。
 
 ### 调用方更新
+
 `commands.rs` 的 `use crate::sync_engine::vault::{self, …}` 拆为：
 `use crate::sync_engine::model::{…}`、`use crate::sync_engine::plan::build_plan`、
 `use crate::sync_engine::apply::{apply_plan, upload_skills, download_skills}`；
@@ -80,6 +86,7 @@ apply 执行：`PackedLocal` `PreparedSyncPlan` `prepare_plan` `now_iso`
 `commands.rs` → `commands/mod.rs` + 子模块。`lib.rs` 的 `invoke_handler` 改用 `commands::<sub>::<fn>` 显式路径。
 
 ### `commands/mod.rs`（~260 行）
+
 运行时 + 通用 infra + 声明子模块：
 `SyncOperationGate` `AppRuntime`（含 `impl AppRuntime::new`）`AppState` `GithubAppInfo`
 `GithubDeviceFlowPollResponse` `log_command_result`；通用 helper `run_blocking` `list_json`
@@ -87,6 +94,7 @@ apply 执行：`PackedLocal` `PreparedSyncPlan` `prepare_plan` `now_iso`
 子模块通过 `use super::{AppRuntime, …}` 访问共享类型。
 
 ### `commands/sync.rs`（~450 行）
+
 核心同步命令 + 恢复逻辑：
 `get_app_state` `save_config` `scan_skills` `get_sync_plan` `apply_sync_plan`
 `resume_sync_recovery`（含 `_impl`）`RemoteRecoveryDecision` `reconcile_remote_journal`
@@ -96,6 +104,7 @@ apply 执行：`PackedLocal` `PreparedSyncPlan` `prepare_plan` `now_iso`
 恢复 reconcile 测试（RecoveryMockStore）迁入。
 
 ### `commands/github.rs`（~360 行）
+
 13 个 GitHub 命令 + 绑定 helper：
 `start_github_device_flow` `poll_github_device_flow` `get_github_app_info`
 `list_github_installations` `list_installation_repositories`
@@ -106,6 +115,7 @@ apply 执行：`PackedLocal` `PreparedSyncPlan` `prepare_plan` `now_iso`
 `validate_expected_binding` `remote_identity`；device_flow 响应测试迁入。
 
 ### `commands/system.rs`（~50 行）
+
 `open_path` `open_path_platform`（跨平台 cfg 分支）。
 
 ---
@@ -125,6 +135,7 @@ cargo clippy --all-targets --all-features --locked -- -D warnings   # = npm run 
 cargo test --all-features --locked                                  # = npm run rust:test
 cargo fmt --all -- --check                                          # = npm run rust:fmt:check
 ```
+
 最终另跑 `npm run lint` + `npm run build`（AGENTS.md 完成前检查）。
 基线：重构前 `cargo check` 已通过。
 

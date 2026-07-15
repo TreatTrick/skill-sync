@@ -43,6 +43,21 @@
     "sync": "Sync"
   },
   "onboarding": {
+    "intro": {
+      "title": "Welcome to Skill Sync",
+      "description": "Skill Sync keeps your agent skills consistent across every machine by syncing them through a GitHub repository.",
+      "vaultTitle": "Your skill cloud vault",
+      "vaultDescription": "You will create a GitHub repository to act as your private skill vault. Skill Sync uploads, downloads, and reconciles skills through it.",
+      "privateHint": "A private repository is recommended so your skills stay visible only to you.",
+      "nextStepsTitle": "What happens next",
+      "nextSteps": {
+        "authorize": "Authorize Skill Sync with GitHub",
+        "selectRepository": "Create or choose a vault repository",
+        "bind": "Bind the vault and start syncing"
+      },
+      "continue": "Get started",
+      "githubMark": "GitHub"
+    },
     "branch": "Branch",
     "bindingRequired": "Connect a Vault before entering Sync or Settings",
     "cancelReconfigure": "Cancel reconfiguration",
@@ -52,6 +67,7 @@
       "appNotConfigured": "Release setup",
       "authorize": "Authorize GitHub",
       "branch": "Select branch",
+      "createRepository": "Create Vault repository",
       "installApp": "Install app",
       "ready": "Complete binding",
       "vault": "Check Vault"
@@ -63,6 +79,7 @@
     "adjustScope": "This GitHub App installation is not limited to one vault repository. Adjust its scope and check again.",
     "appNotConfigured": "GitHub App is not configured",
     "appNotConfiguredDescription": "This release does not contain the public GitHub App client id / slug, so authorization cannot start.",
+    "appStillNotInstalled": "The GitHub App is not installed yet. Install it on your vault repository, then check again.",
     "authorizeDescription": "Authorize Skill Sync with GitHub Device Flow. Complete verification in GitHub and the app will check the installation scope.",
     "authorizeTitle": "Connect GitHub",
     "bindingFailed": "Vault binding did not complete. Check the remote state and try again.",
@@ -77,6 +94,9 @@
     "continuePublicRepository": "Continue with public repository",
     "createAnotherRepository": "Create another Vault repository",
     "createRepository": "Create Vault repository",
+    "createRepositoryDescription": "Create a new repository on GitHub to use as your skill vault. A private repository is recommended so your skills stay visible only to you.",
+    "createRepositoryDone": "Repository created, next",
+    "createRepositoryTitle": "Create a Vault repository",
     "deviceAuthorizationFailed": "GitHub Device Flow did not complete. Start authorization again.",
     "deviceCodeLabel": "Enter this code on the GitHub verification page",
     "deviceCodeCopied": "Code copied",
@@ -84,7 +104,7 @@
     "initializeCreatesCommit": "This creates an initialization commit containing manifest.json in the target repository.",
     "initializeVault": "Initialize Vault",
     "installApp": "Install GitHub App",
-    "installDescription": "Install the GitHub App directly if you already have a repository. Otherwise, create one on GitHub first. A private repository is recommended, but the visibility is your choice.",
+    "installDescription": "When installing the GitHub App, select only the vault repository you just created, not all repositories. Then check the installation to continue.",
     "installTitle": "Install GitHub App",
     "invalidManifest": "manifest.json is invalid",
     "invalidManifestDescription": "The app will not overwrite an invalid manifest.json. Fix the repository contents and check again.",

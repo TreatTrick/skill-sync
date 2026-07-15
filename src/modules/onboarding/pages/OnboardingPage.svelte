@@ -21,7 +21,9 @@
     toast,
   } from '@/shared/ui'
 
+  import CreateRepositoryStage from '../components/CreateRepositoryStage.svelte'
   import DeviceAuthorizationStage from '../components/DeviceAuthorizationStage.svelte'
+  import FirstRunIntroDialog from '../components/FirstRunIntroDialog.svelte'
   import InstallAppStage from '../components/InstallAppStage.svelte'
   import OnboardingStepper from '../components/OnboardingStepper.svelte'
   import PublicRepositoryWarningStage from '../components/PublicRepositoryWarningStage.svelte'
@@ -53,6 +55,7 @@
     | 'app_not_configured'
     | 'authorize'
     | 'device_pending'
+    | 'create_repository'
     | 'install_app'
     | 'repository_scope_blocked'
     | 'confirm_public_repository'
@@ -92,15 +95,17 @@
 
   const progressStep = (currentStage: OnboardingStage): number => {
     if (currentStage === 'app_not_configured' || currentStage === 'authorize' || currentStage === 'device_pending') return 1
-    if (currentStage === 'install_app' || currentStage === 'repository_scope_blocked') return 2
-    if (currentStage === 'confirm_public_repository' || currentStage === 'select_branch' || currentStage === 'checking_vault' || currentStage === 'vault_unavailable') return 3
-    if (currentStage === 'confirm_initialize' || currentStage === 'invalid_manifest' || currentStage === 'rate_limited') return 4
-    return 5
+    if (currentStage === 'create_repository') return 2
+    if (currentStage === 'install_app' || currentStage === 'repository_scope_blocked') return 3
+    if (currentStage === 'confirm_public_repository' || currentStage === 'select_branch' || currentStage === 'checking_vault' || currentStage === 'vault_unavailable') return 4
+    if (currentStage === 'confirm_initialize' || currentStage === 'invalid_manifest' || currentStage === 'rate_limited') return 5
+    return 6
   }
 
   const stageTitle = (currentStage: OnboardingStage): string => {
     if (currentStage === 'app_not_configured') return t('onboarding.stage.appNotConfigured')
     if (currentStage === 'authorize' || currentStage === 'device_pending') return t('onboarding.stage.authorize')
+    if (currentStage === 'create_repository') return t('onboarding.stage.createRepository')
     if (currentStage === 'install_app' || currentStage === 'repository_scope_blocked') return t('onboarding.stage.installApp')
     if (currentStage === 'confirm_public_repository' || currentStage === 'select_branch' || currentStage === 'checking_vault' || currentStage === 'vault_unavailable') return t('onboarding.stage.branch')
     if (currentStage === 'confirm_initialize' || currentStage === 'invalid_manifest' || currentStage === 'rate_limited') return t('onboarding.stage.vault')
@@ -221,14 +226,22 @@
     }
   }
 
-  const discoverRepository = async (): Promise<void> => {
+  // `entry` distinguishes the initial auto-discovery (route "no usable repo"
+  // results to the create-repository step) from a re-check triggered from the
+  // install step (stay on install_app with a hint instead of looping back).
+  const discoverRepository = async (entry: 'auto' | 'recheck' = 'auto'): Promise<void> => {
     busy = true
     message = ''
     try {
       const discovery = await discoverSingleGithubRepository()
       if (discovery.status === 'app_not_installed') {
         appInfo = appInfo ? { ...appInfo, install_url: discovery.install_url } : appInfo
-        stage = 'install_app'
+        if (entry === 'recheck') {
+          stage = 'install_app'
+          message = t('github.appStillNotInstalled')
+        } else {
+          stage = 'create_repository'
+        }
         return
       }
       if (discovery.status === 'selection_all' || discovery.status === 'multiple_repositories') {
@@ -239,8 +252,12 @@
         return
       }
       if (discovery.status === 'unavailable') {
-        message = discovery.message
-        stage = 'install_app'
+        if (entry === 'recheck') {
+          message = discovery.message
+          stage = 'install_app'
+        } else {
+          stage = 'create_repository'
+        }
         return
       }
       const repositories = await listInstallationRepositories(discovery.repository.installation_id)
@@ -442,6 +459,7 @@
 </script>
 
 <div class="mx-auto grid min-h-screen w-full max-w-2xl gap-4 px-4 py-10 sm:py-16">
+  <FirstRunIntroDialog />
   <Card>
     <CardHeader>
       <div class="flex items-center justify-between gap-3">
@@ -457,12 +475,13 @@
       </div>
       <div class="grid gap-2 pt-3">
         <div class="flex justify-between text-xs text-muted-foreground">
-          <span>{t('onboarding.progress', { current: progressStep(stage), total: 5 })}</span>
+          <span>{t('onboarding.progress', { current: progressStep(stage), total: 6 })}</span>
           <span>{stageTitle(stage)}</span>
         </div>
         <OnboardingStepper
-          ariaLabel={t('onboarding.progress', { current: progressStep(stage), total: 5 })}
+          ariaLabel={t('onboarding.progress', { current: progressStep(stage), total: 6 })}
           current={progressStep(stage)}
+          total={6}
         />
       </div>
     </CardHeader>
@@ -498,14 +517,22 @@
       onCopyCode={() => void copyDeviceCode()}
       onOpenExternal={(event, url) => void openExternal(event, url)}
     />
+  {:else if stage === 'create_repository'}
+    <CreateRepositoryStage
+      createRepositoryUrl={CREATE_GITHUB_REPOSITORY_URL}
+      onOpenExternal={(event, url) => void openExternal(event, url)}
+      onContinue={() => {
+        stage = 'install_app'
+        message = ''
+      }}
+    />
   {:else if stage === 'install_app' || stage === 'repository_scope_blocked'}
     <InstallAppStage
       stage={stage}
       installUrl={appInfo?.install_url ?? null}
-      createRepositoryUrl={CREATE_GITHUB_REPOSITORY_URL}
       busy={busy}
       onOpenExternal={(event, url) => void openExternal(event, url)}
-      onCheckInstallation={() => void discoverRepository()}
+      onCheckInstallation={() => void discoverRepository('recheck')}
     />
   {:else if stage === 'confirm_public_repository' && selectedRepository}
     <PublicRepositoryWarningStage

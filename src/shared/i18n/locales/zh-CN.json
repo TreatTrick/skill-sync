@@ -43,6 +43,21 @@
     "sync": "同步"
   },
   "onboarding": {
+    "intro": {
+      "title": "欢迎使用 Skill Sync",
+      "description": "Skill Sync 通过一个 GitHub 仓库，让你每台机器上的 agent skills 保持一致。",
+      "vaultTitle": "你的 skill 云端仓库",
+      "vaultDescription": "你需要新建一个 GitHub 仓库作为私有的 skill 云端仓库，Skill Sync 会通过它上传、下载并同步 skills。",
+      "privateHint": "推荐使用私有仓库，确保 skills 仅你自己可见。",
+      "nextStepsTitle": "接下来会做什么",
+      "nextSteps": {
+        "authorize": "使用 GitHub 授权 Skill Sync",
+        "selectRepository": "新建或选择一个 vault 仓库",
+        "bind": "绑定 vault 并开始同步"
+      },
+      "continue": "开始配置",
+      "githubMark": "GitHub"
+    },
     "branch": "分支",
     "bindingRequired": "完成 Vault 连接后才能进入同步与设置",
     "cancelReconfigure": "取消重新配置",
@@ -52,6 +67,7 @@
       "appNotConfigured": "发布配置",
       "authorize": "授权 GitHub",
       "branch": "选择分支",
+      "createRepository": "新建 Vault 仓库",
       "installApp": "安装应用",
       "ready": "完成绑定",
       "vault": "检查 Vault"
@@ -63,6 +79,7 @@
     "adjustScope": "当前 GitHub App 授权范围不是单个 vault 仓库，请调整安装范围后重新检查。",
     "appNotConfigured": "GitHub App 尚未配置",
     "appNotConfiguredDescription": "当前发布包没有注入公开的 GitHub App client id / slug，无法开始授权。",
+    "appStillNotInstalled": "尚未安装 GitHub App，请在 Vault 仓库上安装后再检查。",
     "authorizeDescription": "使用 GitHub Device Flow 授权 Skill Sync。访问验证码页面完成授权后，应用会继续检查安装范围。",
     "authorizeTitle": "连接 GitHub",
     "bindingFailed": "Vault 绑定未完成，请重新检查远端状态。",
@@ -77,6 +94,9 @@
     "continuePublicRepository": "继续使用公开仓库",
     "createAnotherRepository": "新建其他 Vault 仓库",
     "createRepository": "新建 Vault 仓库",
+    "createRepositoryDescription": "在 GitHub 上新建一个仓库作为你的 skill 云端 Vault。推荐使用私有仓库，确保 skills 仅你自己可见。",
+    "createRepositoryDone": "新建仓库完成，下一步",
+    "createRepositoryTitle": "新建 Vault 仓库",
     "deviceAuthorizationFailed": "GitHub Device Flow 未完成，请重新开始授权。",
     "deviceCodeLabel": "请在 GitHub 验证页面输入以下验证码",
     "deviceCodeCopied": "验证码已复制",
@@ -84,7 +104,7 @@
     "initializeCreatesCommit": "这会在目标仓库创建 manifest.json commit。",
     "initializeVault": "初始化 Vault",
     "installApp": "安装 GitHub App",
-    "installDescription": "已有仓库可直接安装 GitHub App；没有仓库时先在 GitHub 新建一个。推荐使用私有仓库，公开或私有由你选择。",
+    "installDescription": "安装 GitHub App 时请只勾选刚刚新建的 Vault 仓库，不要选择所有仓库。安装完成后检查安装以继续。",
     "installTitle": "安装 GitHub App",
     "invalidManifest": "manifest.json 存在但格式无效",
     "invalidManifestDescription": "应用不会覆盖无效的 manifest.json，请修复仓库内容后重新检查。",
