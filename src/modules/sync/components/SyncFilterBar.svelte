@@ -48,11 +48,20 @@
   </span>
 {/snippet}
 
+{#snippet filterDot(filter: SyncStatusFilter)}
+  {#if filter === 'delete_remote'}
+    <span class="size-2 shrink-0 rounded-full bg-destructive/30"></span>
+  {:else if filter === 'delete_local'}
+    <span class="size-2 shrink-0 rounded-full bg-destructive/10"></span>
+  {/if}
+{/snippet}
+
 <div class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row">
   <Input bind:value={search} placeholder={t('sync.searchPlaceholder')} />
   <Select type="single" bind:value={statusFilter}>
     <SelectTrigger aria-label={t('sync.filterLabel')} class="sm:w-52">
       <span class="flex min-w-0 items-center gap-1.5">
+        {@render filterDot(statusFilter)}
         <span class="truncate">{t(statusFilterLabel(statusFilter))}</span>
         {#if totalChanges > 0}
           {@render countBadge(totalChanges)}
@@ -63,7 +72,10 @@
       {#each SYNC_STATUS_FILTERS as filter (filter)}
         {@const count = changeCountFor(filter)}
         <SelectItem value={filter}>
-          <span>{t(statusFilterLabel(filter))}</span>
+          <span class="flex items-center gap-1.5">
+            {@render filterDot(filter)}
+            {t(statusFilterLabel(filter))}
+          </span>
           {#if count}
             {@render countBadge(count)}
           {/if}

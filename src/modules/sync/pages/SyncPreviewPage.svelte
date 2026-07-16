@@ -28,17 +28,20 @@
   import ConflictDetailDialog from '../components/ConflictDetailDialog.svelte'
   import RecoveryCard from '../components/RecoveryCard.svelte'
   import SyncApplyBar from '../components/SyncApplyBar.svelte'
+  import SyncBulkActionBar from '../components/SyncBulkActionBar.svelte'
   import SyncCommitSummary from '../components/SyncCommitSummary.svelte'
   import SyncFilterBar from '../components/SyncFilterBar.svelte'
   import SyncMetric from '../components/SyncMetric.svelte'
   import SyncSkillCard from '../components/SyncSkillCard.svelte'
   import {
+    bulkConflictDecision,
     countSyncChanges,
     deleteDecisionOptions,
     EMPTY_SYNC_CHANGE_COUNTS,
     isDeleteEntry,
     matchesEntry,
     summarizeSyncSelection,
+    type ConflictBias,
     type SyncStatusFilter,
   } from '../lib/syncStatus'
   import type {
@@ -107,7 +110,8 @@
   const totalChanges = $derived(
     changeCounts.local_update +
       changeCounts.remote_update +
-      changeCounts.deleted +
+      changeCounts.delete_remote +
+      changeCounts.delete_local +
       changeCounts.conflict,
   )
   const hasLocalStateUpdates = $derived(
@@ -300,6 +304,38 @@
     syncDecisions.setDecision(entry.skill_id, choice)
   }
 
+  // Bulk-resolve every visible conflict by adopting one side's state. The
+  // mapping in bulkConflictDecision covers all conflict reasons, so no conflict
+  // in the current view is left for manual handling.
+  const applyBulkConflictDecision = (bias: ConflictBias): void => {
+    for (const entry of visibleEntries) {
+      if (entry.status !== 'conflict' || !entry.conflict_reason) continue
+      syncDecisions.setDecision(
+        entry.skill_id,
+        bulkConflictDecision(entry.conflict_reason, bias),
+      )
+    }
+  }
+
+  // Bulk-handle every visible delete entry on the active delete filter. "delete"
+  // clears recovery decisions and selects every action_id so apply runs the
+  // deletions; "recover" sets the side's recovery decision and deselects.
+  const applyBulkDeleteDecision = (action: 'delete' | 'recover'): void => {
+    const entries = visibleEntries
+    const ids = new Set(entries.map((entry) => entry.action_id))
+    if (action === 'delete') {
+      for (const entry of entries) syncDecisions.removeDecision(entry.skill_id)
+      selectedActionIds = [
+        ...new Set([...selectedActionIds, ...entries.map((entry) => entry.action_id)]),
+      ]
+      return
+    }
+    const decision: SyncDecision =
+      statusFilter === 'delete_remote' ? 'restore_remote' : 'keep_local'
+    for (const entry of entries) syncDecisions.setDecision(entry.skill_id, decision)
+    selectedActionIds = selectedActionIds.filter((id) => !ids.has(id))
+  }
+
   const handleApply = (): void => {
     if (!planData || !canApply) return
     apply.mutate({
@@ -410,11 +446,20 @@
           onFilter={(f) => { statusFilter = f }}
         />
         <SyncMetric
-          label={t('sync.metrics.toDelete')}
-          value={(planData?.delete_remote.length ?? 0) + (planData?.delete_local.length ?? 0)}
+          label={t('sync.metrics.deleteRemote')}
+          value={planData?.delete_remote.length ?? 0}
           icon={Trash2}
           tone="destructive"
-          filter="deleted"
+          filter="delete_remote"
+          activeFilter={statusFilter}
+          onFilter={(f) => { statusFilter = f }}
+        />
+        <SyncMetric
+          label={t('sync.metrics.deleteLocal')}
+          value={planData?.delete_local.length ?? 0}
+          icon={Trash2}
+          tone="destructiveSoft"
+          filter="delete_local"
           activeFilter={statusFilter}
           onFilter={(f) => { statusFilter = f }}
         />
@@ -461,6 +506,15 @@
         onSelectAll={selectAllVisible}
         onSelectNone={selectNoneVisible}
       />
+
+      {#if statusFilter === 'conflict' || statusFilter === 'delete_remote' || statusFilter === 'delete_local'}
+        <SyncBulkActionBar
+          statusFilter={statusFilter}
+          visibleCount={visibleEntries.length}
+          onBulkConflict={applyBulkConflictDecision}
+          onBulkDelete={applyBulkDeleteDecision}
+        />
+      {/if}
 
       {#if plan.isLoading}
         <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">

@@ -10,7 +10,8 @@ export const SYNC_STATUS_FILTERS = [
   'synced',
   'local_update',
   'remote_update',
-  'deleted',
+  'delete_remote',
+  'delete_local',
   'conflict',
 ] as const
 
@@ -18,14 +19,19 @@ export type SyncStatusFilter = (typeof SYNC_STATUS_FILTERS)[number]
 
 // Filters that represent pending changes worth surfacing as badge counts.
 type SyncChangeFilter =
-  'local_update' | 'remote_update' | 'deleted' | 'conflict'
+  | 'local_update'
+  | 'remote_update'
+  | 'delete_remote'
+  | 'delete_local'
+  | 'conflict'
 
 export type SyncChangeCounts = Record<SyncChangeFilter, number>
 
 export const EMPTY_SYNC_CHANGE_COUNTS: SyncChangeCounts = {
   local_update: 0,
   remote_update: 0,
-  deleted: 0,
+  delete_remote: 0,
+  delete_local: 0,
   conflict: 0,
 }
 
@@ -38,11 +44,8 @@ export const countSyncChanges = (
   for (const entry of entries) {
     if (entry.status === 'local_update') counts.local_update++
     else if (entry.status === 'remote_update') counts.remote_update++
-    else if (
-      entry.status === 'local_deleted' ||
-      entry.status === 'remote_deleted'
-    )
-      counts.deleted++
+    else if (entry.status === 'local_deleted') counts.delete_remote++
+    else if (entry.status === 'remote_deleted') counts.delete_local++
     else if (entry.status === 'conflict') counts.conflict++
   }
   return counts
@@ -84,9 +87,8 @@ const matchesStatusFilter = (
   filter: SyncStatusFilter,
 ): boolean => {
   if (filter === 'all') return true
-  if (filter === 'deleted') {
-    return status === 'local_deleted' || status === 'remote_deleted'
-  }
+  if (filter === 'delete_remote') return status === 'local_deleted'
+  if (filter === 'delete_local') return status === 'remote_deleted'
   return status === filter
 }
 
@@ -155,3 +157,26 @@ export const deleteDecisionOptions = (
 export const decisionLabelKey = (
   choice: SyncDecision,
 ): `sync.decisions.${SyncDecision}` => `sync.decisions.${choice}`
+
+// Bias for bulk conflict resolution: adopt the remote state or the local state.
+export type ConflictBias = 'remote' | 'local'
+
+// Map a conflict reason to the decision that adopts the chosen side's state.
+// Covers every reason so bulk actions leave no conflict unhandled:
+//   both_changed / same_name_first_seen -> use_remote | keep_local
+//   local_deleted_remote_changed (local gone, remote changed) ->
+//     remote: restore_remote (pull remote back) | local: delete_remote (keep local deletion)
+//   remote_deleted_local_changed (remote gone, local changed) ->
+//     remote: accept_delete (accept remote deletion) | local: keep_local (re-upload)
+export const bulkConflictDecision = (
+  reason: ConflictReason,
+  bias: ConflictBias,
+): SyncDecision => {
+  if (bias === 'remote') {
+    if (reason === 'local_deleted_remote_changed') return 'restore_remote'
+    if (reason === 'remote_deleted_local_changed') return 'accept_delete'
+    return 'use_remote'
+  }
+  if (reason === 'local_deleted_remote_changed') return 'delete_remote'
+  return 'keep_local'
+}

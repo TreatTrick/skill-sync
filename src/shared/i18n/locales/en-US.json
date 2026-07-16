@@ -202,7 +202,8 @@
     "filters": {
       "all": "All",
       "conflict": "Conflict",
-      "deleted": "Deleted",
+      "delete_local": "Delete local",
+      "delete_remote": "Delete remote",
       "local_update": "Local update",
       "remote_update": "Remote update",
       "synced": "Synced"
@@ -220,8 +221,9 @@
     "localBaseUpdated": "Updated {{count}} local sync base item(s)",
     "metrics": {
       "conflicts": "Conflicts",
+      "deleteLocal": "Delete local",
+      "deleteRemote": "Delete remote",
       "discovered": "Discovered skills",
-      "toDelete": "To delete",
       "toDownload": "To download",
       "toUpload": "To upload"
     },
@@ -252,6 +254,13 @@
       "remote_update": "Remote update",
       "synced": "Synced",
       "unknown": "Unknown"
+    },
+    "bulk": {
+      "deleteAllLocal": "Delete all local",
+      "deleteAllRemote": "Delete all remote",
+      "keepAllLocal": "Keep all local",
+      "restoreAllRemote": "Restore all remote",
+      "useAllRemote": "Use all remote"
     },
     "viewConflict": "View conflict details"
   },

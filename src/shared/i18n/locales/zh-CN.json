@@ -202,7 +202,8 @@
     "filters": {
       "all": "全部",
       "conflict": "冲突",
-      "deleted": "删除",
+      "delete_local": "删除本地",
+      "delete_remote": "删除云端",
       "local_update": "本地更新",
       "remote_update": "云端更新",
       "synced": "已同步"
@@ -220,8 +221,9 @@
     "localBaseUpdated": "已更新 {{count}} 个本机同步基线",
     "metrics": {
       "conflicts": "冲突",
+      "deleteLocal": "删除本地",
+      "deleteRemote": "删除云端",
       "discovered": "已发现 skills",
-      "toDelete": "待删除",
       "toDownload": "待下载",
       "toUpload": "待上传"
     },
@@ -252,6 +254,13 @@
       "remote_update": "云端更新",
       "synced": "已同步",
       "unknown": "未知"
+    },
+    "bulk": {
+      "deleteAllLocal": "全部删除本地",
+      "deleteAllRemote": "全部删除云端",
+      "keepAllLocal": "全部保留本地",
+      "restoreAllRemote": "全部恢复云端",
+      "useAllRemote": "全部使用云端"
     },
     "viewConflict": "查看冲突详情"
   },
