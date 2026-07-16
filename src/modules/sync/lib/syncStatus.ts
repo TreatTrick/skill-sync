@@ -17,40 +17,6 @@ export const SYNC_STATUS_FILTERS = [
 
 export type SyncStatusFilter = (typeof SYNC_STATUS_FILTERS)[number]
 
-// Filters that represent pending changes worth surfacing as badge counts.
-type SyncChangeFilter =
-  | 'local_update'
-  | 'remote_update'
-  | 'delete_remote'
-  | 'delete_local'
-  | 'conflict'
-
-export type SyncChangeCounts = Record<SyncChangeFilter, number>
-
-export const EMPTY_SYNC_CHANGE_COUNTS: SyncChangeCounts = {
-  local_update: 0,
-  remote_update: 0,
-  delete_remote: 0,
-  delete_local: 0,
-  conflict: 0,
-}
-
-// Count pending-change entries per filter. Mirrors matchesStatusFilter so the
-// badge totals stay consistent with what each filter actually shows.
-export const countSyncChanges = (
-  entries: SyncSkillEntry[],
-): SyncChangeCounts => {
-  const counts: SyncChangeCounts = { ...EMPTY_SYNC_CHANGE_COUNTS }
-  for (const entry of entries) {
-    if (entry.status === 'local_update') counts.local_update++
-    else if (entry.status === 'remote_update') counts.remote_update++
-    else if (entry.status === 'local_deleted') counts.delete_remote++
-    else if (entry.status === 'remote_deleted') counts.delete_local++
-    else if (entry.status === 'conflict') counts.conflict++
-  }
-  return counts
-}
-
 export const summarizeSyncSelection = (
   entries: SyncSkillEntry[],
   decisions: SyncDecision[],

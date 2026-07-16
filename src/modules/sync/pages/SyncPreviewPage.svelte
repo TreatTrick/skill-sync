@@ -35,9 +35,7 @@
   import SyncSkillCard from '../components/SyncSkillCard.svelte'
   import {
     bulkConflictDecision,
-    countSyncChanges,
     deleteDecisionOptions,
-    EMPTY_SYNC_CHANGE_COUNTS,
     isDeleteEntry,
     matchesEntry,
     summarizeSyncSelection,
@@ -104,15 +102,8 @@
       Object.values(syncDecisions.decisions),
     ),
   )
-  const changeCounts = $derived(
-    planData ? countSyncChanges(planData.entries) : EMPTY_SYNC_CHANGE_COUNTS,
-  )
-  const totalChanges = $derived(
-    changeCounts.local_update +
-      changeCounts.remote_update +
-      changeCounts.delete_remote +
-      changeCounts.delete_local +
-      changeCounts.conflict,
+  const syncedCount = $derived(
+    (planData?.entries ?? []).filter((entry) => entry.status === 'synced').length,
   )
   const hasLocalStateUpdates = $derived(
     (planData?.base_adoptions.length ?? 0) > 0 ||
@@ -421,11 +412,23 @@
         </Callout>
       {/if}
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SyncMetric
           label={t('sync.metrics.discovered')}
           value={skills.length}
           icon={Package}
+          filter="all"
+          activeFilter={statusFilter}
+          onFilter={(f) => { statusFilter = f }}
+        />
+        <SyncMetric
+          label={t('sync.metrics.synced')}
+          value={syncedCount}
+          icon={CheckCircle}
+          tone="primary"
+          filter="synced"
+          activeFilter={statusFilter}
+          onFilter={(f) => { statusFilter = f }}
         />
         <SyncMetric
           label={t('sync.metrics.toUpload')}
@@ -498,9 +501,6 @@
 
       <SyncFilterBar
         bind:search
-        bind:statusFilter
-        changeCounts={changeCounts}
-        totalChanges={totalChanges}
         canSelectAll={canSelectAll}
         canSelectNone={canSelectNone}
         onSelectAll={selectAllVisible}

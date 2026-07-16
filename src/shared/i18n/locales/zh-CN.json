@@ -224,6 +224,7 @@
       "deleteLocal": "删除本地",
       "deleteRemote": "删除云端",
       "discovered": "已发现 skills",
+      "synced": "已同步",
       "toDownload": "待下载",
       "toUpload": "待上传"
     },

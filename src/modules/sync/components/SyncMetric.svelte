@@ -4,7 +4,7 @@
   import { cn } from '@/shared/lib'
   import type { SyncStatusFilter } from '../lib/syncStatus'
 
-  type MetricTone = 'neutral' | 'info' | 'success' | 'warning' | 'destructive' | 'destructiveSoft'
+  type MetricTone = 'neutral' | 'info' | 'success' | 'warning' | 'destructive' | 'destructiveSoft' | 'primary'
 
   interface Props {
     label: string
@@ -35,6 +35,7 @@
     warning: 'border-warning-border bg-warning-muted',
     destructive: 'border-destructive-border bg-destructive-muted',
     destructiveSoft: 'border-destructive-border/70 bg-destructive-muted/70',
+    primary: 'border-primary-border bg-primary-muted',
   }
 
   const accentClasses: Record<MetricTone, string> = {
@@ -44,6 +45,7 @@
     warning: 'text-warning',
     destructive: 'text-destructive',
     destructiveSoft: 'text-destructive',
+    primary: 'text-primary-muted-foreground',
   }
 </script>
 
