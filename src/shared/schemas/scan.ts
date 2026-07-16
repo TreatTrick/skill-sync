@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const namespaceSchema = z.enum(['agents', 'codex', 'claude-code'])
+import { namespaceSchema } from './apiResponse'
 
 const skillSchema = z.object({
   id: z.string(),

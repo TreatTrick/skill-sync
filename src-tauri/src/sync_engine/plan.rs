@@ -22,7 +22,7 @@ use super::model::{
     SyncSkillEntry, SyncStatus,
 };
 
-// ---- Task 8: build_plan / merge_plan ----
+// ---- build_plan / merge_plan ----
 
 /// 已打包的本地 skill 信息（scan + pack 后合并），作为 merge_plan 的 local 输入。
 #[derive(Debug, Clone)]
@@ -895,7 +895,7 @@ mod tests {
             .find(|e| e.skill_id == skill_id)
             .unwrap()
     }
-    // ---- Task 8: 三方比较 13 行真值表 ----
+    // ---- 三方比较 13 行真值表 ----
 
     #[test]
     fn base_empty_local_only_is_local_update() {

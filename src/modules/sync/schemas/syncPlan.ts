@@ -1,8 +1,6 @@
 import { z } from 'zod'
 
-import { recoveryInfoSchema } from '@/shared/schemas'
-
-const namespaceSchema = z.enum(['agents', 'codex', 'claude-code'])
+import { namespaceSchema, recoveryInfoSchema } from '@/shared/schemas'
 
 const syncStatusSchema = z.enum([
   'synced',
@@ -40,40 +38,34 @@ const syncDecisionSchema = z.enum([
 
 export type SyncDecision = z.infer<typeof syncDecisionSchema>
 
-const syncSkillEntrySchema = z.object({
-  action_id: z.string(),
+// Shared shape between plan entries and conflict entries (11 common fields).
+// conflict_reason differs (nullable vs required), so it is added per-schema.
+const skillEntryBaseSchema = z.object({
   skill_id: z.string(),
   name: z.string(),
   namespace: namespaceSchema,
   folder_name: z.string(),
   relative_dir: z.string().nullable(),
-  status: syncStatusSchema,
   local_hash: z.string().nullable(),
   remote_hash: z.string().nullable(),
   base_hash: z.string().nullable(),
   local_path: z.string().nullable(),
   remote_blob: z.string().nullable(),
+  warnings: z.array(z.string()),
+})
+
+const syncSkillEntrySchema = skillEntryBaseSchema.extend({
+  action_id: z.string(),
+  status: syncStatusSchema,
   conflict_reason: conflictReasonSchema.nullable(),
   delete_direction: deleteDirectionSchema.nullable(),
   blocked_reason: z.string().nullable(),
-  warnings: z.array(z.string()),
 })
 
 export type SyncSkillEntry = z.infer<typeof syncSkillEntrySchema>
 
-const conflictSchema = z.object({
-  skill_id: z.string(),
-  name: z.string(),
-  namespace: namespaceSchema,
-  folder_name: z.string(),
-  relative_dir: z.string().nullable(),
+const conflictSchema = skillEntryBaseSchema.extend({
   conflict_reason: conflictReasonSchema,
-  local_hash: z.string().nullable(),
-  remote_hash: z.string().nullable(),
-  base_hash: z.string().nullable(),
-  local_path: z.string().nullable(),
-  remote_blob: z.string().nullable(),
-  warnings: z.array(z.string()),
 })
 
 export type Conflict = z.infer<typeof conflictSchema>

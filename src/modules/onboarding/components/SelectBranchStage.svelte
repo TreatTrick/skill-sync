@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '@/shared/i18n'
   import { Button, Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger } from '@/shared/ui'
-  import type { RemoteConfig } from '../schemas/onboarding'
+  import type { RemoteConfig } from '@/shared/schemas'
 
   interface Props {
     remote: RemoteConfig | null

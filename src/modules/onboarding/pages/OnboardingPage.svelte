@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte'
+  import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
 
-  import { getAppState } from '@/modules/settings'
-  import { errorMessage, isWorkspaceReady, openPath, SkillSyncError } from '@/shared/lib'
+  import { errorMessage, getAppState, isWorkspaceReady, openPath, SkillSyncError } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { useQueryClient, createQuery } from '@tanstack/svelte-query'
   import { ExternalLink, LoaderCircle, TriangleAlert } from '@lucide/svelte'
@@ -41,15 +40,15 @@
     pollGithubDeviceFlow,
     startGithubDeviceFlow,
   } from '../api/onboardingApi'
-  import type {
-    DeviceFlowPoll,
-    DeviceFlowStart,
-    GithubAppInfo,
-    GithubRepository,
-    GithubVaultCheck,
-    RemoteConfig,
-  } from '../schemas/onboarding'
-  import { githubVaultCheckSchema } from '../schemas/onboarding'
+  import {
+    githubVaultCheckSchema,
+    type DeviceFlowPoll,
+    type DeviceFlowStart,
+    type GithubAppInfo,
+    type GithubRepository,
+    type GithubVaultCheck,
+    type RemoteConfig,
+  } from '@/shared/schemas'
 
   type OnboardingStage =
     | 'app_not_configured'
@@ -79,7 +78,11 @@
   let appInfo = $state<GithubAppInfo | null>(null)
   let stage = $state<OnboardingStage>('authorize')
   let message = $state('')
-  let busy = $state(false)
+  // busy is a depth counter so nested async steps (e.g. checkVault called from
+  // continueWithSelectedRepository, or discoverRepository from pollDeviceFlow)
+  // never flip busy back to false while an outer step is still running.
+  let busyDepth = $state(0)
+  const busy = $derived(busyDepth > 0)
   let deviceFlow = $state<DeviceFlowStart | null>(null)
   let deviceExpiresAt = $state<number | null>(null)
   let deviceInterval = $state(5)
@@ -215,14 +218,14 @@
   }
 
   const continueWithPublicRepository = async (): Promise<void> => {
-    busy = true
+    busyDepth++
     message = ''
     try {
       await continueWithSelectedRepository()
     } catch (error) {
       setError(error)
     } finally {
-      busy = false
+      busyDepth--
     }
   }
 
@@ -230,7 +233,7 @@
   // results to the create-repository step) from a re-check triggered from the
   // install step (stay on install_app with a hint instead of looping back).
   const discoverRepository = async (entry: 'auto' | 'recheck' = 'auto'): Promise<void> => {
-    busy = true
+    busyDepth++
     message = ''
     try {
       const discovery = await discoverSingleGithubRepository()
@@ -281,13 +284,13 @@
     } catch (error) {
       setError(error)
     } finally {
-      busy = false
+      busyDepth--
     }
   }
 
   const pollDeviceFlow = async (): Promise<void> => {
     if (!deviceFlow) return
-    busy = true
+    busyDepth++
     try {
       const response: DeviceFlowPoll = await pollGithubDeviceFlow(
         deviceFlow.device_code,
@@ -314,12 +317,12 @@
       stopPolling()
       setError(error)
     } finally {
-      busy = false
+      busyDepth--
     }
   }
 
   const startDeviceAuthorization = async (): Promise<void> => {
-    busy = true
+    busyDepth++
     message = ''
     try {
       deviceFlow = await startGithubDeviceFlow()
@@ -330,13 +333,13 @@
     } catch (error) {
       setError(error)
     } finally {
-      busy = false
+      busyDepth--
     }
   }
 
   const checkVault = async (): Promise<void> => {
     if (!remote) return
-    busy = true
+    busyDepth++
     message = ''
     try {
       vaultCheck = await checkGithubVault(remote)
@@ -350,7 +353,7 @@
     } catch (error) {
       setError(error)
     } finally {
-      busy = false
+      busyDepth--
     }
   }
 
@@ -362,7 +365,7 @@
 
   const initializeVault = async (): Promise<void> => {
     if (!remote || !vaultCheck) return
-    busy = true
+    busyDepth++
     message = ''
     try {
       vaultCheck = await initializeGithubVault({
@@ -375,7 +378,7 @@
     } catch (error) {
       setError(error)
     } finally {
-      busy = false
+      busyDepth--
     }
   }
 
@@ -393,7 +396,7 @@
       message = t('github.confirmRebindRequired')
       return
     }
-    busy = true
+    busyDepth++
     message = ''
     try {
       const nextState = await bindGithubVault({
@@ -419,7 +422,7 @@
     } catch (error) {
       setError(error)
     } finally {
-      busy = false
+      busyDepth--
     }
   }
 
@@ -444,18 +447,10 @@
     void discoverRepository()
   })
 
-  $effect(() => {
-    if (appState.data && isWorkspaceReady(appState.data) && !reconfigure) {
-      void goto('/app/sync', { replaceState: true })
-    }
-  })
-
   onMount(() => {
     void loadAppInfo()
     return stopPolling
   })
-
-  onDestroy(stopPolling)
 </script>
 
 <div class="mx-auto grid min-h-screen w-full max-w-2xl gap-4 px-4 py-10 sm:py-16">

@@ -3,7 +3,7 @@
 
   import { t } from '@/shared/i18n'
   import { Button, Callout, Card, CardContent, Checkbox } from '@/shared/ui'
-  import type { RemoteConfig } from '../schemas/onboarding'
+  import type { RemoteConfig } from '@/shared/schemas'
 
   interface Props {
     remote: RemoteConfig | null

@@ -499,11 +499,22 @@ pub(crate) fn parse_central_directory(bytes: &[u8]) -> Result<Vec<RawCdEntry>> {
         let comment_len = le_u16(&bytes[pos + 32..pos + 34])? as usize;
         let external_attrs = le_u32(&bytes[pos + 38..pos + 42])?;
         let name_start = pos + 46;
+        // name/extra/comment 长度取自头部字段（各可达 65535），必须在切片前显式校验
+        // 越界，否则畸形/恶意 central directory 会触发 slice 越界 panic。checked_add
+        // 同时防御 usize 溢出。
+        let record_end = name_start
+            .checked_add(name_len)
+            .and_then(|v| v.checked_add(extra_len))
+            .and_then(|v| v.checked_add(comment_len))
+            .ok_or_else(|| AppError::Vault("zip central directory record overflows".into()))?;
+        if record_end > bytes.len() {
+            return Err(AppError::Vault(
+                "zip central directory record exceeds input".into(),
+            ));
+        }
         let name = String::from_utf8_lossy(&bytes[name_start..name_start + name_len]).to_string();
         let extra = bytes[name_start + name_len..name_start + name_len + extra_len].to_vec();
-        let comment = bytes
-            [name_start + name_len + extra_len..name_start + name_len + extra_len + comment_len]
-            .to_vec();
+        let comment = bytes[name_start + name_len + extra_len..record_end].to_vec();
         out.push(RawCdEntry {
             name,
             creator_system,
@@ -515,7 +526,7 @@ pub(crate) fn parse_central_directory(bytes: &[u8]) -> Result<Vec<RawCdEntry>> {
             comment,
             uncompressed_size,
         });
-        pos = name_start + name_len + extra_len + comment_len;
+        pos = record_end;
     }
     Ok(out)
 }
@@ -925,6 +936,51 @@ mod tests {
             fs::read_to_string(target.path().join("scripts/run.sh")).unwrap(),
             "echo ok"
         );
+    }
+
+    #[test]
+    fn parse_central_directory_rejects_oversized_name_len_without_panic() {
+        // 畸形 CD：固定头声明 name_len=65535，但缓冲区未提供对应字节。
+        // 修复前会触发 slice 越界 panic；修复后必须返回 Vault 错误。
+        let mut bytes = Vec::new();
+        // central directory file header signature + 46-byte fixed header
+        bytes.extend_from_slice(&[0x50, 0x4b, 0x01, 0x02]);
+        bytes.extend_from_slice(&((3u16 << 8) | 20).to_le_bytes()); // version_made_by
+        bytes.extend_from_slice(&20u16.to_le_bytes()); // version_needed
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // flags
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // method
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // mod_time
+        bytes.extend_from_slice(&33u16.to_le_bytes()); // mod_date
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // crc
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // compressed_size
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // uncompressed_size
+        bytes.extend_from_slice(&65535u16.to_le_bytes()); // name_len（畸形超长）
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // extra_len
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // comment_len
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // disk
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // internal attrs
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // external attrs
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // local header offset
+                                                      // end of central directory record，cd_offset = 0
+        bytes.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06]);
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // disk
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // cd disk
+        bytes.extend_from_slice(&1u16.to_le_bytes()); // cd entries on disk
+        bytes.extend_from_slice(&1u16.to_le_bytes()); // cd entries
+        bytes.extend_from_slice(&46u32.to_le_bytes()); // cd size
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // cd offset
+        bytes.extend_from_slice(&0u16.to_le_bytes()); // comment len
+
+        match parse_central_directory(&bytes) {
+            Err(err) => {
+                let msg = err.to_string();
+                assert!(
+                    msg.contains("exceeds input") || msg.contains("overflows"),
+                    "expected bounds-check error, got: {msg}"
+                );
+            }
+            Ok(_) => panic!("expected Vault error, not success"),
+        }
     }
 
     // ---- zip fixture helpers ----

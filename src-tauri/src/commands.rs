@@ -314,7 +314,6 @@ fn journal_to_recovery(journal: crate::local_apply::ApplyJournal) -> RecoveryInf
     let phase = match journal.phase.as_str() {
         "remote_committing" | "remote_outcome_unknown" => RecoveryPhase::RemoteOutcomeUnknown,
         "local_replace_failed" => RecoveryPhase::LocalReplaceFailed,
-        "trash_move_failed" => RecoveryPhase::TrashMoveFailed,
         "state_saving" => RecoveryPhase::StateSaveFailed,
         _ => RecoveryPhase::RemoteOutcomeUnknown,
     };

@@ -1,5 +1,5 @@
-// 本地 apply 事务：同盘 staging/replace/trash、durable state 写入、versioned journal 与恢复。
-// Task 9 核心实现：journal 持久化与幂等 resume 简化（主要覆盖 StateSaving 恢复）。
+// 本地 apply 事务：同盘 staging/replace、durable state 写入、versioned journal 与恢复。
+// 核心实现：journal 持久化与幂等 resume 简化（主要覆盖 StateSaving 恢复）。
 
 use std::fs;
 use std::io::Write;
@@ -32,11 +32,6 @@ pub(crate) fn rollback_dir(root: &Path, task_id: &str, folder: &str) -> PathBuf 
     root.join(".skill-sync-rollback").join(task_id).join(folder)
 }
 
-/// `<root>/.skill-sync-trash/<task>/<folder>`
-pub(crate) fn trash_dir(root: &Path, task_id: &str, folder: &str) -> PathBuf {
-    root.join(".skill-sync-trash").join(task_id).join(folder)
-}
-
 /// 同盘 rename 替换：target 存在则先 target -> rollback，再 stage -> target。
 /// 第二次 rename 失败时立即 rollback -> target 恢复。
 pub(crate) fn commit_staged(stage: &Path, target: &Path, rollback: &Path) -> Result<()> {
@@ -61,17 +56,6 @@ pub(crate) fn commit_staged(stage: &Path, target: &Path, rollback: &Path) -> Res
         fs::rename(stage, target)?;
     }
     Ok(())
-}
-
-/// target -> trash 同盘 rename。trash 必须与 target 同 namespace root/文件系统。
-pub(crate) fn move_to_trash(target: &Path, trash: &Path) -> Result<()> {
-    if let Some(parent) = trash.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    if trash.exists() {
-        drop(fs::remove_dir_all(trash));
-    }
-    fs::rename(target, trash).map_err(|e| AppError::Vault(format!("trash move failed: {e}")))
 }
 
 /// 清空目录内所有内容（保留目录本身）。
@@ -177,7 +161,7 @@ pub(crate) fn backup_journal(config_dir: &Path) -> Result<PathBuf> {
 }
 
 /// 恢复 pending journal。StateSaving phase：按 next_state 重写 sync_state 并清 journal。
-/// 其他 phase（RemoteOutcomeUnknown/LocalReplaceFailed/TrashMoveFailed）：返回 journal 信息
+/// 其他 phase（RemoteOutcomeUnknown/LocalReplaceFailed）：返回 journal 信息
 /// 供上层报告恢复状态，不重复远端提交或本地动作。证据不一致时 fail closed。
 pub(crate) fn recover_pending(config_dir: &Path) -> Result<Option<ApplyJournal>> {
     let journal = match load_journal(config_dir) {

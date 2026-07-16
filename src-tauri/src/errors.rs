@@ -23,8 +23,8 @@ pub(crate) enum AppError {
     NotConfigured(String),
     #[error("vault error: {0}")]
     Vault(String),
-    // RemoteChanged / RemoteOutcomeUnknown / Auth / RecoveryPending 在 Task 6/9/10 才被构造，
-    // Task 3 阶段暂未使用，故标注 allow(dead_code)；Vault / Blocked 本任务即使用。
+    // RemoteChanged / RemoteOutcomeUnknown / Auth / RecoveryPending 在远端提交与恢复路径构造；
+    // Vault / Blocked 在边界层立即使用。
     #[error("remote changed: {0}")]
     RemoteChanged(String),
     #[error("remote outcome unknown (base={base_commit_sha}, candidate={candidate_commit_sha})")]

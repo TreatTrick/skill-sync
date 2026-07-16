@@ -3,15 +3,12 @@ import { z } from 'zod'
 import { invokeCmd } from '@/shared/lib'
 import {
   appStateSchema,
-  bindGithubVaultRequestSchema,
   deviceFlowPollSchema,
   deviceFlowStartSchema,
   githubAppInfoSchema,
   githubRepositoryDiscoverySchema,
   githubRepositorySchema,
   githubVaultCheckSchema,
-  initializeGithubVaultRequestSchema,
-  remoteConfigSchema,
   type AppState,
   type BindGithubVaultRequest,
   type DeviceFlowPoll,
@@ -22,7 +19,7 @@ import {
   type GithubVaultCheck,
   type InitializeGithubVaultRequest,
   type RemoteConfig,
-} from '../schemas/onboarding'
+} from '@/shared/schemas'
 
 const deviceFlowPollPayloadSchema = z.object({
   status: z.enum(['pending', 'slow_down', 'authorized', 'expired', 'denied']),
@@ -41,6 +38,9 @@ const githubRepositoryPayloadSchema = z.object({
   private: z.boolean(),
 })
 
+// GitHub returns repository payloads in multiple shapes across endpoints
+// (installation_id/repository_id vs id, owner string vs object). Normalize to
+// the canonical GithubRepository before handing it to the rest of the app.
 const normalizeGithubRepository = (
   value: unknown,
   installationId: number,
@@ -85,20 +85,13 @@ export const getGithubAppInfo = async (): Promise<GithubAppInfo> =>
 export const listInstallationRepositories = async (
   installationId: number,
 ): Promise<GithubRepository[]> => {
-  const parsedInstallationId = z
-    .number()
-    .int()
-    .nonnegative()
-    .parse(installationId)
   const raw = await invokeCmd<unknown>('list_installation_repositories', {
-    installationId: parsedInstallationId,
+    installationId,
   })
   return z
     .array(z.unknown())
     .parse(raw)
-    .map((repository) =>
-      normalizeGithubRepository(repository, parsedInstallationId),
-    )
+    .map((repository) => normalizeGithubRepository(repository, installationId))
 }
 
 export const discoverSingleGithubRepository =
@@ -110,10 +103,9 @@ export const discoverSingleGithubRepository =
 export const listGithubRepositoryBranches = async (
   remote: RemoteConfig,
 ): Promise<string[]> => {
-  const parsedRemote = remoteConfigSchema.parse(remote)
   return z.array(z.string()).parse(
     await invokeCmd<unknown>('list_github_repository_branches', {
-      remote: parsedRemote,
+      remote,
     }),
   )
 }
@@ -121,19 +113,17 @@ export const listGithubRepositoryBranches = async (
 export const checkGithubVault = async (
   remote: RemoteConfig,
 ): Promise<GithubVaultCheck> => {
-  const parsedRemote = remoteConfigSchema.parse(remote)
   return githubVaultCheckSchema.parse(
-    await invokeCmd<unknown>('check_github_vault', { remote: parsedRemote }),
+    await invokeCmd<unknown>('check_github_vault', { remote }),
   )
 }
 
 export const initializeGithubVault = async (
   request: InitializeGithubVaultRequest,
 ): Promise<GithubVaultCheck> => {
-  const parsedRequest = initializeGithubVaultRequestSchema.parse(request)
   return githubVaultCheckSchema.parse(
     await invokeCmd<unknown>('initialize_github_vault', {
-      request: parsedRequest,
+      request,
     }),
   )
 }
@@ -141,10 +131,9 @@ export const initializeGithubVault = async (
 export const bindGithubVault = async (
   request: BindGithubVaultRequest,
 ): Promise<AppState> => {
-  const parsedRequest = bindGithubVaultRequestSchema.parse(request)
   const response = z.union([appStateSchema, githubVaultCheckSchema]).parse(
     await invokeCmd<unknown>('bind_github_vault', {
-      request: parsedRequest,
+      request,
     }),
   )
   if ('config' in response) {

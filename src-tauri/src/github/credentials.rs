@@ -434,16 +434,18 @@ impl GithubAuthenticatedClient {
         unreachable!("send_get 最后一次迭代必然 return")
     }
 
-    /// PUT JSON。写请求只有明确 401（GitHub 未执行）才重放一次；409/422/网络错误不重试。
-    pub(crate) async fn put_json(
+    /// 写 JSON 的 401 刷新-重放：首次请求；401 -> force_refresh + generation 校验 ->
+    /// 二次请求；二次 401 清凭据。409/422/网络错误不重试（写请求可能已落库）。
+    async fn send_json_with_retry(
         &self,
+        method: reqwest::Method,
         url: &str,
         body: serde_json::Value,
     ) -> Result<reqwest::Response> {
         let cred = self.manager.valid_credential(&self.app_client_id).await?;
         let resp = self
             .http
-            .put(url)
+            .request(method.clone(), url)
             .bearer_auth(cred.access_token.expose_secret())
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
@@ -451,36 +453,46 @@ impl GithubAuthenticatedClient {
             .send()
             .await
             .map_err(map_http_err)?;
-        if resp.status().as_u16() == 401 {
-            let cred2 = self
-                .manager
-                .force_refresh(cred.generation, &self.app_client_id)
-                .await?;
-            if cred2.generation == cred.generation {
-                drop(self.manager.clear().await);
-                return Err(AppError::ReauthorizationRequired(
-                    "refresh did not produce new generation".into(),
-                ));
-            }
-            let resp2 = self
-                .http
-                .put(url)
-                .bearer_auth(cred2.access_token.expose_secret())
-                .header("Accept", "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .json(&body)
-                .send()
-                .await
-                .map_err(map_http_err)?;
-            if resp2.status().as_u16() == 401 {
-                drop(self.manager.clear().await);
-                return Err(AppError::ReauthorizationRequired(
-                    "second 401 on put".into(),
-                ));
-            }
-            return Ok(resp2);
+        if resp.status().as_u16() != 401 {
+            return Ok(resp);
         }
-        Ok(resp)
+        let cred2 = self
+            .manager
+            .force_refresh(cred.generation, &self.app_client_id)
+            .await?;
+        if cred2.generation == cred.generation {
+            drop(self.manager.clear().await);
+            return Err(AppError::ReauthorizationRequired(
+                "refresh did not produce new generation".into(),
+            ));
+        }
+        let resp2 = self
+            .http
+            .request(method.clone(), url)
+            .bearer_auth(cred2.access_token.expose_secret())
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .json(&body)
+            .send()
+            .await
+            .map_err(map_http_err)?;
+        if resp2.status().as_u16() == 401 {
+            drop(self.manager.clear().await);
+            return Err(AppError::ReauthorizationRequired(format!(
+                "second 401 on {method}"
+            )));
+        }
+        Ok(resp2)
+    }
+
+    /// PUT JSON。写请求只有明确 401（GitHub 未执行）才重放一次；409/422/网络错误不重试。
+    pub(crate) async fn put_json(
+        &self,
+        url: &str,
+        body: serde_json::Value,
+    ) -> Result<reqwest::Response> {
+        self.send_json_with_retry(reqwest::Method::PUT, url, body)
+            .await
     }
 
     /// POST JSON（create blob/tree/commit）。与 put_json 相同的 401 重放逻辑。
@@ -489,47 +501,8 @@ impl GithubAuthenticatedClient {
         url: &str,
         body: serde_json::Value,
     ) -> Result<reqwest::Response> {
-        let cred = self.manager.valid_credential(&self.app_client_id).await?;
-        let resp = self
-            .http
-            .post(url)
-            .bearer_auth(cred.access_token.expose_secret())
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .json(&body)
-            .send()
+        self.send_json_with_retry(reqwest::Method::POST, url, body)
             .await
-            .map_err(map_http_err)?;
-        if resp.status().as_u16() == 401 {
-            let cred2 = self
-                .manager
-                .force_refresh(cred.generation, &self.app_client_id)
-                .await?;
-            if cred2.generation == cred.generation {
-                drop(self.manager.clear().await);
-                return Err(AppError::ReauthorizationRequired(
-                    "refresh did not produce new generation".into(),
-                ));
-            }
-            let resp2 = self
-                .http
-                .post(url)
-                .bearer_auth(cred2.access_token.expose_secret())
-                .header("Accept", "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .json(&body)
-                .send()
-                .await
-                .map_err(map_http_err)?;
-            if resp2.status().as_u16() == 401 {
-                drop(self.manager.clear().await);
-                return Err(AppError::ReauthorizationRequired(
-                    "second 401 on post".into(),
-                ));
-            }
-            return Ok(resp2);
-        }
-        Ok(resp)
     }
 
     /// PATCH JSON（update ref）。与 put_json 相同的 401 重放逻辑。
@@ -538,47 +511,8 @@ impl GithubAuthenticatedClient {
         url: &str,
         body: serde_json::Value,
     ) -> Result<reqwest::Response> {
-        let cred = self.manager.valid_credential(&self.app_client_id).await?;
-        let resp = self
-            .http
-            .patch(url)
-            .bearer_auth(cred.access_token.expose_secret())
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .json(&body)
-            .send()
+        self.send_json_with_retry(reqwest::Method::PATCH, url, body)
             .await
-            .map_err(map_http_err)?;
-        if resp.status().as_u16() == 401 {
-            let cred2 = self
-                .manager
-                .force_refresh(cred.generation, &self.app_client_id)
-                .await?;
-            if cred2.generation == cred.generation {
-                drop(self.manager.clear().await);
-                return Err(AppError::ReauthorizationRequired(
-                    "refresh did not produce new generation".into(),
-                ));
-            }
-            let resp2 = self
-                .http
-                .patch(url)
-                .bearer_auth(cred2.access_token.expose_secret())
-                .header("Accept", "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .json(&body)
-                .send()
-                .await
-                .map_err(map_http_err)?;
-            if resp2.status().as_u16() == 401 {
-                drop(self.manager.clear().await);
-                return Err(AppError::ReauthorizationRequired(
-                    "second 401 on patch".into(),
-                ));
-            }
-            return Ok(resp2);
-        }
-        Ok(resp)
     }
 }
 

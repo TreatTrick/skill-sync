@@ -4,9 +4,7 @@
   import { createQuery } from '@tanstack/svelte-query'
 
   import AppLayout from '@/app/layouts/AppLayout.svelte'
-  import { isWorkspaceReady } from '@/app/router/routeConfig'
-  import { getAppState } from '@/modules/settings'
-  import { errorMessage } from '@/shared/lib'
+  import { errorMessage, getAppState, isWorkspaceReady } from '@/shared/lib'
   import { Card, CardContent, Spinner } from '@/shared/ui'
 
   let { children } = $props()

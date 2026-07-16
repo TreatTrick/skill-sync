@@ -2,10 +2,10 @@
   import { Copy, ExternalLink } from '@lucide/svelte'
 
   import { t } from '@/shared/i18n'
-  import type { scanSkills } from '@/modules/skills'
+  import type { ScanResult } from '@/shared/schemas'
   import { Button, Card, CardContent, Skeleton } from '@/shared/ui'
 
-  type SkillRoot = Awaited<ReturnType<typeof scanSkills>>['roots'][number]
+  type SkillRoot = ScanResult['roots'][number]
 
   interface Props {
     isLoading: boolean

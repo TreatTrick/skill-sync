@@ -161,7 +161,6 @@ pub(crate) enum PlanChangeReason {
 pub(crate) enum RecoveryPhase {
     RemoteOutcomeUnknown,
     LocalReplaceFailed,
-    TrashMoveFailed,
     StateSaveFailed,
 }
 
@@ -206,7 +205,7 @@ pub(crate) enum ApplySyncResponse {
 mod tests {
     use super::*;
 
-    // ---- Task 7 serialization tests ----
+    // ---- serialization tests ----
 
     #[test]
     fn status_reason_decision_serialize_to_snake_case() {

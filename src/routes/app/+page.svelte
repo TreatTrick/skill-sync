@@ -1,21 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { createQuery } from '@tanstack/svelte-query'
+  import { onMount } from 'svelte'
 
-  import { isWorkspaceReady } from '@/app/router/routeConfig'
-  import { getAppState } from '@/modules/settings'
   import { Spinner } from '@/shared/ui'
 
-  const appState = createQuery(() => ({
-    queryKey: ['app-state'],
-    queryFn: getAppState,
-  }))
-
-  $effect(() => {
-    if (!appState.data) return
-    void goto(isWorkspaceReady(appState.data) ? '/app/sync' : '/app/onboarding', {
-      replaceState: true,
-    })
+  // The app layout has already settled the workspace-ready guard before this
+  // index renders, so it is safe to forward to the default sync workspace.
+  onMount(() => {
+    void goto('/app/sync', { replaceState: true })
   })
 </script>
 

@@ -4,7 +4,7 @@
   import { Monitor, Moon, Star, Sun } from '@lucide/svelte'
   import type { Component } from 'svelte'
 
-  import { errorMessage, openPath } from '@/shared/lib'
+  import { errorMessage, getAppState, openPath, scanSkills } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { languageState, themeState, type ThemeMode } from '@/shared/state'
   import {
@@ -20,14 +20,13 @@
     Textarea,
     toast,
   } from '@/shared/ui'
-  import { scanSkills } from '@/modules/skills'
 
-  import { disconnectGithub, getAppState, saveConfig } from '../api/configApi'
+  import { disconnectGithub, saveConfig } from '../api/configApi'
   import DisconnectGithubDialog from '../components/DisconnectGithubDialog.svelte'
   import GithubVaultCard from '../components/GithubVaultCard.svelte'
   import LimitsCard from '../components/LimitsCard.svelte'
   import SkillRootsSection from '../components/SkillRootsSection.svelte'
-  import type { AppConfig } from '../schemas/config'
+  import type { AppConfig } from '@/shared/schemas'
 
   const toLines = (values: string[]): string => values.join('\n')
   const fromLines = (text: string): string[] =>
@@ -80,12 +79,14 @@
     const current = effectiveConfig
     if (!current || limitsInvalid) return
     const snapshot = JSON.stringify(current)
+    // Cancel any pending save before deciding, so a "change then revert" within
+    // the debounce window never persists the intermediate value.
+    clearTimeout(saveTimer)
     if (snapshot === lastSaved) return
     if (lastSaved === null) {
       lastSaved = snapshot
       return
     }
-    clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
       void saveConfig(current)
         .then(() => {

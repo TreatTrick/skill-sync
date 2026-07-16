@@ -17,14 +17,8 @@ export const SYNC_STATUS_FILTERS = [
 export type SyncStatusFilter = (typeof SYNC_STATUS_FILTERS)[number]
 
 // Filters that represent pending changes worth surfacing as badge counts.
-export const SYNC_CHANGE_FILTERS = [
-  'local_update',
-  'remote_update',
-  'deleted',
-  'conflict',
-] as const
-
-export type SyncChangeFilter = (typeof SYNC_CHANGE_FILTERS)[number]
+type SyncChangeFilter =
+  'local_update' | 'remote_update' | 'deleted' | 'conflict'
 
 export type SyncChangeCounts = Record<SyncChangeFilter, number>
 

@@ -3,7 +3,7 @@
 
   import { t } from '@/shared/i18n'
   import { Button, Card, CardContent } from '@/shared/ui'
-  import type { DeviceFlowStart } from '../schemas/onboarding'
+  import type { DeviceFlowStart } from '@/shared/schemas'
 
   interface Props {
     stage: 'authorize' | 'device_pending'

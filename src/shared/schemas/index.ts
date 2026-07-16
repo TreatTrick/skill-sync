@@ -2,16 +2,14 @@ export {
   appConfigSchema,
   appErrorSchema,
   appStateSchema,
-  bindGithubVaultRequestSchema,
   deviceFlowPollSchema,
   deviceFlowStartSchema,
   githubAppInfoSchema,
   githubRepositoryDiscoverySchema,
   githubRepositorySchema,
   githubVaultCheckSchema,
-  initializeGithubVaultRequestSchema,
+  namespaceSchema,
   recoveryInfoSchema,
-  remoteConfigSchema,
 } from './apiResponse'
 
 export type {
@@ -29,3 +27,7 @@ export type {
   RecoveryInfo,
   RemoteConfig,
 } from './apiResponse'
+
+export { scanResultSchema } from './scan'
+
+export type { ScanResult } from './scan'

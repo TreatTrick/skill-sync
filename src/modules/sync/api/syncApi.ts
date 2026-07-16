@@ -1,5 +1,3 @@
-import { z } from 'zod'
-
 import { invokeCmd } from '@/shared/lib'
 
 import {
@@ -29,9 +27,8 @@ export const applySyncPlan = async (
 export const resumeSyncRecovery = async (
   taskId: string,
 ): Promise<ApplySyncResponse> => {
-  const parsedTaskId = z.string().min(1).parse(taskId)
   const raw = await invokeCmd<unknown>('resume_sync_recovery', {
-    taskId: parsedTaskId,
+    taskId,
   })
   return applySyncResponseSchema.parse(raw)
 }

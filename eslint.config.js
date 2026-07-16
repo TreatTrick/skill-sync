@@ -11,6 +11,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url))
 const SRC_ROOT = path.join(PROJECT_ROOT, 'src')
+const MODULES_ROOT = path.join(SRC_ROOT, 'modules')
 
 const LAYER_ORDER = {
   shared: 0,
@@ -31,6 +32,19 @@ const getLayerFromPath = (filePath) => {
   return Object.hasOwn(LAYER_ORDER, layer) ? layer : null
 }
 
+// Returns the module name when a file lives under src/modules/<name>/, else null.
+const getModuleName = (filePath) => {
+  const relativePath = path.relative(MODULES_ROOT, path.resolve(filePath))
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return null
+  }
+
+  const [name] = relativePath.split(path.sep)
+
+  return name || null
+}
+
 const getLayerFromImportSource = (source, importerPath) => {
   if (source.startsWith('@/')) {
     const [layer] = source.slice(2).split('/')
@@ -46,6 +60,29 @@ const getLayerFromImportSource = (source, importerPath) => {
 
   if (source.startsWith('.')) {
     return getLayerFromPath(path.resolve(path.dirname(importerPath), source))
+  }
+
+  return null
+}
+
+// Resolves the module name targeted by an import source, or null when the
+// import does not point at src/modules/<name>. Relative imports are resolved
+// against the importer so cross-module relative paths are caught too.
+const getModuleFromImportSource = (source, importerPath) => {
+  if (source.startsWith('@/modules/')) {
+    const [name] = source.slice('@/modules/'.length).split('/')
+
+    return name || null
+  }
+
+  if (source.startsWith('src/modules/')) {
+    const [name] = source.slice('src/modules/'.length).split('/')
+
+    return name || null
+  }
+
+  if (source.startsWith('.')) {
+    return getModuleName(path.resolve(path.dirname(importerPath), source))
   }
 
   return null
@@ -121,6 +158,70 @@ const noReverseLayerImportsRule = {
   },
 }
 
+const noCrossModuleImportsRule = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Disallow imports between sibling modules under src/modules.',
+    },
+    schema: [],
+    messages: {
+      crossModuleImport:
+        'Cross-module import is not allowed: module "{{importerModule}}" cannot import module "{{targetModule}}". Move the shared concern to src/shared.',
+    },
+  },
+  create(context) {
+    const importerPath = getRuleFilename(context)
+    const importerModule = importerPath ? getModuleName(importerPath) : null
+
+    const checkSource = (sourceNode, reportNode = sourceNode) => {
+      if (!importerModule || sourceNode?.type !== 'Literal') {
+        return
+      }
+
+      const source = sourceNode.value
+
+      if (typeof source !== 'string') {
+        return
+      }
+
+      const targetModule = getModuleFromImportSource(source, importerPath)
+
+      if (targetModule && targetModule !== importerModule) {
+        context.report({
+          node: reportNode,
+          messageId: 'crossModuleImport',
+          data: {
+            importerModule,
+            targetModule,
+          },
+        })
+      }
+    }
+
+    return {
+      ImportDeclaration(node) {
+        checkSource(node.source)
+      },
+      ExportAllDeclaration(node) {
+        checkSource(node.source)
+      },
+      ExportNamedDeclaration(node) {
+        checkSource(node.source)
+      },
+      ImportExpression(node) {
+        checkSource(node.source, node)
+      },
+      CallExpression(node) {
+        if (node.callee.type === 'Import') {
+          checkSource(node.arguments[0], node)
+        }
+      },
+    }
+  },
+}
+
 // Shared rules reused across .ts/.tsx and .svelte blocks.
 const IMPORT_RULES = {
   'import-x/no-cycle': [
@@ -133,6 +234,7 @@ const IMPORT_RULES = {
   ],
   'import-x/no-self-import': 'error',
   'local/no-reverse-layer-imports': 'error',
+  'local/no-cross-module-imports': 'error',
   'no-restricted-imports': [
     'error',
     {
@@ -177,6 +279,7 @@ const LOCAL_PLUGIN = {
   local: {
     rules: {
       'no-reverse-layer-imports': noReverseLayerImportsRule,
+      'no-cross-module-imports': noCrossModuleImportsRule,
     },
   },
 }

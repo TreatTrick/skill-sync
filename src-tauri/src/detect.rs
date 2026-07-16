@@ -73,7 +73,7 @@ pub(crate) struct ScanCollision {
 }
 
 /// 扫描三个固定 namespace root。只看直接子目录；codex root 跳过 `.system`，所有 root
-/// 跳过 `.skill-sync-staging` / `.skill-sync-rollback` / `.skill-sync-trash`；无合法
+/// 跳过 `.skill-sync-staging` / `.skill-sync-rollback`；无合法
 /// `SKILL.md` 的目录跳过且不递归。同 namespace 的 normalized id 或 folded folder
 /// collision 返回结构化 `ScanCollision` 并把涉及项排除出 skills。
 pub(crate) fn scan_fixed_roots(home: &Path) -> Result<ScanResult> {
@@ -212,7 +212,7 @@ fn scan_one_root(
 fn is_reserved_dir(name: &str) -> bool {
     matches!(
         name,
-        ".system" | ".skill-sync-staging" | ".skill-sync-rollback" | ".skill-sync-trash"
+        ".system" | ".skill-sync-staging" | ".skill-sync-rollback"
     )
 }
 
@@ -380,11 +380,7 @@ mod tests {
             .unwrap();
         }
         let agents_root = ns_root(home.path(), SkillNamespace::Agents);
-        for reserved in [
-            ".skill-sync-staging",
-            ".skill-sync-rollback",
-            ".skill-sync-trash",
-        ] {
+        for reserved in [".skill-sync-staging", ".skill-sync-rollback"] {
             let dir = agents_root.join(reserved);
             fs::create_dir_all(&dir).unwrap();
             fs::write(
@@ -394,11 +390,9 @@ mod tests {
             .unwrap();
         }
         let result = scan_fixed_roots(home.path()).unwrap();
-        assert!(!result.paths().any(|p| {
-            p.contains(".skill-sync-staging")
-                || p.contains(".skill-sync-rollback")
-                || p.contains(".skill-sync-trash")
-        }));
+        assert!(!result
+            .paths()
+            .any(|p| { p.contains(".skill-sync-staging") || p.contains(".skill-sync-rollback") }));
     }
 
     #[test]

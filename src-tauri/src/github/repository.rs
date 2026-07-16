@@ -1,6 +1,6 @@
 // GitHub App installation discovery、repo 状态分类与显式 vault 初始化。
 // 所有 GitHub 请求通过共享 GithubAuthenticatedClient（401 强制刷新 + 单次重放）。
-// Task 11 核心实现：分页 discovery、状态分类、Contents API 初始化。
+// 核心实现：分页 discovery、状态分类、Contents API 初始化。
 
 use std::sync::Arc;
 
@@ -136,28 +136,24 @@ impl GithubRepositoryService {
         }
         let mut total: usize = 0;
         let mut single: Option<(u64, serde_json::Value)> = None;
-        let mut selection_all = false;
         for inst in &installations {
             let inst_id = inst
                 .get("id")
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| AppError::Vault("installation missing id".into()))?;
+            // repository_selection 取自 installation 对象："all" 表示该 installation
+            // 授权全部仓库，必须强制用户收敛为显式单选（即便恰好只有 1 个仓库）。
+            if inst.get("repository_selection").and_then(|v| v.as_str()) == Some("all") {
+                return Ok(GithubRepositoryDiscovery::SelectionAll);
+            }
             let repos_url = format!("/user/installations/{inst_id}/repositories?per_page=100");
             let repos = self.get_paginated_json(&repos_url, "repositories").await?;
-            // repository_selection 在第一页响应体
-            if total == 0 {
-                // 检查 selection（简化：若任一 installation 响应含 selection=all）
-                let _ = &mut selection_all;
-            }
             for repo in &repos {
                 total += 1;
                 if single.is_none() {
                     single = Some((inst_id, repo.clone()));
                 }
             }
-        }
-        if selection_all {
-            return Ok(GithubRepositoryDiscovery::SelectionAll);
         }
         match total {
             0 => Ok(GithubRepositoryDiscovery::Unavailable {
@@ -202,13 +198,7 @@ impl GithubRepositoryService {
             "/repos/{}/{}/branches?per_page=100",
             remote.owner, remote.repo
         );
-        let resp = match self.client.get(&self.url(&branches_path)).await {
-            Ok(r) => r,
-            Err(AppError::RateLimited { retry_after }) => {
-                return Err(AppError::RateLimited { retry_after });
-            }
-            Err(e) => return Err(e),
-        };
+        let resp = self.client.get(&self.url(&branches_path)).await?;
         let status = resp.status().as_u16();
         if status == 403 || status == 429 {
             let retry_after = header_str(&resp, "retry-after");
@@ -239,7 +229,33 @@ impl GithubRepositoryService {
                 None,
             ));
         }
-        let branches: Vec<serde_json::Value> = resp.json().await.map_err(map_http_err)?;
+        // 分页穷尽 branches：目标分支可能排在首屏 per_page=100 之后，否则会误判 BranchMissing。
+        let link = resp
+            .headers()
+            .get(reqwest::header::LINK)
+            .and_then(|v| v.to_str().ok())
+            .map(String::from);
+        let mut branches: Vec<serde_json::Value> = resp.json().await.map_err(map_http_err)?;
+        let mut next_url = link.as_deref().and_then(next_link);
+        while let Some(url) = next_url {
+            let resp = self.client.get(&url).await?;
+            if !resp.status().is_success() {
+                return Err(AppError::Vault(format!(
+                    "paginated branches GET failed: status {}",
+                    resp.status()
+                )));
+            }
+            let link = resp
+                .headers()
+                .get(reqwest::header::LINK)
+                .and_then(|v| v.to_str().ok())
+                .map(String::from);
+            let page: serde_json::Value = resp.json().await.map_err(map_http_err)?;
+            if let Some(arr) = page.as_array() {
+                branches.extend(arr.iter().cloned());
+            }
+            next_url = link.as_deref().and_then(next_link);
+        }
         if branches.is_empty() {
             return Ok(check_status(
                 remote,
@@ -264,13 +280,7 @@ impl GithubRepositoryService {
             "/repos/{}/{}/contents/{}?ref={}",
             remote.owner, remote.repo, MANIFEST_PATH, remote.branch
         );
-        let resp = match self.client.get(&self.url(&manifest_path)).await {
-            Ok(r) => r,
-            Err(AppError::RateLimited { retry_after }) => {
-                return Err(AppError::RateLimited { retry_after });
-            }
-            Err(e) => return Err(e),
-        };
+        let resp = self.client.get(&self.url(&manifest_path)).await?;
         if resp.status().as_u16() == 404 {
             return Ok(check_with_head(
                 remote,
@@ -393,31 +403,23 @@ impl GithubRepositoryService {
             "/repos/{}/{}/contents/{}",
             remote.owner, remote.repo, MANIFEST_PATH
         );
-        let resp = self.client.put_json(&self.url(&put_path), body).await;
-        match resp {
-            Ok(r) => {
-                if r.status().as_u16() == 409 || r.status().as_u16() == 422 {
-                    // 竞态：recheck，接受合法且空的 manifest
-                    let recheck = self.check_vault(remote).await?;
-                    if recheck.status == GithubVaultStatus::Ready {
-                        return Ok(recheck);
-                    }
-                    return Err(vault_state_changed(
-                        format!("initialize conflict, recheck: {:?}", recheck.status),
-                        &recheck,
-                    ));
-                }
-                if !r.status().is_success() {
-                    return Err(AppError::Vault(format!(
-                        "initialize PUT failed: status {}",
-                        r.status()
-                    )));
-                }
+        let resp = self.client.put_json(&self.url(&put_path), body).await?;
+        if resp.status().as_u16() == 409 || resp.status().as_u16() == 422 {
+            // 竞态：recheck，接受合法且空的 manifest
+            let recheck = self.check_vault(remote).await?;
+            if recheck.status == GithubVaultStatus::Ready {
+                return Ok(recheck);
             }
-            Err(AppError::RateLimited { retry_after }) => {
-                return Err(AppError::RateLimited { retry_after });
-            }
-            Err(e) => return Err(e),
+            return Err(vault_state_changed(
+                format!("initialize conflict, recheck: {:?}", recheck.status),
+                &recheck,
+            ));
+        }
+        if !resp.status().is_success() {
+            return Err(AppError::Vault(format!(
+                "initialize PUT failed: status {}",
+                resp.status()
+            )));
         }
 
         // 成功后 recheck，只接受 Ready
@@ -437,10 +439,7 @@ impl GithubRepositoryService {
         let mut results = Vec::new();
         let mut next_url = Some(self.url(path));
         while let Some(url) = next_url {
-            let resp = self.client.get(&url).await.map_err(|e| match e {
-                AppError::RateLimited { retry_after } => AppError::RateLimited { retry_after },
-                other => other,
-            })?;
+            let resp = self.client.get(&url).await?;
             if !resp.status().is_success() {
                 return Err(AppError::Vault(format!(
                     "paginated GET {} failed: status {}",
@@ -742,6 +741,26 @@ mod tests {
             d,
             GithubRepositoryDiscovery::MultipleRepositories { count: 2 }
         ));
+    }
+
+    #[tokio::test]
+    async fn discover_selection_all_forces_explicit_selection() {
+        let server = MockServer::start().await;
+        // installation 授权全部仓库（repository_selection=all）-> 必须强制显式单选，
+        // 即便该 installation 实际可访问的仓库数为 1。
+        Mock::given(method("GET"))
+            .and(path("/user/installations"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "installations": [{
+                    "id": 100,
+                    "repository_selection": "all"
+                }]
+            })))
+            .mount(&server)
+            .await;
+        let svc = build_service(&server).await;
+        let d = svc.discover_single_repository().await.unwrap();
+        assert!(matches!(d, GithubRepositoryDiscovery::SelectionAll));
     }
 
     #[tokio::test]

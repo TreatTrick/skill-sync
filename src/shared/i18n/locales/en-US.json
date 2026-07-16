@@ -126,23 +126,6 @@
     "vaultUnavailable": "The Vault is currently unavailable. Check the repository, branch, and authorization.",
     "waitingAuthorization": "Waiting for GitHub authorization…"
   },
-  "dashboard": {
-    "description": "View the sync status of agent skills on this machine.",
-    "goToOnboarding": "Go to setup",
-    "gitUnavailable": "Git unavailable",
-    "metrics": {
-      "conflicts": "Conflicts",
-      "discovered": "Discovered skills",
-      "lastSync": "Last sync",
-      "never": "Never synced",
-      "toDownload": "To download",
-      "toDelete": "To delete",
-      "toUpload": "To upload"
-    },
-    "notConfigured": "No sync repository configured. Please complete setup first.",
-    "preview": "Preview sync",
-    "title": "Dashboard"
-  },
   "skills": {
     "columns": {
       "actions": "Actions",
@@ -209,6 +192,7 @@
       "uploads": "Will upload"
     },
     "loadError": "Failed to load sync plan: {{message}}",
+    "scanError": "Failed to scan local skills: {{message}}",
     "empty": "No matching sync entries",
     "emptyAllSynced": "All synced",
     "emptyAllSyncedDescription": "All skills are up to date; no pending changes.",
@@ -234,8 +218,16 @@
     },
     "localBaseOnly": "Only the local sync base will be saved; no GitHub commit will be created",
     "localBaseUpdated": "Updated {{count}} local sync base item(s)",
+    "metrics": {
+      "conflicts": "Conflicts",
+      "discovered": "Discovered skills",
+      "toDelete": "To delete",
+      "toDownload": "To download",
+      "toUpload": "To upload"
+    },
     "notAvailable": "Unavailable",
-    "notConfigured": "No sync repository configured.",
+    "notConfigured": "No sync repository configured. Please complete setup first.",
+    "goToOnboarding": "Go to setup",
     "planChanged": "Skills changed. Press \"Recheck\" to refresh.",
     "recheck": "Recheck",
     "recoveryCompleted": "Sync recovery completed.",
@@ -261,7 +253,6 @@
       "synced": "Synced",
       "unknown": "Unknown"
     },
-    "title": "Sync Preview",
     "viewConflict": "View conflict details"
   },
   "settings": {

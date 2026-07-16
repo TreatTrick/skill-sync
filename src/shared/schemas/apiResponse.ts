@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+// Skill namespace shared by scan results and sync plan entries. Backend adds a
+// namespace by extending this enum; both sides must stay in sync.
+export const namespaceSchema = z.enum(['agents', 'codex', 'claude-code'])
+
 const githubVaultStatusSchema = z.enum([
   'app_not_installed',
   'repository_forbidden',
@@ -17,7 +21,6 @@ export const recoveryInfoSchema = z.object({
   phase: z.enum([
     'remote_outcome_unknown',
     'local_replace_failed',
-    'trash_move_failed',
     'state_save_failed',
   ]),
   remote_commit: z.string().nullable(),
@@ -28,7 +31,7 @@ export const recoveryInfoSchema = z.object({
 
 export type RecoveryInfo = z.infer<typeof recoveryInfoSchema>
 
-export const remoteConfigSchema = z.object({
+const remoteConfigSchema = z.object({
   installation_id: z.number().int().nonnegative(),
   repository_id: z.number().int().nonnegative(),
   owner: z.string(),
@@ -170,34 +173,24 @@ export type GithubRepositoryDiscovery = z.infer<
   typeof githubRepositoryDiscoverySchema
 >
 
-export const initializeGithubVaultRequestSchema = z.object({
-  remote: remoteConfigSchema,
-  expected_status: z.enum(['empty_repository', 'missing_manifest']),
-  expected_head_sha: z.string().nullable(),
-  expected_manifest_sha: z.string().nullable(),
-})
+export type InitializeGithubVaultRequest = {
+  remote: RemoteConfig
+  expected_status: 'empty_repository' | 'missing_manifest'
+  expected_head_sha: string | null
+  expected_manifest_sha: string | null
+}
 
-export type InitializeGithubVaultRequest = z.infer<
-  typeof initializeGithubVaultRequestSchema
->
-
-const remoteBindingKeySchema = z.object({
-  installation_id: z.number().int().nonnegative(),
-  repository_id: z.number().int().nonnegative(),
-  branch: z.string(),
-})
-
-export const bindGithubVaultRequestSchema = z.object({
-  remote: remoteConfigSchema,
-  expected_head_sha: z.string(),
-  expected_manifest_sha: z.string(),
-  expected_previous_binding: remoteBindingKeySchema.nullable(),
-  confirm_rebind: z.boolean(),
-})
-
-export type BindGithubVaultRequest = z.infer<
-  typeof bindGithubVaultRequestSchema
->
+export type BindGithubVaultRequest = {
+  remote: RemoteConfig
+  expected_head_sha: string
+  expected_manifest_sha: string
+  expected_previous_binding: {
+    installation_id: number
+    repository_id: number
+    branch: string
+  } | null
+  confirm_rebind: boolean
+}
 
 export const appErrorSchema = z.object({
   kind: z.string(),

@@ -5,7 +5,7 @@
   import { fade, fly } from 'svelte/transition'
   import { flip } from 'svelte/animate'
 
-  import { errorMessage, openPath } from '@/shared/lib'
+  import { errorMessage, getAppState, openPath, scanSkills } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import type { RecoveryInfo } from '@/shared/schemas'
   import {
@@ -19,8 +19,6 @@
     Spinner,
     toast,
   } from '@/shared/ui'
-  import { getAppState } from '@/modules/settings'
-  import { scanSkills } from '@/modules/skills'
 
   import {
     applySyncPlan,
@@ -179,6 +177,11 @@
       deleteGuardAck = false
       syncDecisions.clear()
       planNotice = t('sync.planChanged')
+    } else {
+      // Recheck returned an unchanged fingerprint: discard the default-apply
+      // flag so a later, non-user-initiated plan change never auto-applies
+      // defaults over the user's manual selection.
+      defaultNextPlan = false
     }
   })
 
@@ -285,9 +288,7 @@
   ): void => {
     if (!deleteDecisionOptions(entry).includes(choice)) return
     if (syncDecisions.decisions[entry.skill_id] === choice) {
-      const nextDecisions = { ...syncDecisions.decisions }
-      delete nextDecisions[entry.skill_id]
-      syncDecisions.decisions = nextDecisions
+      syncDecisions.removeDecision(entry.skill_id)
       return
     }
     if (
@@ -338,7 +339,7 @@
     </Card>
   {:else if !configured && !recovery}
     <Card>
-      <EmptyState title={t('dashboard.notConfigured')}>
+      <EmptyState title={t('sync.notConfigured')}>
         {#snippet icon()}
           <Sparkles class="size-10" />
         {/snippet}
@@ -347,7 +348,7 @@
             {#snippet icon()}
               <Sparkles class="size-4" />
             {/snippet}
-            {t('dashboard.goToOnboarding')}
+            {t('sync.goToOnboarding')}
           </Button>
         {/snippet}
       </EmptyState>
@@ -375,14 +376,23 @@
         </Button>
       </div>
 
+      {#if scan.error}
+        <Callout tone="warning">
+          {#snippet icon()}
+            <TriangleAlert class="size-4" />
+          {/snippet}
+          {t('sync.scanError', { message: errorMessage(scan.error) })}
+        </Callout>
+      {/if}
+
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <SyncMetric
-          label={t('dashboard.metrics.discovered')}
+          label={t('sync.metrics.discovered')}
           value={skills.length}
           icon={Package}
         />
         <SyncMetric
-          label={t('dashboard.metrics.toUpload')}
+          label={t('sync.metrics.toUpload')}
           value={planData?.uploads.length ?? 0}
           icon={ArrowUpFromLine}
           tone="info"
@@ -391,7 +401,7 @@
           onFilter={(f) => { statusFilter = f }}
         />
         <SyncMetric
-          label={t('dashboard.metrics.toDownload')}
+          label={t('sync.metrics.toDownload')}
           value={planData?.downloads.length ?? 0}
           icon={ArrowDownToLine}
           tone="success"
@@ -400,7 +410,7 @@
           onFilter={(f) => { statusFilter = f }}
         />
         <SyncMetric
-          label={t('dashboard.metrics.toDelete')}
+          label={t('sync.metrics.toDelete')}
           value={(planData?.delete_remote.length ?? 0) + (planData?.delete_local.length ?? 0)}
           icon={Trash2}
           tone="destructive"
@@ -409,7 +419,7 @@
           onFilter={(f) => { statusFilter = f }}
         />
         <SyncMetric
-          label={t('dashboard.metrics.conflicts')}
+          label={t('sync.metrics.conflicts')}
           value={planData?.conflicts.length ?? 0}
           icon={TriangleAlert}
           tone="warning"

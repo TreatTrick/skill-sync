@@ -126,23 +126,6 @@
     "vaultUnavailable": "Vault 当前不可用，请检查仓库、分支和授权状态。",
     "waitingAuthorization": "等待 GitHub 完成授权…"
   },
-  "dashboard": {
-    "description": "查看本机 agent skills 同步状态。",
-    "goToOnboarding": "前往初始配置",
-    "gitUnavailable": "Git 不可用",
-    "metrics": {
-      "conflicts": "冲突",
-      "discovered": "已发现 skills",
-      "lastSync": "最近同步",
-      "never": "尚未同步",
-      "toDownload": "待下载",
-      "toDelete": "待删除",
-      "toUpload": "待上传"
-    },
-    "notConfigured": "尚未配置同步仓库，请先完成初始配置。",
-    "preview": "预览同步",
-    "title": "概览"
-  },
   "skills": {
     "columns": {
       "actions": "操作",
@@ -209,6 +192,7 @@
       "uploads": "将上传"
     },
     "loadError": "加载同步计划失败：{{message}}",
+    "scanError": "扫描本地技能失败：{{message}}",
     "empty": "没有匹配的同步条目",
     "emptyAllSynced": "全部已同步",
     "emptyAllSyncedDescription": "所有 skills 均为最新，没有待处理的变更。",
@@ -234,8 +218,16 @@
     },
     "localBaseOnly": "仅保存本机同步基线，不会产生 GitHub commit",
     "localBaseUpdated": "已更新 {{count}} 个本机同步基线",
+    "metrics": {
+      "conflicts": "冲突",
+      "discovered": "已发现 skills",
+      "toDelete": "待删除",
+      "toDownload": "待下载",
+      "toUpload": "待上传"
+    },
     "notAvailable": "暂无",
-    "notConfigured": "尚未配置同步仓库。",
+    "notConfigured": "尚未配置同步仓库，请先完成初始配置。",
+    "goToOnboarding": "前往初始配置",
     "planChanged": "skill已变化，请点击“重新检查”刷新",
     "recheck": "重新检查",
     "recoveryCompleted": "同步恢复已完成。",
@@ -261,7 +253,6 @@
       "synced": "已同步",
       "unknown": "未知"
     },
-    "title": "同步预览",
     "viewConflict": "查看冲突详情"
   },
   "settings": {

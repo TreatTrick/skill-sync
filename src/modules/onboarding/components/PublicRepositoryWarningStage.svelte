@@ -4,7 +4,7 @@
   import { t } from '@/shared/i18n'
   import { Button, Card, CardContent } from '@/shared/ui'
 
-  import type { GithubRepository } from '../schemas/onboarding'
+  import type { GithubRepository } from '@/shared/schemas'
 
   interface Props {
     repository: GithubRepository

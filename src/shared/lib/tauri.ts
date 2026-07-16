@@ -11,10 +11,11 @@ const redactLogMessage = (message: string): string =>
     )
     .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
 
-const logInvokeError = (command: string, raw: unknown): void => {
-  const parsed = appErrorSchema.safeParse(raw)
-  const kind = parsed.success ? parsed.data.kind : 'other'
-  const message = parsed.success ? parsed.data.message : String(raw)
+const logInvokeError = (
+  command: string,
+  kind: string,
+  message: string,
+): void => {
   void logError(
     `command=${command} kind=${kind} error=${redactLogMessage(message)}`,
   ).catch(() => undefined)
@@ -47,8 +48,10 @@ export const invokeCmd = async <T>(
   try {
     return await invoke<T>(cmd, args)
   } catch (raw) {
-    logInvokeError(cmd, raw)
     const parsed = appErrorSchema.safeParse(raw)
+    const kind = parsed.success ? parsed.data.kind : 'other'
+    const message = parsed.success ? parsed.data.message : String(raw)
+    logInvokeError(cmd, kind, message)
     if (parsed.success) {
       throw new SkillSyncError(parsed.data)
     }

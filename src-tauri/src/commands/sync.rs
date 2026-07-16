@@ -320,7 +320,7 @@ mod tests {
         assert_send(apply_sync_plan_impl(&runtime, request));
     }
 
-    // ---- Task 6: 远端恢复裁决 ----
+    // ---- 远端恢复裁决 ----
 
     use crate::remote_store::{RemoteChanges, RemoteCommit};
     use crate::skill::SkillNamespace;

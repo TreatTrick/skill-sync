@@ -10,8 +10,8 @@ use sha2::{Digest, Sha256};
 use crate::config::{AppConfig, LimitsConfig};
 use crate::errors::{AppError, Result};
 use crate::local_apply::{
-    clean_dir_contents, clear_journal, commit_staged, move_to_trash, namespace_root, rollback_dir,
-    save_journal, stage_dir, trash_dir, ApplyJournal,
+    clean_dir_contents, clear_journal, commit_staged, namespace_root, rollback_dir, save_journal,
+    stage_dir, ApplyJournal,
 };
 use crate::pack::{unpack_skill, PackOptions, PackOutcome, SkillPackInput, SkillPacker};
 use crate::portable_path::validate_component;
@@ -26,7 +26,7 @@ use super::model::{
 };
 use super::plan::{action_kind_for, merge_plan, validate_remote, LocalSkillInfo};
 
-// ---- Task 9: apply_plan ----
+// ---- apply_plan ----
 
 /// 打包后的本地 skill（LocalSkillInfo + zip 路径，zip 存活于 PreparedSyncPlan.batch）。
 #[derive(Debug, Clone)]
@@ -533,7 +533,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     let mut warnings: Vec<String> = Vec::new();
     let mut next_manifest = prepared.manifest.clone();
     next_manifest.updated_at = now_iso();
-    next_manifest.updated_by = "device".into();
+    next_manifest.updated_by = config.device_id.clone();
 
     let mut uploads: Vec<UploadItem> = Vec::new();
     let mut delete_remote_ids: Vec<String> = Vec::new();
@@ -653,7 +653,35 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
 
     // 下载（stage/verify/commit）
     for dl in &download_items {
-        execute_download(store, dl, &working, home, &task_id, &config.limits).await?;
+        if let Err(e) = execute_download(store, dl, &working, home, &task_id, &config.limits).await
+        {
+            // commit_staged 失败（RecoveryPending）表示本地 replace 已尝试，可能留下
+            // rollback 残留；必须存 journal 供恢复，而非裸 RecoveryPending 向上传播。
+            // 其他错误（Blocked 等）在副作用前发生，直接向上传播。
+            match e {
+                AppError::RecoveryPending(msg) => {
+                    save_recovery_journal(
+                        config_dir,
+                        &task_id,
+                        "local_replace_failed",
+                        &working,
+                        applied.clone(),
+                        vec![dl.skill_id.clone()],
+                    )?;
+                    return Ok(ApplySyncResponse::RecoveryRequired {
+                        recovery: RecoveryInfo {
+                            task_id: task_id.clone(),
+                            phase: RecoveryPhase::LocalReplaceFailed,
+                            remote_commit: None,
+                            completed_action_ids: applied.clone(),
+                            pending_action_ids: vec![dl.skill_id.clone()],
+                            message: msg,
+                        },
+                    });
+                }
+                other => return Err(other),
+            }
+        }
         let (ns, folder) = download_target(dl, &working)?;
         working.skills.insert(
             dl.skill_id.clone(),
@@ -669,18 +697,18 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         completed_action_ids.push(dl.skill_id.clone());
     }
 
-    // 删本地（trash）
+    // 删本地（直接删除，不再经过 trash 回收）
     for dl in &delete_local_items {
         let (ns, folder) = delete_local_target(dl, &working)?;
         let root = namespace_root(home, ns)?;
         let target = root.join(&folder);
-        let trash = trash_dir(&root, &task_id, &folder);
         if target.exists() {
-            if let Err(e) = move_to_trash(&target, &trash) {
+            if let Err(e) = fs::remove_dir_all(&target) {
+                // 删除失败：本地副作用可能部分生效，存 journal 供恢复。
                 save_recovery_journal(
                     config_dir,
                     &task_id,
-                    "trash_move_failed",
+                    "local_replace_failed",
                     &working,
                     applied.clone(),
                     vec![dl.skill_id.clone()],
@@ -688,11 +716,11 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
                 return Ok(ApplySyncResponse::RecoveryRequired {
                     recovery: RecoveryInfo {
                         task_id: task_id.clone(),
-                        phase: RecoveryPhase::TrashMoveFailed,
+                        phase: RecoveryPhase::LocalReplaceFailed,
                         remote_commit: None,
                         completed_action_ids: applied.clone(),
                         pending_action_ids: vec![dl.skill_id.clone()],
-                        message: format!("trash move failed: {e}"),
+                        message: format!("local delete failed: {e}"),
                     },
                 });
             }
@@ -729,7 +757,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
                 blob: blob_path,
                 size: up.zip_size,
                 updated_at: now_iso(),
-                updated_by: "device".into(),
+                updated_by: config.device_id.clone(),
             },
         );
         applied.push(up.skill_id.clone());
@@ -1031,7 +1059,7 @@ mod tests {
             commit_sha: "c".into(),
         }
     }
-    // ---- Task 9: apply_plan 测试 ----
+    // ---- apply_plan 测试 ----
 
     use std::sync::{Arc, Mutex};
 
@@ -1446,7 +1474,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn remote_deleted_moves_local_skill_to_trash_with_zero_commit() {
+    async fn remote_deleted_removes_local_skill_with_zero_commit() {
         let home = temp_home();
         make_skill(home.path(), Codex, "demo", "demo");
         let (vskill, _, _) = make_blob(Codex, "demo", "demo");
@@ -1490,15 +1518,9 @@ mod tests {
                 assert!(result.remote_commit.is_none());
                 assert_eq!(*store.commit_count.lock().unwrap(), 0);
                 assert!(!state.skills.contains_key("codex:demo"));
-                // target 移入 trash（trash 目录存在内容）
+                // target 直接删除（不再经过 trash 回收）
                 let root = namespace_root(home.path(), Codex).unwrap();
                 assert!(!root.join("demo").exists());
-                assert!(root
-                    .join(".skill-sync-trash")
-                    .read_dir()
-                    .unwrap()
-                    .next()
-                    .is_some());
             }
             _ => panic!("expected Applied"),
         }
