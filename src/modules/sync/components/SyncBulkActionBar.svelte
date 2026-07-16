@@ -49,8 +49,9 @@
 {:else if statusFilter === 'delete_remote'}
   <div class="flex flex-wrap gap-2">
     <Button
-      variant="destructive"
+      variant="outline"
       size="sm"
+      class="border-destructive-border bg-destructive-muted text-destructive hover:bg-destructive-muted/80"
       {disabled}
       onclick={() => onBulkDelete('delete')}
     >
@@ -71,8 +72,9 @@
 {:else if statusFilter === 'delete_local'}
   <div class="flex flex-wrap gap-2">
     <Button
-      variant="destructive"
+      variant="outline"
       size="sm"
+      class="border-destructive-border/70 bg-destructive-muted/70 text-destructive hover:bg-destructive-muted/80"
       {disabled}
       onclick={() => onBulkDelete('delete')}
     >
