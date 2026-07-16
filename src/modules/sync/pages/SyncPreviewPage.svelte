@@ -353,7 +353,7 @@
   onDecision={handleDecision}
 />
 
-<div class="grid gap-4">
+<div class="flex flex-1 flex-col gap-4">
   {#if appState.isLoading}
     <div class="flex justify-center py-12">
       <Spinner class="size-6" />
@@ -387,7 +387,7 @@
       onResume={() => resume.mutate(recovery.task_id)}
     />
   {:else}
-    <div class="grid gap-4">
+    <div class="flex flex-1 flex-col gap-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <p class="text-sm text-muted-foreground">{t('sync.description')}</p>
         <Button

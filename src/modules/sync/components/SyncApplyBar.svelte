@@ -21,7 +21,7 @@
   }: Props = $props()
 </script>
 
-<div class="sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+<div class="sticky bottom-0 z-10 mt-auto -mx-4 border-t border-border bg-background/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <span class="text-sm text-muted-foreground">
       {t('sync.selectedCount', { count: selectedCount })}

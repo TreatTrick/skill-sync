@@ -93,7 +93,7 @@
     </div>
   </aside>
 
-  <main class="min-w-0">
+  <main class="min-w-0 flex flex-col">
     <header
       class="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur"
     >
@@ -104,7 +104,7 @@
       </div>
     </header>
 
-    <div class="mx-auto w-full max-w-screen-2xl px-4 py-5 sm:px-6">
+    <div class="mx-auto w-full max-w-screen-2xl px-4 py-5 sm:px-6 flex-1 flex flex-col">
       {@render children?.()}
     </div>
   </main>
