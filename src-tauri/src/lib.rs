@@ -64,6 +64,7 @@ pub fn run() {
             commands::sync::scan_skills,
             commands::sync::get_sync_plan,
             commands::sync::apply_sync_plan,
+            commands::sync::establish_baseline,
             commands::sync::resume_sync_recovery,
             commands::system::open_path,
             commands::github::start_github_device_flow,

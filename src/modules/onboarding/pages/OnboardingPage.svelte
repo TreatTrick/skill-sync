@@ -33,6 +33,7 @@
     bindGithubVault,
     checkGithubVault,
     discoverSingleGithubRepository,
+    establishBaseline,
     getGithubAppInfo,
     initializeGithubVault,
     listGithubRepositoryBranches,
@@ -417,6 +418,19 @@
         confirm_rebind: confirmRebind,
       })
       queryClient.setQueryData(['app-state'], nextState)
+      // Best-effort: adopt local skills that already match the remote into the
+      // base so "delete local => delete remote" works without a manual apply.
+      // Failure must not block onboarding.
+      try {
+        const baseline = await establishBaseline()
+        if (baseline.adoptions > 0) {
+          toast.success(
+            t('onboarding.baselineEstablished', { count: baseline.adoptions }),
+          )
+        }
+      } catch (baselineError) {
+        console.warn('establish_baseline failed', baselineError)
+      }
       if (isWorkspaceReady(nextState)) await goto('/app/sync', { replaceState: true })
       else message = t('github.bindingFailed')
     } catch (error) {

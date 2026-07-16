@@ -72,7 +72,8 @@
       "ready": "完成绑定",
       "vault": "检查 Vault"
     },
-    "title": "初始配置"
+    "title": "初始配置",
+    "baselineEstablished": "已建立 {{count}} 个 skill 的本地同步基线"
   },
   "github": {
     "adjustInstallation": "调整 GitHub App 安装",

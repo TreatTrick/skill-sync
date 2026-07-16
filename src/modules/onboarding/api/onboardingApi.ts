@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { invokeCmd } from '@/shared/lib'
 import {
   appStateSchema,
+  baselineResultSchema,
   deviceFlowPollSchema,
   deviceFlowStartSchema,
   githubAppInfoSchema,
@@ -10,6 +11,7 @@ import {
   githubRepositorySchema,
   githubVaultCheckSchema,
   type AppState,
+  type BaselineResult,
   type BindGithubVaultRequest,
   type DeviceFlowPoll,
   type DeviceFlowStart,
@@ -141,3 +143,9 @@ export const bindGithubVault = async (
   }
   return appStateSchema.parse(await invokeCmd<unknown>('get_app_state'))
 }
+
+// Adopt local skills that already match the remote into the base (sync_state) so
+// that "delete local => delete remote" works right after onboarding, without a
+// manual apply. Best-effort: callers should not block onboarding on failure.
+export const establishBaseline = async (): Promise<BaselineResult> =>
+  baselineResultSchema.parse(await invokeCmd<unknown>('establish_baseline'))

@@ -79,6 +79,14 @@ pub(crate) struct BaseAdoption {
     pub hash: String,
 }
 
+/// establish_baseline 的结果：采纳/移除的 skill 数量与最新远端 commit。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct BaselineResult {
+    pub adoptions: u32,
+    pub removals: u32,
+    pub commit_sha: String,
+}
+
 /// 冲突条目；decisions 按 skill_id 索引，apply 时校验 decision 白名单。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct Conflict {

@@ -72,7 +72,8 @@
       "ready": "Complete binding",
       "vault": "Check Vault"
     },
-    "title": "Initial Setup"
+    "title": "Initial Setup",
+    "baselineEstablished": "Established a local sync baseline for {{count}} skill(s)"
   },
   "github": {
     "adjustInstallation": "Adjust GitHub App installation",

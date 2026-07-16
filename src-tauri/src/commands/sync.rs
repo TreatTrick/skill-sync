@@ -1,11 +1,11 @@
 // 核心同步命令（get_app_state / save_config / scan_skills / get_sync_plan /
-// apply_sync_plan / resume_sync_recovery）与远端恢复裁决逻辑。
+// apply_sync_plan / establish_baseline / resume_sync_recovery）与远端恢复裁决逻辑。
 
 use super::*;
 use crate::remote_store::{RemoteSnapshot, RemoteStore};
 use crate::sync_engine::apply::apply_plan;
 use crate::sync_engine::model::{
-    ApplyResult, ApplySyncRequest, ApplySyncResponse, PlanChangeReason, SyncPlan,
+    ApplyResult, ApplySyncRequest, ApplySyncResponse, BaselineResult, PlanChangeReason, SyncPlan,
 };
 use crate::sync_engine::plan::build_plan;
 
@@ -141,6 +141,28 @@ pub(crate) async fn apply_sync_plan_impl(
         &config,
         &mut sync_state,
         &request,
+        &store,
+        &home,
+        &config_dir,
+    )
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn establish_baseline(state: State<'_, AppRuntime>) -> Result<BaselineResult> {
+    log_command_result("establish_baseline", establish_baseline_impl(&state).await)
+}
+
+pub(crate) async fn establish_baseline_impl(runtime: &AppRuntime) -> Result<BaselineResult> {
+    let _gate = runtime.gate.inner.write().await;
+    let config_dir = config_dir()?;
+    ensure_no_pending_recovery_at(&config_dir).await?;
+    let config = load_config().await?;
+    let (store, mut sync_state) = load_store_and_state(runtime, &config).await?;
+    let home = dirs::home_dir().ok_or_else(|| AppError::Config("home not found".into()))?;
+    crate::sync_engine::apply::establish_baseline(
+        &config,
+        &mut sync_state,
         &store,
         &home,
         &config_dir,

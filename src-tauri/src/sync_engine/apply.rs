@@ -21,8 +21,8 @@ use crate::sync_state::{SkillSyncState, SyncState};
 use crate::vault_manifest::{VaultManifest, VaultSkill};
 
 use super::model::{
-    ApplyResult, ApplySyncRequest, ApplySyncResponse, ConflictReason, PlanChangeReason,
-    RecoveryInfo, RecoveryPhase, SyncDecision, SyncPlan, SyncStatus,
+    ApplyResult, ApplySyncRequest, ApplySyncResponse, BaselineResult, ConflictReason,
+    PlanChangeReason, RecoveryInfo, RecoveryPhase, SyncDecision, SyncPlan, SyncStatus,
 };
 use super::plan::{action_kind_for, merge_plan, validate_remote, LocalSkillInfo};
 
@@ -168,6 +168,44 @@ fn is_executable(status: SyncStatus) -> bool {
             | SyncStatus::LocalDeleted
             | SyncStatus::RemoteDeleted
     )
+}
+
+/// 把 plan 的 base_adoptions / base_removals 应用到 working state（纯状态转移，无 IO）。
+/// 返回发生变更的 skill_id 列表。apply_plan 与 establish_baseline 共用。
+fn apply_state_transfers(working: &mut SyncState, plan: &SyncPlan) -> Vec<String> {
+    let mut updated: Vec<String> = Vec::new();
+    for adoption in &plan.base_adoptions {
+        let entry = plan
+            .entries
+            .iter()
+            .find(|e| e.skill_id == adoption.skill_id);
+        let (ns, rel) = entry
+            .map(|e| {
+                (
+                    e.namespace,
+                    e.relative_dir
+                        .clone()
+                        .unwrap_or_else(|| e.folder_name.clone()),
+                )
+            })
+            .unwrap_or((SkillNamespace::Agents, adoption.skill_id.clone()));
+        working.skills.insert(
+            adoption.skill_id.clone(),
+            SkillSyncState {
+                base_hash: adoption.hash.clone(),
+                last_remote_hash: adoption.hash.clone(),
+                last_synced_at: now_iso(),
+                namespace: ns,
+                relative_dir: rel,
+            },
+        );
+        updated.push(adoption.skill_id.clone());
+    }
+    for id in &plan.base_removals {
+        working.skills.remove(id);
+        updated.push(id.clone());
+    }
+    updated
 }
 
 /// conflict decision 白名单。
@@ -784,37 +822,7 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     }
 
     // adoptions / removals（纯状态转移，移到远端提交之前，确保预期状态完整）
-    for adoption in &plan.base_adoptions {
-        let entry = plan
-            .entries
-            .iter()
-            .find(|e| e.skill_id == adoption.skill_id);
-        let (ns, rel) = entry
-            .map(|e| {
-                (
-                    e.namespace,
-                    e.relative_dir
-                        .clone()
-                        .unwrap_or_else(|| e.folder_name.clone()),
-                )
-            })
-            .unwrap_or((SkillNamespace::Agents, adoption.skill_id.clone()));
-        working.skills.insert(
-            adoption.skill_id.clone(),
-            SkillSyncState {
-                base_hash: adoption.hash.clone(),
-                last_remote_hash: adoption.hash.clone(),
-                last_synced_at: now_iso(),
-                namespace: ns,
-                relative_dir: rel,
-            },
-        );
-        state_updated.push(adoption.skill_id.clone());
-    }
-    for id in &plan.base_removals {
-        working.skills.remove(id);
-        state_updated.push(id.clone());
-    }
+    state_updated.extend(apply_state_transfers(&mut working, plan));
 
     // 远端提交（uploads + delete_remote 合并一次）。先持久化完整预期状态再发起提交；
     // working.remote.commit_sha 暂留 base，直到拿到 candidate。
@@ -1026,6 +1034,44 @@ async fn batch_apply<S: RemoteStore>(
     };
     drop(prepared);
     apply_plan(config, state, &request, store, home, config_dir).await
+}
+
+/// 建立本地基线：把"本地与云端 hash 一致"的 skill 采纳进 base（sync_state.skills）。
+/// 用于 onboarding 绑定后自动建立基线，使后续"删除本地 => 删云端"判定生效。
+/// 纯状态转移 + durable save，无远端提交、无本地文件副作用；失败前不持久化，不触发 recovery。
+pub(crate) async fn establish_baseline<S: RemoteStore>(
+    config: &AppConfig,
+    state: &mut SyncState,
+    store: &S,
+    home: &Path,
+    config_dir: &Path,
+) -> Result<BaselineResult> {
+    let prepared = prepare_plan(config, state, store, home).await?;
+    let plan = &prepared.plan;
+    let mut working = state.clone();
+    let updated = apply_state_transfers(&mut working, plan);
+    let commit_sha = prepared.expected_commit.clone();
+    if updated.is_empty() {
+        return Ok(BaselineResult {
+            adoptions: 0,
+            removals: 0,
+            commit_sha,
+        });
+    }
+    working.remote.commit_sha = commit_sha.clone();
+    let state_to_save = working.clone();
+    let save_dir = config_dir.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || state_to_save.save_to(&save_dir))
+        .await
+        .map_err(|e| AppError::Vault(format!("state save task failed: {e}")))??;
+    let adoptions = plan.base_adoptions.len() as u32;
+    let removals = plan.base_removals.len() as u32;
+    *state = working;
+    Ok(BaselineResult {
+        adoptions,
+        removals,
+        commit_sha,
+    })
 }
 
 #[cfg(test)]
@@ -2467,5 +2513,76 @@ mod tests {
         .unwrap_err();
         assert!(matches!(err, AppError::Blocked(_)));
         assert_eq!(*store.commit_count.lock().unwrap(), 0);
+    }
+
+    // ---- establish_baseline 测试 ----
+
+    #[tokio::test]
+    async fn establish_baseline_adopts_matching_local_remote_into_base() {
+        let home = temp_home();
+        make_skill(home.path(), Codex, "demo", "demo");
+        // 相同内容 => 相同 hash，local 与 remote 一致 => Synced + base_adoption
+        let (vskill, _, _) = make_blob(Codex, "demo", "demo");
+        let mut manifest = VaultManifest::empty("d");
+        manifest.skills.insert(vskill.id.clone(), vskill.clone());
+        let store = mock_store(manifest);
+        let config = apply_config();
+        let mut state = apply_state(); // base 空
+        let cfgdir = tempfile::tempdir().unwrap();
+        let result = establish_baseline(&config, &mut state, &store, home.path(), cfgdir.path())
+            .await
+            .unwrap();
+        assert_eq!(result.adoptions, 1);
+        assert_eq!(result.removals, 0);
+        let entry = state.skills.get("codex:demo").unwrap();
+        assert_eq!(entry.base_hash, vskill.hash);
+        assert_eq!(entry.last_remote_hash, vskill.hash);
+        // durable 持久化：重载后 base 仍含该 skill
+        let reloaded = SyncState::load_from(cfgdir.path()).unwrap();
+        assert!(reloaded.skills.contains_key("codex:demo"));
+    }
+
+    #[tokio::test]
+    async fn establish_baseline_skips_when_local_has_no_remote_match() {
+        let home = temp_home();
+        make_skill(home.path(), Codex, "demo", "demo"); // 本地有
+        let store = mock_store(VaultManifest::empty("d")); // 远程空 => LocalUpdate，无 adoption
+        let config = apply_config();
+        let mut state = apply_state();
+        let cfgdir = tempfile::tempdir().unwrap();
+        let result = establish_baseline(&config, &mut state, &store, home.path(), cfgdir.path())
+            .await
+            .unwrap();
+        assert_eq!(result.adoptions, 0);
+        assert!(state.skills.is_empty());
+    }
+
+    #[tokio::test]
+    async fn establish_baseline_noop_when_base_already_current() {
+        let home = temp_home();
+        make_skill(home.path(), Codex, "demo", "demo");
+        let (vskill, _, _) = make_blob(Codex, "demo", "demo");
+        let mut manifest = VaultManifest::empty("d");
+        manifest.skills.insert(vskill.id.clone(), vskill.clone());
+        let store = mock_store(manifest);
+        let config = apply_config();
+        let mut state = apply_state();
+        // base 已记录当前 hash => Synced 但无 adoption（b.base_hash == l.hash）
+        state.skills.insert(
+            "codex:demo".into(),
+            SkillSyncState {
+                base_hash: vskill.hash.clone(),
+                last_remote_hash: vskill.hash.clone(),
+                last_synced_at: String::new(),
+                namespace: Codex,
+                relative_dir: "demo".into(),
+            },
+        );
+        let cfgdir = tempfile::tempdir().unwrap();
+        let result = establish_baseline(&config, &mut state, &store, home.path(), cfgdir.path())
+            .await
+            .unwrap();
+        assert_eq!(result.adoptions, 0);
+        assert_eq!(result.removals, 0);
     }
 }

@@ -31,6 +31,16 @@ export const recoveryInfoSchema = z.object({
 
 export type RecoveryInfo = z.infer<typeof recoveryInfoSchema>
 
+// Result of establish_baseline: counts of skills adopted into / removed from the
+// local base, plus the latest remote commit sha.
+export const baselineResultSchema = z.object({
+  adoptions: z.number().int().nonnegative(),
+  removals: z.number().int().nonnegative(),
+  commit_sha: z.string(),
+})
+
+export type BaselineResult = z.infer<typeof baselineResultSchema>
+
 const remoteConfigSchema = z.object({
   installation_id: z.number().int().nonnegative(),
   repository_id: z.number().int().nonnegative(),
