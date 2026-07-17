@@ -156,29 +156,26 @@
 <div class="grid gap-4">
   <Card>
     <CardHeader>
-      <CardTitle>{t('settings.appearance')}</CardTitle>
-      <CardDescription>{t('settings.appearanceDesc')}</CardDescription>
+      <CardTitle>{t('settings.preferences')}</CardTitle>
+      <CardDescription>{t('settings.preferencesDesc')}</CardDescription>
     </CardHeader>
-    <CardContent>
-      <SegmentedControl
-        options={themeOptions}
-        value={themeState.theme}
-        onSelect={(v) => themeState.setTheme(v as ThemeMode)}
-      />
-    </CardContent>
-  </Card>
-
-  <Card>
-    <CardHeader>
-      <CardTitle>{t('settings.language')}</CardTitle>
-      <CardDescription>{t('settings.languageDesc')}</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <SegmentedControl
-        options={languageOptions}
-        value={languageState.language}
-        onSelect={(v) => void languageState.setLanguage(v as 'zh-CN' | 'en-US')}
-      />
+    <CardContent class="grid gap-5">
+      <div class="grid gap-2">
+        <span class="text-sm font-medium text-foreground">{t('settings.appearance')}</span>
+        <SegmentedControl
+          options={themeOptions}
+          value={themeState.theme}
+          onSelect={(v) => themeState.setTheme(v as ThemeMode)}
+        />
+      </div>
+      <div class="grid gap-2">
+        <span class="text-sm font-medium text-foreground">{t('settings.language')}</span>
+        <SegmentedControl
+          options={languageOptions}
+          value={languageState.language}
+          onSelect={(v) => void languageState.setLanguage(v as 'zh-CN' | 'en-US')}
+        />
+      </div>
     </CardContent>
   </Card>
 

@@ -268,7 +268,6 @@
   },
   "settings": {
     "appearance": "外观",
-    "appearanceDesc": "选择应用的颜色主题。",
     "copyPath": "复制路径",
     "credentialDisconnected": "未连接",
     "credentialRefreshing": "正在刷新",
@@ -287,7 +286,6 @@
     "ignoreDescription": "忽略规则会影响 skill 的打包、hash、大小和同步状态。",
     "installationId": "Installation ID",
     "language": "语言",
-    "languageDesc": "选择应用界面语言。",
     "languageEn": "English",
     "languageZh": "简体中文",
     "limits": "资源限制",
@@ -303,6 +301,8 @@
       "codex": "Codex Skills 目录"
     },
     "pathCopied": "路径已复制",
+    "preferences": "偏好设置",
+    "preferencesDesc": "设置应用主题与界面语言。",
     "reconfigureVault": "重新配置 Vault",
     "remoteCommit": "当前远端版本",
     "remoteCommitEmpty": "尚未同步",

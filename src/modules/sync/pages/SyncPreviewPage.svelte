@@ -412,69 +412,76 @@
         </Callout>
       {/if}
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SyncMetric
-          label={t('sync.metrics.discovered')}
-          value={skills.length}
-          icon={Package}
-          filter="all"
-          activeFilter={statusFilter}
-          onFilter={(f) => { statusFilter = f }}
-        />
-        <SyncMetric
-          label={t('sync.metrics.synced')}
-          value={syncedCount}
-          icon={CheckCircle}
-          tone="primary"
-          filter="synced"
-          activeFilter={statusFilter}
-          onFilter={(f) => { statusFilter = f }}
-        />
-        <SyncMetric
-          label={t('sync.metrics.toUpload')}
-          value={planData?.uploads.length ?? 0}
-          icon={ArrowUpFromLine}
-          tone="info"
-          filter="local_update"
-          activeFilter={statusFilter}
-          onFilter={(f) => { statusFilter = f }}
-        />
-        <SyncMetric
-          label={t('sync.metrics.toDownload')}
-          value={planData?.downloads.length ?? 0}
-          icon={ArrowDownToLine}
-          tone="success"
-          filter="remote_update"
-          activeFilter={statusFilter}
-          onFilter={(f) => { statusFilter = f }}
-        />
-        <SyncMetric
-          label={t('sync.metrics.deleteRemote')}
-          value={planData?.delete_remote.length ?? 0}
-          icon={Trash2}
-          tone="destructive"
-          filter="delete_remote"
-          activeFilter={statusFilter}
-          onFilter={(f) => { statusFilter = f }}
-        />
-        <SyncMetric
-          label={t('sync.metrics.deleteLocal')}
-          value={planData?.delete_local.length ?? 0}
-          icon={Trash2}
-          tone="destructiveSoft"
-          filter="delete_local"
-          activeFilter={statusFilter}
-          onFilter={(f) => { statusFilter = f }}
-        />
-        <SyncMetric
-          label={t('sync.metrics.conflicts')}
-          value={planData?.conflicts.length ?? 0}
-          icon={TriangleAlert}
-          tone="warning"
-          filter="conflict"
-          activeFilter={statusFilter}
-          onFilter={(f) => { statusFilter = f }}
-        />
+      <div class="grid gap-3">
+        <!-- Overview: orient on overall state, kept visually quiet -->
+        <div class="grid grid-cols-1 gap-3 sm:max-w-md sm:grid-cols-2">
+          <SyncMetric
+            label={t('sync.metrics.discovered')}
+            value={skills.length}
+            icon={Package}
+            filter="all"
+            activeFilter={statusFilter}
+            onFilter={(f) => { statusFilter = f }}
+          />
+          <SyncMetric
+            label={t('sync.metrics.synced')}
+            value={syncedCount}
+            icon={CheckCircle}
+            tone="primary"
+            filter="synced"
+            activeFilter={statusFilter}
+            onFilter={(f) => { statusFilter = f }}
+          />
+        </div>
+
+        <!-- Action buckets: tone emphasis only when work is pending -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <SyncMetric
+            label={t('sync.metrics.toUpload')}
+            value={planData?.uploads.length ?? 0}
+            icon={ArrowUpFromLine}
+            tone="info"
+            filter="local_update"
+            activeFilter={statusFilter}
+            onFilter={(f) => { statusFilter = f }}
+          />
+          <SyncMetric
+            label={t('sync.metrics.toDownload')}
+            value={planData?.downloads.length ?? 0}
+            icon={ArrowDownToLine}
+            tone="success"
+            filter="remote_update"
+            activeFilter={statusFilter}
+            onFilter={(f) => { statusFilter = f }}
+          />
+          <SyncMetric
+            label={t('sync.metrics.deleteRemote')}
+            value={planData?.delete_remote.length ?? 0}
+            icon={Trash2}
+            tone="destructive"
+            filter="delete_remote"
+            activeFilter={statusFilter}
+            onFilter={(f) => { statusFilter = f }}
+          />
+          <SyncMetric
+            label={t('sync.metrics.deleteLocal')}
+            value={planData?.delete_local.length ?? 0}
+            icon={Trash2}
+            tone="destructiveSoft"
+            filter="delete_local"
+            activeFilter={statusFilter}
+            onFilter={(f) => { statusFilter = f }}
+          />
+          <SyncMetric
+            label={t('sync.metrics.conflicts')}
+            value={planData?.conflicts.length ?? 0}
+            icon={TriangleAlert}
+            tone="warning"
+            filter="conflict"
+            activeFilter={statusFilter}
+            onFilter={(f) => { statusFilter = f }}
+          />
+        </div>
       </div>
 
       {#if planNotice}
@@ -534,7 +541,7 @@
         </Card>
       {:else if visibleEntries.length === 0}
         {#if (planData?.entries.length ?? 0) === 0}
-          <EmptyState title={t('sync.emptyAllSynced')} description={t('sync.emptyAllSyncedDescription')}>
+          <EmptyState iconTone="success" title={t('sync.emptyAllSynced')} description={t('sync.emptyAllSyncedDescription')}>
             {#snippet icon()}
               <CheckCircle class="size-10" />
             {/snippet}

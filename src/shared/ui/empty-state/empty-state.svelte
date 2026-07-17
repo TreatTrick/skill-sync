@@ -4,18 +4,32 @@
 
   interface Props {
     icon?: Snippet
+    // Tint the icon circle; success gives positive end states a moment
+    iconTone?: 'neutral' | 'success'
     title: string
     description?: string
     action?: Snippet
     class?: string
   }
 
-  let { icon, title, description, action, class: className }: Props = $props()
+  let {
+    icon,
+    iconTone = 'neutral',
+    title,
+    description,
+    action,
+    class: className,
+  }: Props = $props()
+
+  const circleClasses: Record<'neutral' | 'success', string> = {
+    neutral: 'bg-surface-muted text-muted-foreground',
+    success: 'bg-success-muted text-success',
+  }
 </script>
 
 <div class={cn('grid gap-3 p-10 text-center', className)}>
   {#if icon}
-    <div class="mx-auto flex size-14 items-center justify-center rounded-full bg-surface-muted text-muted-foreground">{@render icon()}</div>
+    <div class={cn('mx-auto flex size-14 items-center justify-center rounded-full', circleClasses[iconTone])}>{@render icon()}</div>
   {/if}
   <div class="text-base font-semibold text-strong-foreground">{title}</div>
   {#if description}
