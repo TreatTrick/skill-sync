@@ -107,8 +107,8 @@
     { value: 'system', icon: Monitor, label: t('settings.themeSystem') },
   ])
   const languageOptions = $derived<{ value: 'zh-CN' | 'en-US'; label: string }[]>([
-    { value: 'zh-CN', label: t('settings.languageZh') },
-    { value: 'en-US', label: t('settings.languageEn') },
+    { value: 'zh-CN', label: t('common.languageZh') },
+    { value: 'en-US', label: t('common.languageEn') },
   ])
 
   const copyPath = async (path: string): Promise<void> => {
@@ -169,7 +169,7 @@
         />
       </div>
       <div class="grid gap-2">
-        <span class="text-sm font-medium text-foreground">{t('settings.language')}</span>
+        <span class="text-sm font-medium text-foreground">{t('common.language')}</span>
         <SegmentedControl
           options={languageOptions}
           value={languageState.language}

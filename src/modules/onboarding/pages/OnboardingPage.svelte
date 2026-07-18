@@ -24,6 +24,7 @@
   import DeviceAuthorizationStage from '../components/DeviceAuthorizationStage.svelte'
   import FirstRunIntroDialog from '../components/FirstRunIntroDialog.svelte'
   import InstallAppStage from '../components/InstallAppStage.svelte'
+  import LanguageToggle from '../components/LanguageToggle.svelte'
   import OnboardingStepper from '../components/OnboardingStepper.svelte'
   import PublicRepositoryWarningStage from '../components/PublicRepositoryWarningStage.svelte'
   import SelectBranchStage from '../components/SelectBranchStage.svelte'
@@ -469,6 +470,9 @@
 
 <div class="mx-auto grid min-h-screen w-full max-w-2xl gap-4 px-4 py-10 sm:py-16">
   <FirstRunIntroDialog />
+  <div class="flex justify-end">
+    <LanguageToggle />
+  </div>
   <Card>
     <CardHeader>
       <div class="flex items-center justify-between gap-3">
