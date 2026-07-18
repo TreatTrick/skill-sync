@@ -1,6 +1,6 @@
 [package]
 name = "skill-sync"
-version = "0.1.5"
+version = "1.0.0"
 description = "Sync agent skills across machines"
 authors = ["Skill Sync"]
 edition = "2021"
