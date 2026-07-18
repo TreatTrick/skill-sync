@@ -30,7 +30,18 @@
   import SelectBranchStage from '../components/SelectBranchStage.svelte'
   import VaultReadyStage from '../components/VaultReadyStage.svelte'
 
-  import * as onboardingApi from '../api/onboardingApi'
+  import {
+    startGithubDeviceFlow,
+    pollGithubDeviceFlow,
+    getGithubAppInfo,
+    listInstallationRepositories,
+    discoverSingleGithubRepository,
+    listGithubRepositoryBranches,
+    checkGithubVault,
+    initializeGithubVault,
+    bindGithubVault,
+    establishBaseline,
+  } from '../api/onboardingApi'
   import { OnboardingFlow, type OnboardingStage } from '../state/onboardingFlow.svelte'
 
   const CREATE_GITHUB_REPOSITORY_URL = 'https://github.com/new'
@@ -45,7 +56,18 @@
   // Per-mount orchestration. The flow owns the state machine; this page is a
   // thin view that renders flow state, forwards appState, bridges the stale
   // signal to the query cache, and runs view side-effects (toast/goto).
-  const flow = new OnboardingFlow(onboardingApi)
+  const flow = new OnboardingFlow({
+    startGithubDeviceFlow,
+    pollGithubDeviceFlow,
+    getGithubAppInfo,
+    listInstallationRepositories,
+    discoverSingleGithubRepository,
+    listGithubRepositoryBranches,
+    checkGithubVault,
+    initializeGithubVault,
+    bindGithubVault,
+    establishBaseline,
+  })
 
   const bindingChanged = $derived(flow.bindingChanged(appState.data))
 

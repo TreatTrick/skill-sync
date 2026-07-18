@@ -255,6 +255,10 @@ const IMPORT_RULES = {
   'no-restricted-syntax': [
     'error',
     {
+      selector: 'ImportNamespaceSpecifier',
+      message: 'Do not use import * as; explicitly name every imported member.',
+    },
+    {
       selector: 'ExportAllDeclaration',
       message: 'Do not use export *; explicitly name every exported member.',
     },
