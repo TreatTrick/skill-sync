@@ -4,7 +4,7 @@
   import { Monitor, Moon, Star, Sun } from '@lucide/svelte'
   import type { Component } from 'svelte'
 
-  import { errorMessage, getAppState, openPath, scanSkills } from '@/shared/lib'
+  import { errorMessage, getAppState, openPath, resetIntroSeen, scanSkills } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { languageState, themeState, type ThemeMode } from '@/shared/state'
   import {
@@ -143,6 +143,9 @@
     if (repositoryId === null || repositoryId === undefined) return
     try {
       await disconnectGithub(repositoryId)
+      // Reset the intro-seen flag so the first-run intro dialog re-shows on
+      // the fresh onboarding entry (now, and after an app restart).
+      resetIntroSeen()
       await queryClient.invalidateQueries({ queryKey: ['app-state'] })
       await goto('/app/onboarding', { replaceState: true })
     } catch (error) {

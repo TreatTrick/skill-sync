@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
 
+  import { INTRO_SEEN_STORAGE_KEY } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import {
     Button,
@@ -13,24 +14,25 @@
   } from '@/shared/ui'
   import LanguageToggle from './LanguageToggle.svelte'
 
-  // First-run concept intro. Shown once per device: the flag is persisted to
-  // localStorage so returning users go straight into the setup flow. The
-  // `shown` guard prevents the initial closed state from writing the flag
-  // before the dialog has ever been displayed.
-  const STORAGE_KEY = 'skill-sync.intro-seen'
+  // First-run concept intro. Shown until dismissed; the seen flag is persisted
+  // to localStorage so returning users go straight into the setup flow. The
+  // flag is reset by the settings "disconnect GitHub" flow so a fresh
+  // onboarding re-shows this intro. The `shown` guard prevents the initial
+  // closed state from writing the flag before the dialog has ever been
+  // displayed.
 
   let open = $state(false)
   let shown = $state(false)
 
   onMount(() => {
-    if (window.localStorage.getItem(STORAGE_KEY) !== 'true') open = true
+    if (window.localStorage.getItem(INTRO_SEEN_STORAGE_KEY) !== 'true') open = true
   })
 
   $effect(() => {
     if (open) {
       shown = true
     } else if (shown) {
-      window.localStorage.setItem(STORAGE_KEY, 'true')
+      window.localStorage.setItem(INTRO_SEEN_STORAGE_KEY, 'true')
     }
   })
 
