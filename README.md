@@ -18,6 +18,18 @@
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20Apple%20Silicon-0078D4" alt="Platform: Windows x64 and Apple Silicon" /></a>
 </p>
 
+## Download
+
+Installers for the latest **1.0.0** release, direct from GitHub:
+
+| Platform      | Download                                                                                                                           | Type          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Windows x64   | [Skill.Sync_1.0.0_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64-setup.exe) | EXE installer |
+| Windows x64   | [Skill.Sync_1.0.0_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64_en-US.msi) | MSI installer |
+| Apple Silicon | [Skill.Sync_1.0.0_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_aarch64.dmg)     | macOS DMG     |
+
+Windows may show a security warning because the current installer is unsigned. For other builds and older versions, see the [releases page](https://github.com/TreatTrick/skill-sync/releases).
+
 ## See Skill Sync in action
 
 Your Skills stay in their existing tool directories. Skill Sync gives you a clear, local workflow for moving them through a GitHub repository you control.
@@ -106,7 +118,7 @@ The remote Vault does not contain credentials, local sync state, trash, or recov
 
 ## Getting started
 
-1. Download the Windows x64 or Apple Silicon installer from the latest [GitHub Release](https://github.com/TreatTrick/skill-sync/releases/latest). Windows builds are available as EXE and MSI installers.
+1. Download the Windows x64 or Apple Silicon installer from [Download](#download) above.
 2. Install and launch Skill Sync. Windows may show a security warning because its current installer is unsigned.
 3. Complete authorization and Vault binding from the in-app **Onboarding** flow.
 4. Preview and apply your first plan from **Sync**.

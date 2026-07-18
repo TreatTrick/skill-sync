@@ -18,6 +18,18 @@
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20Apple%20Silicon-0078D4" alt="平台：Windows x64 与 Apple Silicon" /></a>
 </p>
 
+## 下载
+
+以下是最新 **1.0.0** 版本的安装包，直接从 GitHub 下载：
+
+| 平台          | 下载                                                                                                                               | 类型       |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Windows x64   | [Skill.Sync_1.0.0_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64-setup.exe) | EXE 安装包 |
+| Windows x64   | [Skill.Sync_1.0.0_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64_en-US.msi) | MSI 安装包 |
+| Apple Silicon | [Skill.Sync_1.0.0_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_aarch64.dmg)     | macOS DMG  |
+
+由于当前 Windows 安装包未签名，安装时 Windows 可能显示安全警告。其它构建和历史版本请前往 [releases 页面](https://github.com/TreatTrick/skill-sync/releases)。
+
 ## 快速了解 Skill Sync
 
 Skills 仍然保存在各工具原本的目录中。Skill Sync 提供清晰的本地操作流程，通过你掌控的 GitHub 仓库在不同电脑之间同步它们。
@@ -106,7 +118,7 @@ blobs/sha256/<sha256>.skill.zip
 
 ## 开始使用
 
-1. 从最新的 [GitHub Release](https://github.com/TreatTrick/skill-sync/releases/latest) 下载 Windows x64 或 Apple Silicon 安装包。Windows 版本提供 EXE 和 MSI 安装包。
+1. 从上方的[下载](#下载)章节获取 Windows x64 或 Apple Silicon 安装包。
 2. 安装并启动 Skill Sync。由于当前 Windows 安装包未签名，Windows 可能显示安全警告。
 3. 在应用内 **Onboarding** 完成授权和 Vault 绑定。
 4. 进入 **Sync** 预览并 apply 第一份同步计划。
