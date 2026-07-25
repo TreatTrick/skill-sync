@@ -18,6 +18,10 @@
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20Apple%20Silicon-0078D4" alt="Platform: Windows x64 and Apple Silicon" /></a>
 </p>
 
+<p align="center">
+  <video src="video/skillSyncEnglish.mp4" controls autoplay muted loop playsinline width="720"></video>
+</p>
+
 ## Download
 
 Installers for the latest **1.0.0** release, direct from GitHub:
@@ -38,25 +42,17 @@ Your Skills stay in their existing tool directories. Skill Sync gives you a clea
 
 Create a dedicated GitHub repository as the Vault. A private repository is recommended so your Skill files remain visible only to you.
 
-![Create a private GitHub Vault repository from Skill Sync](docs/images/tutorial/en/02-create-vault.png)
-
 ### Only the repository you select
 
 Install the GitHub App for the Vault repository only. Skill Sync needs read and write access to repository contents plus read-only metadata, not access to every repository you own.
-
-![Limit the Skill Sync GitHub App to one selected Vault repository](docs/images/tutorial/en/04-select-vault-repository.png)
 
 ### Review every change before it happens
 
 See uploads, downloads, proposed deletes, and conflicts before applying anything. Search the plan, inspect individual Skills, and choose exactly which changes to sync.
 
-![Review Skills selected for upload before applying the sync plan](docs/images/tutorial/en/06-preview-upload.png)
-
 ### Continue on another machine without losing edits
 
 Connect the same Vault on another computer to download remote Skills. Local and remote changes stay visible, and conflicts require an explicit choice instead of silently overwriting work.
-
-![Download remote Skills and review conflicts on another machine](docs/images/tutorial/en/07-sync-another-machine.png)
 
 ## Why Skill Sync
 
@@ -132,43 +128,29 @@ Onboarding is the normal authorization path. If you do not yet have a repository
 
 Choose **Authorize with GitHub** and complete the Device Flow verification in your browser. Skill Sync checks the GitHub App installation after authorization.
 
-![Authorize Skill Sync with GitHub Device Flow](docs/images/tutorial/en/01-authorize-github.png)
-
 ### 2. Create the Vault repository
 
 Open GitHub's new-repository page from Onboarding and create the repository that will hold your Skills. Use a private repository unless you intentionally want the files and history to be public.
-
-![Create a Vault repository during Skill Sync onboarding](docs/images/tutorial/en/02-create-vault.png)
 
 ### 3. Start the GitHub App installation
 
 Return to Onboarding, open the GitHub App installation, and use **Check installation again** after completing the GitHub step.
 
-![Open the Skill Sync GitHub App installation](docs/images/tutorial/en/03-install-github-app.png)
-
 ### 4. Grant access to the Vault only
 
 On GitHub, choose **Only select repositories**, select the single Vault repository, review the requested permissions, and install the App.
-
-![Select only the Vault repository when installing the GitHub App](docs/images/tutorial/en/04-select-vault-repository.png)
 
 ### 5. Bind the ready Vault
 
 When Skill Sync confirms that the repository is ready, verify the owner, repository, and branch, then choose **Bind this Vault**.
 
-![Bind the verified GitHub Vault to Skill Sync](docs/images/tutorial/en/05-bind-vault.png)
-
 ### 6. Preview and upload local Skills
 
 Review the discovered Skills and the planned upload. Select the items you want, then apply the plan to create the first Vault commit.
 
-![Preview local Skills before uploading them to the Vault](docs/images/tutorial/en/06-preview-upload.png)
-
 ### 7. Sync on another machine
 
 Install Skill Sync on the other computer and connect the same Vault. Review downloads and any conflicts, choose the desired content for each conflict, and apply the selected changes.
-
-![Sync Skills from the Vault on another computer](docs/images/tutorial/en/07-sync-another-machine.png)
 
 </details>
 
