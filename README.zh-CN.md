@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <video src="video/skillSyncChinese.mp4" controls autoplay muted loop playsinline width="720"></video>
+  <img src="gif/skillSyncChinese.gif" alt="Skill Sync 演示" width="720" />
 </p>
 
 ## 下载

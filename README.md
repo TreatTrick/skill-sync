@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <video src="video/skillSyncEnglish.mp4" controls autoplay muted loop playsinline width="720"></video>
+  <img src="gif/skillSyncEnglish.gif" alt="Skill Sync demo" width="720" />
 </p>
 
 ## Download
