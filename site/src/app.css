@@ -1,0 +1,145 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Neutral scale - cool, cohesive slate */
+  --background: #f6f7f9;
+  --foreground: #1a1f29;
+  --surface: #ffffff;
+  --surface-muted: #f4f5f7;
+  --surface-hover: #eef0f3;
+  --border: #e3e6eb;
+  --border-strong: #d2d7de;
+  --muted-foreground: #5b6471;
+  --strong-foreground: #0e1320;
+
+  /* Primary - teal */
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --primary-muted: #ecfdf8;
+  --primary-muted-foreground: #115e59;
+  --primary-border: #99f6e4;
+
+  /* Focus ring */
+  --ring: #0f766e;
+
+  /* shadcn token aliases */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-muted);
+  --accent: var(--surface-hover);
+  --accent-foreground: var(--foreground);
+  --input: var(--border);
+
+  font-family:
+    'Segoe UI', system-ui, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  color: var(--foreground);
+  background: var(--background);
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark {
+  /* Neutral scale - dark */
+  --background: #0d1117;
+  --foreground: #e6edf3;
+  --surface: #161b22;
+  --surface-muted: #1c2128;
+  --surface-hover: #22272e;
+  --border: #2d333b;
+  --border-strong: #3d444d;
+  --muted-foreground: #8b949e;
+  --strong-foreground: #f0f6fc;
+
+  /* Primary - teal, brightened for dark */
+  --primary: #2dd4bf;
+  --primary-foreground: #04201c;
+  --primary-muted: #0d2e2a;
+  --primary-muted-foreground: #5eead4;
+  --primary-border: #134e4a;
+
+  /* Focus ring */
+  --ring: #2dd4bf;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-muted);
+  --accent: var(--surface-hover);
+  --accent-foreground: var(--foreground);
+  --input: var(--border);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-strong-foreground: var(--strong-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-muted: var(--primary-muted);
+  --color-primary-muted-foreground: var(--primary-muted-foreground);
+  --color-primary-border: var(--primary-border);
+
+  --color-ring: var(--ring);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-input: var(--input);
+
+  --shadow-sm:
+    0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+  --shadow-md:
+    0 4px 12px -2px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg:
+    0 12px 24px -6px rgba(15, 23, 42, 0.12),
+    0 4px 8px -4px rgba(15, 23, 42, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+}
+
+button {
+  cursor: pointer;
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
