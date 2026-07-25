@@ -28,3 +28,8 @@ vite.config.ts.timestamp-*
 *.njsproj
 *.sln
 *.sw?
+
+# homepage site
+site/node_modules
+site/build
+site/.svelte-kit

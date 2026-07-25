@@ -291,7 +291,7 @@ const LOCAL_PLUGIN = {
 export default defineConfig([
   // src-tauri 是 Rust/Tauri 后端，包含构建产物（target/ 下的生成代码），
   // 不属于前端 ESLint 检查范围，需整体排除
-  globalIgnores(['dist', 'src-tauri', '.svelte-kit']),
+  globalIgnores(['dist', 'src-tauri', '.svelte-kit', 'site']),
   // Svelte 基础规则与 svelte-eslint-parser 注册
   ...svelte.configs['flat/recommended'],
   {

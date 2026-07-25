@@ -4,3 +4,7 @@ node_modules
 package-lock.json
 .svelte-kit
 src-tauri
+.impeccable
+
+# homepage site build output (source is checked by the site's own prettier)
+site/build
