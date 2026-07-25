@@ -13,6 +13,7 @@
 </p>
 
 <p align="center">
+  <a href="https://treattrick.github.io/skill-sync/"><img src="https://img.shields.io/badge/homepage-skill--sync-0f766e" alt="Homepage" /></a>
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/github/v/release/TreatTrick/skill-sync?display_name=tag&amp;sort=semver" alt="Latest release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/TreatTrick/skill-sync" alt="License" /></a>
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20Apple%20Silicon-0078D4" alt="Platform: Windows x64 and Apple Silicon" /></a>

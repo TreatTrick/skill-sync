@@ -13,6 +13,7 @@
 </p>
 
 <p align="center">
+  <a href="https://treattrick.github.io/skill-sync/"><img src="https://img.shields.io/badge/homepage-skill--sync-0f766e" alt="主页" /></a>
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/github/v/release/TreatTrick/skill-sync?display_name=tag&amp;sort=semver" alt="最新版本" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/TreatTrick/skill-sync" alt="许可证" /></a>
   <a href="https://github.com/TreatTrick/skill-sync/releases/latest"><img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20Apple%20Silicon-0078D4" alt="平台：Windows x64 与 Apple Silicon" /></a>
