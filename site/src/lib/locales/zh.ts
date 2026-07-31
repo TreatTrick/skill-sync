@@ -5,7 +5,7 @@ export const zh: Record<string, string> = {
   'nav.releases': '发行版',
 
   'hero.badge': '为 AI Skills 打造的本地优先 GitHub 仓库',
-  'hero.title': '让 AI 助手的 Skills 在多台设备间保持同步。',
+  'hero.title': '让 Claude Code、Codex 与 AI 助手的 Skills 跨设备同步。',
   'hero.cta.download': '下载',
   'hero.cta.github': '在 GitHub 上查看',
   'hero.platforms': 'Windows x64 · Apple Silicon',
@@ -54,7 +54,7 @@ export const zh: Record<string, string> = {
   'footer.tagline': '让 AI 助手的 Skills 在多台设备间保持同步。',
   'footer.license': 'MIT © 2026 TreatTrick',
 
-  'page.title': 'Skill Sync - 让 AI 助手的 Skills 跨设备同步',
+  'page.title': 'Skill Sync - 同步 Claude Code、Codex 与 AI 助手的 Skills',
   'a11y.theme': '切换主题',
   'a11y.language': '切换语言',
 }

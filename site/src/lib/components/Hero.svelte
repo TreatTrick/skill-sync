@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths'
   import { i18n } from '../i18n.svelte'
   import { LATEST_RELEASE_URL, REPO_URL } from '../links'
 </script>
@@ -6,7 +7,7 @@
 <section class="relative overflow-hidden">
   <div class="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-20">
     <img
-      src={`${import.meta.env.BASE_URL}icon.png`}
+      src={`${base}/icon.png`}
       alt="Skill Sync"
       class="mx-auto h-20 w-20 rounded-2xl shadow-md"
     />
@@ -26,7 +27,7 @@
       {#key i18n.locale}
         <video
           class="aspect-video w-full object-contain"
-          src={`${import.meta.env.BASE_URL}video/${i18n.locale === 'zh' ? 'skillSyncChinese.mp4' : 'skillSyncEnglish.mp4'}`}
+          src={`${base}/video/${i18n.locale === 'zh' ? 'skillSyncChinese.mp4' : 'skillSyncEnglish.mp4'}`}
           autoplay
           muted
           loop

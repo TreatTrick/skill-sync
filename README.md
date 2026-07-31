@@ -9,7 +9,7 @@
 <h1 align="center">Skill Sync</h1>
 
 <p align="center">
-  <strong>Keep your AI agent Skills in sync across machines through your own GitHub Vault.</strong>
+  <strong>Keep your Claude Code, Codex, and AI agent Skills in sync across machines through your own private GitHub repository.</strong>
 </p>
 
 <p align="center">

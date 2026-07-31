@@ -5,7 +5,7 @@ export const en: Record<string, string> = {
   'nav.releases': 'Releases',
 
   'hero.badge': 'Local-first GitHub Vault for AI Skills',
-  'hero.title': 'Keep your AI agent Skills in sync across machines.',
+  'hero.title': 'Sync Claude Code, Codex, and AI agent skills across machines.',
   'hero.cta.download': 'Download',
   'hero.cta.github': 'View on GitHub',
   'hero.platforms': 'Windows x64 · Apple Silicon',
@@ -57,7 +57,7 @@ export const en: Record<string, string> = {
   'footer.tagline': 'Keep your AI agent Skills in sync across machines.',
   'footer.license': 'MIT © 2026 TreatTrick',
 
-  'page.title': 'Skill Sync - Sync AI agent Skills across machines',
+  'page.title': 'Skill Sync - Sync Claude Code & Codex Skills Across Machines',
   'a11y.theme': 'Toggle theme',
   'a11y.language': 'Switch language',
 }

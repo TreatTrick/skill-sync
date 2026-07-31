@@ -8,9 +8,8 @@ const config = {
   preprocess: vitePreprocess(),
   kit: {
     adapter: adapter({
-      // SPA mode: the locale is chosen client-side, so render on the client
-      // only and serve a single fallback index.html.
-      fallback: 'index.html',
+      // Prerender the single route so search engines receive the full title,
+      // H1, and body in the initial HTML. No SPA fallback is needed.
     }),
     paths: { base },
     files: {
