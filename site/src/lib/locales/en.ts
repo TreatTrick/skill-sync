@@ -40,7 +40,7 @@ export const en: Record<string, string> = {
 
   'download.title': 'Download',
   'download.subtitle':
-    'Installers for the latest 1.0.0 release, direct from GitHub.',
+    'Installers for the latest 1.0.1 release, direct from GitHub.',
   'download.platform': 'Platform',
   'download.type': 'Type',
   'download.file': 'Download',

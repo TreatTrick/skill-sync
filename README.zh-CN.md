@@ -28,13 +28,13 @@
 
 ## 下载
 
-以下是最新 **1.0.0** 版本的安装包，直接从 GitHub 下载：
+以下是最新 **1.0.1** 版本的安装包，直接从 GitHub 下载：
 
 | 平台          | 下载                                                                                                                               | 类型       |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| Windows x64   | [Skill.Sync_1.0.0_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64-setup.exe) | EXE 安装包 |
-| Windows x64   | [Skill.Sync_1.0.0_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64_en-US.msi) | MSI 安装包 |
-| Apple Silicon | [Skill.Sync_1.0.0_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_aarch64.dmg)     | macOS DMG  |
+| Windows x64   | [Skill.Sync_1.0.1_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64-setup.exe) | EXE 安装包 |
+| Windows x64   | [Skill.Sync_1.0.1_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64_en-US.msi) | MSI 安装包 |
+| Apple Silicon | [Skill.Sync_1.0.1_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_aarch64.dmg)     | macOS DMG  |
 
 由于当前 Windows 安装包未签名，安装时 Windows 可能显示安全警告。其它构建和历史版本请前往 [releases 页面](https://github.com/TreatTrick/skill-sync/releases)。
 

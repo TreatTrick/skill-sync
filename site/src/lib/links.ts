@@ -13,16 +13,16 @@ export const DOWNLOADS: DownloadItem[] = [
   {
     platformKey: 'download.winExe',
     typeKey: 'download.typeExe',
-    url: 'https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64-setup.exe',
+    url: 'https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64-setup.exe',
   },
   {
     platformKey: 'download.winMsi',
     typeKey: 'download.typeMsi',
-    url: 'https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_x64_en-US.msi',
+    url: 'https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64_en-US.msi',
   },
   {
     platformKey: 'download.mac',
     typeKey: 'download.typeDmg',
-    url: 'https://github.com/TreatTrick/skill-sync/releases/download/v1.0.0/Skill.Sync_1.0.0_aarch64.dmg',
+    url: 'https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_aarch64.dmg',
   },
 ]

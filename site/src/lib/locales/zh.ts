@@ -37,7 +37,7 @@ export const zh: Record<string, string> = {
   'how.step3.desc': '审阅同步计划，解决冲突，应用所选改动。',
 
   'download.title': '下载',
-  'download.subtitle': '最新 1.0.0 版本的安装包，直接来自 GitHub。',
+  'download.subtitle': '最新 1.0.1 版本的安装包，直接来自 GitHub。',
   'download.platform': '平台',
   'download.type': '类型',
   'download.file': '下载',
