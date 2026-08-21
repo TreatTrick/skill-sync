@@ -1,4 +1,5 @@
-import { invokeCmd } from '@/shared/lib'
+import { invokeCmd, invokeWithProgress } from '@/shared/lib'
+import type { SyncProgressEvent } from '@/shared/schemas'
 
 import {
   applySyncRequestSchema,
@@ -9,18 +10,24 @@ import {
   type SyncPlan,
 } from '../schemas/syncPlan'
 
-export const getSyncPlan = async (): Promise<SyncPlan> => {
-  const raw = await invokeCmd<unknown>('get_sync_plan')
+export const getSyncPlan = async (
+  onProgress?: (event: SyncProgressEvent) => void,
+): Promise<SyncPlan> => {
+  const raw = onProgress
+    ? await invokeWithProgress<unknown>('get_sync_plan', undefined, onProgress)
+    : await invokeCmd<unknown>('get_sync_plan')
   return syncPlanSchema.parse(raw)
 }
 
 export const applySyncPlan = async (
   request: ApplySyncRequest,
+  onProgress?: (event: SyncProgressEvent) => void,
 ): Promise<ApplySyncResponse> => {
   const parsedRequest = applySyncRequestSchema.parse(request)
-  const raw = await invokeCmd<unknown>('apply_sync_plan', {
-    request: parsedRequest,
-  })
+  const args = { request: parsedRequest }
+  const raw = onProgress
+    ? await invokeWithProgress<unknown>('apply_sync_plan', args, onProgress)
+    : await invokeCmd<unknown>('apply_sync_plan', args)
   return applySyncResponseSchema.parse(raw)
 }
 

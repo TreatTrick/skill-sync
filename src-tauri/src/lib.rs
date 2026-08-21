@@ -17,8 +17,10 @@ mod local_vault_store;
 mod logging;
 mod pack;
 mod portable_path;
+mod progress;
 mod remote_store;
 mod skill;
+mod skill_cache;
 mod sync_engine;
 mod sync_state;
 mod vault_binding;
@@ -64,6 +66,8 @@ pub fn run() {
             commands::sync::scan_skills,
             commands::sync::get_sync_plan,
             commands::sync::apply_sync_plan,
+            commands::sync::get_cache_stats,
+            commands::sync::clear_skill_pack_cache,
             commands::sync::establish_baseline,
             commands::sync::resume_sync_recovery,
             commands::system::open_path,

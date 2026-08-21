@@ -15,6 +15,7 @@ use crate::local_apply::{
 };
 use crate::pack::{unpack_skill, PackOptions, PackOutcome, SkillPackInput, SkillPacker};
 use crate::portable_path::validate_component;
+use crate::progress::ProgressReporter;
 use crate::remote_store::{blob_path_for_hash, BlobWrite, RemoteChanges, RemoteStore};
 use crate::skill::{parse_skill_md, skill_id, SkillNamespace};
 use crate::sync_state::{SkillSyncState, SyncState};
@@ -46,11 +47,23 @@ pub(crate) struct PreparedSyncPlan {
 }
 
 /// 重新 fetch + scan + pack + merge，返回 PreparedSyncPlan。`home` 注入用于测试。
+#[cfg_attr(not(test), allow(dead_code))]
 async fn prepare_plan<S: RemoteStore>(
     config: &AppConfig,
     state: &SyncState,
     store: &S,
     home: &Path,
+) -> Result<PreparedSyncPlan> {
+    prepare_plan_with_cache(config, state, store, home, None, None).await
+}
+
+async fn prepare_plan_with_cache<S: RemoteStore>(
+    config: &AppConfig,
+    state: &SyncState,
+    store: &S,
+    home: &Path,
+    cache_dir: Option<&Path>,
+    reporter: Option<ProgressReporter>,
 ) -> Result<PreparedSyncPlan> {
     let remote_cfg = config.remote.as_ref().ok_or_else(|| {
         AppError::NotConfigured("remote not configured; onboarding required".into())
@@ -75,14 +88,22 @@ async fn prepare_plan<S: RemoteStore>(
     let batch = {
         let limits = config.limits.clone();
         let user_ignore = config.ignore.clone();
+        let cache_dir = cache_dir.map(PathBuf::from);
+        let reporter = reporter.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            SkillPacker::pack_batch(
-                &pack_inputs,
-                &PackOptions {
-                    limits,
-                    user_ignore,
-                },
-            )
+            let options = PackOptions {
+                limits,
+                user_ignore,
+            };
+            match cache_dir {
+                Some(cache_dir) => SkillPacker::pack_batch_cached(
+                    &pack_inputs,
+                    &options,
+                    &cache_dir,
+                    reporter.as_ref(),
+                ),
+                None => SkillPacker::pack_batch(&pack_inputs, &options),
+            }
         })
         .await
         .map_err(|e| AppError::Vault(format!("pack task failed: {e}")))?
@@ -436,6 +457,18 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     home: &Path,
     config_dir: &Path,
 ) -> Result<ApplySyncResponse> {
+    apply_plan_with_progress(config, state, request, store, home, config_dir, None).await
+}
+
+pub(crate) async fn apply_plan_with_progress<S: RemoteStore>(
+    config: &AppConfig,
+    state: &mut SyncState,
+    request: &ApplySyncRequest,
+    store: &S,
+    home: &Path,
+    config_dir: &Path,
+    reporter: Option<ProgressReporter>,
+) -> Result<ApplySyncResponse> {
     let remote_cfg = match config.remote.as_ref() {
         Some(r) => r,
         None => {
@@ -449,7 +482,15 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     let task_id = uuid::Uuid::new_v4().to_string();
     let mut working = state.clone();
 
-    let prepared = prepare_plan(config, &working, store, home).await?;
+    let prepared = prepare_plan_with_cache(
+        config,
+        &working,
+        store,
+        home,
+        Some(config_dir),
+        reporter.clone(),
+    )
+    .await?;
     let plan = &prepared.plan;
 
     // 1-3. 校验 expected_remote_commit + fingerprint
@@ -690,6 +731,9 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     let mut pending_action_ids: Vec<String> = Vec::new();
 
     // 下载（stage/verify/commit）
+    let local_action_total =
+        download_items.len() + delete_local_items.len() + uploads.len() + delete_remote_ids.len();
+    let mut local_action_current = 0;
     for dl in &download_items {
         if let Err(e) = execute_download(store, dl, &working, home, &task_id, &config.limits).await
         {
@@ -733,6 +777,20 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         );
         applied.push(dl.skill_id.clone());
         completed_action_ids.push(dl.skill_id.clone());
+        local_action_current += 1;
+        if let Some(reporter) = &reporter {
+            reporter.emit(
+                "download",
+                local_action_current,
+                Some(local_action_total),
+                Some(&dl.skill_id),
+                true,
+                prepared._batch.cache_hits,
+                prepared._batch.cache_misses,
+                "running",
+                None,
+            );
+        }
     }
 
     // 删本地（直接删除，不再经过 trash 回收）
@@ -766,6 +824,20 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         applied.push(dl.skill_id.clone());
         completed_action_ids.push(dl.skill_id.clone());
         working.skills.remove(&dl.skill_id);
+        local_action_current += 1;
+        if let Some(reporter) = &reporter {
+            reporter.emit(
+                "delete_local",
+                local_action_current,
+                Some(local_action_total),
+                Some(&dl.skill_id),
+                true,
+                prepared._batch.cache_hits,
+                prepared._batch.cache_misses,
+                "running",
+                None,
+            );
+        }
     }
 
     // 上传 + 删云端 -> next_manifest
@@ -813,12 +885,40 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
                     .unwrap_or_else(|| up.folder_name.clone()),
             },
         );
+        local_action_current += 1;
+        if let Some(reporter) = &reporter {
+            reporter.emit(
+                "upload",
+                local_action_current,
+                Some(local_action_total),
+                Some(&up.skill_id),
+                true,
+                prepared._batch.cache_hits,
+                prepared._batch.cache_misses,
+                "running",
+                None,
+            );
+        }
     }
     for id in &delete_remote_ids {
         next_manifest.skills.remove(id);
         applied.push(id.clone());
         pending_action_ids.push(id.clone());
         working.skills.remove(id);
+        local_action_current += 1;
+        if let Some(reporter) = &reporter {
+            reporter.emit(
+                "delete_remote",
+                local_action_current,
+                Some(local_action_total),
+                Some(id),
+                true,
+                prepared._batch.cache_hits,
+                prepared._batch.cache_misses,
+                "running",
+                None,
+            );
+        }
     }
 
     // adoptions / removals（纯状态转移，移到远端提交之前，确保预期状态完整）
@@ -827,6 +927,19 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
     // 远端提交（uploads + delete_remote 合并一次）。先持久化完整预期状态再发起提交；
     // working.remote.commit_sha 暂留 base，直到拿到 candidate。
     let remote_commit: Option<String> = if !uploads.is_empty() || !delete_remote_ids.is_empty() {
+        if let Some(reporter) = &reporter {
+            reporter.emit(
+                "remote_commit",
+                0,
+                None,
+                None,
+                false,
+                prepared._batch.cache_hits,
+                prepared._batch.cache_misses,
+                "running",
+                None,
+            );
+        }
         let base_commit = prepared.expected_commit.clone();
         // 预期状态的 remote.commit_sha 暂留 base，直到拿到 candidate。
         working.remote.commit_sha = base_commit.clone();
@@ -926,6 +1039,19 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
         pending_action_ids: Vec::new(),
     };
     save_journal(config_dir, &journal)?;
+    if let Some(reporter) = &reporter {
+        reporter.emit(
+            "state_save",
+            0,
+            Some(1),
+            None,
+            true,
+            prepared._batch.cache_hits,
+            prepared._batch.cache_misses,
+            "running",
+            None,
+        );
+    }
     let state_to_save = working.clone();
     let state_dir = config_dir.to_path_buf();
     let save_result =
@@ -944,13 +1070,53 @@ pub(crate) async fn apply_plan<S: RemoteStore>(
             },
         });
     }
+    if let Some(reporter) = &reporter {
+        reporter.emit(
+            "state_save",
+            1,
+            Some(1),
+            None,
+            true,
+            prepared._batch.cache_hits,
+            prepared._batch.cache_misses,
+            "running",
+            None,
+        );
+    }
     clear_journal(config_dir)?;
+
+    if let Some(reporter) = &reporter {
+        reporter.emit(
+            "cleanup",
+            1,
+            Some(1),
+            None,
+            true,
+            prepared._batch.cache_hits,
+            prepared._batch.cache_misses,
+            "running",
+            None,
+        );
+    }
 
     if !cleanup_task_artifacts(home, &task_id) {
         warnings.push("cleanup_pending".into());
     }
 
     *state = working;
+    if let Some(reporter) = &reporter {
+        reporter.emit(
+            "complete",
+            1,
+            Some(1),
+            None,
+            true,
+            prepared._batch.cache_hits,
+            prepared._batch.cache_misses,
+            "completed",
+            None,
+        );
+    }
     Ok(ApplySyncResponse::Applied {
         result: ApplyResult {
             applied,
@@ -1012,7 +1178,8 @@ async fn batch_apply<S: RemoteStore>(
     config_dir: &Path,
     want: SyncStatus,
 ) -> Result<ApplySyncResponse> {
-    let prepared = prepare_plan(config, state, store, home).await?;
+    let prepared =
+        prepare_plan_with_cache(config, state, store, home, Some(config_dir), None).await?;
     let plan = &prepared.plan;
     let want_kind = action_kind_for(want);
     let mut selected: Vec<String> = Vec::new();
@@ -1046,7 +1213,8 @@ pub(crate) async fn establish_baseline<S: RemoteStore>(
     home: &Path,
     config_dir: &Path,
 ) -> Result<BaselineResult> {
-    let prepared = prepare_plan(config, state, store, home).await?;
+    let prepared =
+        prepare_plan_with_cache(config, state, store, home, Some(config_dir), None).await?;
     let plan = &prepared.plan;
     let mut working = state.clone();
     let updated = apply_state_transfers(&mut working, plan);

@@ -2,7 +2,7 @@
 // 按 13 行真值表合并成 SyncPlan，并计算稳定 fingerprint。不含任何持久化副作用。
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -12,6 +12,7 @@ use crate::detect::{ScanCollision, ScanRootStatus};
 use crate::errors::{AppError, Result};
 use crate::pack::{PackOptions, PackOutcome, SkillPackInput, SkillPacker};
 use crate::portable_path::collision_key;
+use crate::progress::ProgressReporter;
 use crate::remote_store::RemoteStore;
 use crate::skill::{namespace_value, SkillNamespace};
 use crate::sync_state::{RemoteIdentity, SkillSyncState, SyncState};
@@ -681,6 +682,25 @@ pub(crate) async fn build_plan<S: RemoteStore>(
     state: &SyncState,
     store: &S,
 ) -> Result<SyncPlan> {
+    build_plan_with_cache(config, state, store, None).await
+}
+
+pub(crate) async fn build_plan_with_cache<S: RemoteStore>(
+    config: &AppConfig,
+    state: &SyncState,
+    store: &S,
+    cache_dir: Option<&Path>,
+) -> Result<SyncPlan> {
+    build_plan_with_cache_and_progress(config, state, store, cache_dir, None).await
+}
+
+pub(crate) async fn build_plan_with_cache_and_progress<S: RemoteStore>(
+    config: &AppConfig,
+    state: &SyncState,
+    store: &S,
+    cache_dir: Option<&Path>,
+    reporter: Option<ProgressReporter>,
+) -> Result<SyncPlan> {
     let remote_cfg = config.remote.as_ref().ok_or_else(|| {
         AppError::NotConfigured("remote not configured; onboarding required".into())
     })?;
@@ -697,6 +717,19 @@ pub(crate) async fn build_plan<S: RemoteStore>(
             .await
             .map_err(|e| AppError::Vault(format!("scan task failed: {e}")))?
     }?;
+    if let Some(reporter) = &reporter {
+        reporter.emit(
+            "scan",
+            scan.skills.len(),
+            Some(scan.skills.len()),
+            None,
+            true,
+            0,
+            0,
+            "running",
+            None,
+        );
+    }
 
     let pack_inputs: Vec<SkillPackInput> = scan
         .skills
@@ -708,14 +741,22 @@ pub(crate) async fn build_plan<S: RemoteStore>(
     let batch = {
         let limits = config.limits.clone();
         let user_ignore = config.ignore.clone();
+        let cache_dir = cache_dir.map(PathBuf::from);
+        let reporter = reporter.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            SkillPacker::pack_batch(
-                &pack_inputs,
-                &PackOptions {
-                    limits,
-                    user_ignore,
-                },
-            )
+            let options = PackOptions {
+                limits,
+                user_ignore,
+            };
+            match cache_dir {
+                Some(cache_dir) => SkillPacker::pack_batch_cached(
+                    &pack_inputs,
+                    &options,
+                    &cache_dir,
+                    reporter.as_ref(),
+                ),
+                None => SkillPacker::pack_batch(&pack_inputs, &options),
+            }
         })
         .await
         .map_err(|e| AppError::Vault(format!("pack task failed: {e}")))?

@@ -2,12 +2,13 @@
 // apply_sync_plan / establish_baseline / resume_sync_recovery）与远端恢复裁决逻辑。
 
 use super::*;
+use crate::progress::ProgressReporter;
 use crate::remote_store::{RemoteSnapshot, RemoteStore};
-use crate::sync_engine::apply::apply_plan;
 use crate::sync_engine::model::{
     ApplyResult, ApplySyncRequest, ApplySyncResponse, BaselineResult, PlanChangeReason, SyncPlan,
 };
 use crate::sync_engine::plan::build_plan;
+use crate::sync_engine::plan::build_plan_with_cache_and_progress;
 
 #[tauri::command]
 pub(crate) async fn get_app_state(state: State<'_, AppRuntime>) -> Result<AppState> {
@@ -96,7 +97,7 @@ pub(crate) async fn scan_skills(state: State<'_, AppRuntime>) -> Result<ScanResu
 }
 
 pub(crate) async fn scan_skills_impl(runtime: &AppRuntime) -> Result<ScanResult> {
-    let _gate = runtime.gate.inner.read().await;
+    let _gate = runtime.gate.inner.write().await;
     ensure_preview_has_no_pending_recovery().await?;
     let _config = load_config().await?;
     let home = dirs::home_dir().ok_or_else(|| AppError::Config("home not found".into()))?;
@@ -104,32 +105,81 @@ pub(crate) async fn scan_skills_impl(runtime: &AppRuntime) -> Result<ScanResult>
 }
 
 #[tauri::command]
-pub(crate) async fn get_sync_plan(state: State<'_, AppRuntime>) -> Result<SyncPlan> {
-    log_command_result("get_sync_plan", get_sync_plan_impl(&state).await)
+pub(crate) async fn get_sync_plan(
+    app: AppHandle,
+    state: State<'_, AppRuntime>,
+) -> Result<SyncPlan> {
+    log_command_result(
+        "get_sync_plan",
+        get_sync_plan_impl_with_app(&state, Some(app)).await,
+    )
 }
 
+#[allow(dead_code)]
 pub(crate) async fn get_sync_plan_impl(runtime: &AppRuntime) -> Result<SyncPlan> {
-    let _gate = runtime.gate.inner.read().await;
+    get_sync_plan_impl_with_app(runtime, None).await
+}
+
+async fn get_sync_plan_impl_with_app(
+    runtime: &AppRuntime,
+    app: Option<AppHandle>,
+) -> Result<SyncPlan> {
+    let _gate = runtime.gate.inner.write().await;
     ensure_preview_has_no_pending_recovery().await?;
     let config = load_config().await?;
     let (store, state) = load_store_and_state(runtime, &config).await?;
-    build_plan(&config, &state, &store).await
+    let config_dir = config_dir()?;
+    let reporter = ProgressReporter::new(app, "plan");
+    let result = build_plan_with_cache_and_progress(
+        &config,
+        &state,
+        &store,
+        Some(&config_dir),
+        Some(reporter.clone()),
+    )
+    .await;
+    if let Err(error) = &result {
+        reporter.emit(
+            "failed",
+            0,
+            None,
+            None,
+            false,
+            0,
+            0,
+            "failed",
+            Some(&error.to_string()),
+        );
+    } else {
+        reporter.emit("complete", 1, Some(1), None, true, 0, 0, "completed", None);
+    }
+    result
 }
 
 #[tauri::command]
 pub(crate) async fn apply_sync_plan(
+    app: AppHandle,
     state: State<'_, AppRuntime>,
     request: ApplySyncRequest,
 ) -> Result<ApplySyncResponse> {
     log_command_result(
         "apply_sync_plan",
-        apply_sync_plan_impl(&state, request).await,
+        apply_sync_plan_impl_with_app(&state, request, Some(app)).await,
     )
 }
 
+#[allow(dead_code)]
 pub(crate) async fn apply_sync_plan_impl(
     runtime: &AppRuntime,
     request: ApplySyncRequest,
+) -> Result<ApplySyncResponse> {
+    apply_sync_plan_impl_with_app(runtime, request, None).await
+}
+
+async fn apply_sync_plan_impl_with_app(
+    runtime: &AppRuntime,
+    request: ApplySyncRequest,
+    app: Option<AppHandle>,
 ) -> Result<ApplySyncResponse> {
     let _gate = runtime.gate.inner.write().await;
     let config_dir = config_dir()?;
@@ -137,15 +187,62 @@ pub(crate) async fn apply_sync_plan_impl(
     let config = load_config().await?;
     let (store, mut sync_state) = load_store_and_state(runtime, &config).await?;
     let home = dirs::home_dir().ok_or_else(|| AppError::Config("home not found".into()))?;
-    apply_plan(
+    let reporter = ProgressReporter::new(app, "apply");
+    let result = crate::sync_engine::apply::apply_plan_with_progress(
         &config,
         &mut sync_state,
         &request,
         &store,
         &home,
         &config_dir,
+        Some(reporter.clone()),
     )
-    .await
+    .await;
+    if let Ok(ApplySyncResponse::RecoveryRequired { recovery }) = &result {
+        reporter.emit(
+            "recovery",
+            recovery.completed_action_ids.len(),
+            Some(recovery.completed_action_ids.len() + recovery.pending_action_ids.len()),
+            recovery.pending_action_ids.first().map(String::as_str),
+            true,
+            0,
+            0,
+            "recovery",
+            None,
+        );
+    } else if let Err(error) = &result {
+        reporter.emit(
+            "failed",
+            0,
+            None,
+            None,
+            false,
+            0,
+            0,
+            "failed",
+            Some(&error.to_string()),
+        );
+    }
+    result
+}
+
+#[tauri::command]
+pub(crate) async fn get_cache_stats(
+    state: State<'_, AppRuntime>,
+) -> Result<crate::skill_cache::CacheStats> {
+    let _gate = state.gate.inner.write().await;
+    run_blocking(|| cache_stats(&config_dir()?)).await
+}
+
+#[tauri::command]
+pub(crate) async fn clear_skill_pack_cache(state: State<'_, AppRuntime>) -> Result<()> {
+    let _gate = state
+        .gate
+        .inner
+        .try_write()
+        .map_err(|_| AppError::Blocked("cannot clear cache while sync is running".into()))?;
+    ensure_no_pending_recovery().await?;
+    run_blocking(|| clear_cache(&config_dir()?)).await
 }
 
 #[tauri::command]

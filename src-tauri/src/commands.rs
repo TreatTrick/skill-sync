@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::State;
+use tauri::{AppHandle, State};
 use uuid::Uuid;
 
 use crate::config::{AppConfig, RemoteConfig};
@@ -26,6 +26,7 @@ use crate::local_apply::{
 };
 use crate::logging;
 use crate::remote_store::RemoteStore;
+use crate::skill_cache::{cache_stats, clear_cache};
 use crate::sync_engine::model::{ApplySyncResponse, RecoveryInfo, RecoveryPhase};
 use crate::sync_state::{RemoteIdentity, SyncState};
 use crate::vault_binding::VaultBindingStore;

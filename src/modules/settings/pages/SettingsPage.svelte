@@ -4,7 +4,7 @@
   import { Monitor, Moon, Star, Sun } from '@lucide/svelte'
   import type { Component } from 'svelte'
 
-  import { errorMessage, getAppState, openPath, resetIntroSeen, scanSkills } from '@/shared/lib'
+import { errorMessage, getAppState, openPath, resetIntroSeen, scanSkills } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { languageState, themeState, type ThemeMode } from '@/shared/state'
   import {
@@ -21,11 +21,12 @@
     toast,
   } from '@/shared/ui'
 
-  import { disconnectGithub, saveConfig } from '../api/configApi'
+import { clearSkillPackCache, disconnectGithub, getCacheStats, saveConfig } from '../api/configApi'
   import DisconnectGithubDialog from '../components/DisconnectGithubDialog.svelte'
   import GithubVaultCard from '../components/GithubVaultCard.svelte'
   import LimitsCard from '../components/LimitsCard.svelte'
-  import SkillRootsSection from '../components/SkillRootsSection.svelte'
+import SkillRootsSection from '../components/SkillRootsSection.svelte'
+import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
   import type { AppConfig } from '@/shared/schemas'
 
   const toLines = (values: string[]): string => values.join('\n')
@@ -46,10 +47,15 @@
     queryFn: scanSkills,
     enabled: appState.data?.configured ?? false,
   }))
+  const cache = createQuery(() => ({
+    queryKey: ['skill-pack-cache'],
+    queryFn: getCacheStats,
+  }))
   let config = $state<AppConfig | null>(null)
   let ignore = $state('')
   let prefilled = $state(false)
   let disconnectDialogOpen = $state(false)
+  let clearCachePending = $state(false)
   let lastSaved: string | null = null
   let saveTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -154,6 +160,20 @@
       disconnectDialogOpen = false
     }
   }
+
+  const handleClearCache = async (): Promise<void> => {
+    if (clearCachePending) return
+    clearCachePending = true
+    try {
+      await clearSkillPackCache()
+      toast.success(t('settings.cacheCleared'))
+      await cache.refetch()
+    } catch (error) {
+      toast.error(t('settings.cacheClearError', { message: errorMessage(error) }))
+    } finally {
+      clearCachePending = false
+    }
+  }
 </script>
 
 <div class="grid gap-4">
@@ -199,6 +219,14 @@
     />
 
     <LimitsCard bind:limits={config.limits} limitsInvalid={limitsInvalid} />
+
+    <SkillPackCacheCard
+      clearPending={clearCachePending}
+      disabled={false}
+      loading={cache.isLoading}
+      onClear={() => void handleClearCache()}
+      stats={cache.data}
+    />
 
     <Card>
       <CardHeader>

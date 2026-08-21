@@ -7,7 +7,7 @@
 
   import { errorMessage, getAppState, openPath, scanSkills } from '@/shared/lib'
   import { t } from '@/shared/i18n'
-  import type { RecoveryInfo } from '@/shared/schemas'
+  import type { RecoveryInfo, SyncProgressEvent } from '@/shared/schemas'
   import {
     Button,
     Callout,
@@ -56,6 +56,26 @@
     queryKey: ['app-state'],
     queryFn: getAppState,
   }))
+  let syncProgress = $state<SyncProgressEvent | null>(null)
+  const updateProgress = (event: SyncProgressEvent): void => {
+    syncProgress = event
+  }
+  const progressPhaseKeys = {
+    scan: 'sync.progress.phase.scan',
+    pack: 'sync.progress.phase.pack',
+    download: 'sync.progress.phase.download',
+    delete_local: 'sync.progress.phase.delete_local',
+    upload: 'sync.progress.phase.upload',
+    delete_remote: 'sync.progress.phase.delete_remote',
+    remote_commit: 'sync.progress.phase.remote_commit',
+    state_save: 'sync.progress.phase.state_save',
+    cleanup: 'sync.progress.phase.cleanup',
+    complete: 'sync.progress.phase.complete',
+    failed: 'sync.progress.phase.failed',
+    recovery: 'sync.progress.phase.recovery',
+  } as const
+  const progressPhaseLabel = (phase: string): string =>
+    t(progressPhaseKeys[phase as keyof typeof progressPhaseKeys] ?? 'sync.progress.working')
   const configured = $derived(appState.data?.configured ?? false)
   const pendingRecovery = $derived(appState.data?.pending_recovery ?? null)
 
@@ -66,7 +86,7 @@
   }))
   const plan = createQuery(() => ({
     queryKey: ['sync-plan'],
-    queryFn: getSyncPlan,
+    queryFn: () => getSyncPlan(updateProgress),
     enabled: configured && pendingRecovery === null,
   }))
 
@@ -118,6 +138,11 @@
         deleteGuardAck),
   )
   const recheckLoading = $derived(plan.isFetching || scan.isFetching)
+  const progressPercent = $derived(
+    syncProgress?.determinate && syncProgress.total
+      ? Math.min(100, Math.round((syncProgress.current / syncProgress.total) * 100))
+      : 0,
+  )
 
   const isSelectable = (entry: SyncSkillEntry): boolean =>
     entry.status === 'local_update' ||
@@ -187,7 +212,7 @@
   }
 
   const apply = createMutation(() => ({
-    mutationFn: (request: ApplySyncRequest) => applySyncPlan(request),
+    mutationFn: (request: ApplySyncRequest) => applySyncPlan(request, updateProgress),
     retry: false,
     onSuccess: (response) => {
       if (response.status === 'applied') {
@@ -221,6 +246,13 @@
       toast.error(t('sync.applyError', { message: errorMessage(error) }))
     },
   }))
+
+  const showProgress = $derived(
+    syncProgress !== null &&
+      (plan.isFetching || apply.isPending ||
+        syncProgress.status === 'failed' ||
+        syncProgress.status === 'recovery'),
+  )
 
   const resume = createMutation(() => ({
     mutationFn: (taskId: string) => resumeSyncRecovery(taskId),
@@ -329,6 +361,7 @@
 
   const handleApply = (): void => {
     if (!planData || !canApply) return
+    syncProgress = null
     apply.mutate({
       expected_remote_commit: planData.expected_remote_commit,
       plan_fingerprint: planData.plan_fingerprint,
@@ -339,6 +372,7 @@
   }
 
   const handleRecheck = (): void => {
+    syncProgress = null
     defaultNextPlan = true
     planNotice = ''
     void plan.refetch()
@@ -402,6 +436,37 @@
           {t('sync.recheck')}
         </Button>
       </div>
+
+      {#if showProgress && syncProgress}
+        <div class="grid gap-2 rounded-lg border border-border bg-muted/30 p-3" aria-live="polite">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span class="font-medium text-foreground">{progressPhaseLabel(syncProgress.phase)}</span>
+            {#if syncProgress.determinate && syncProgress.total}
+              <span class="text-muted-foreground">{syncProgress.current}/{syncProgress.total}</span>
+            {:else}
+              <span class="text-muted-foreground">{t('sync.progress.working')}</span>
+            {/if}
+          </div>
+          <div class="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={syncProgress.determinate ? progressPercent : undefined}>
+            {#if syncProgress.determinate}
+              <div class="h-full rounded-full bg-primary transition-[width]" style={`width: ${progressPercent}%`}></div>
+            {:else}
+              <div class="h-full w-1/3 animate-pulse rounded-full bg-primary"></div>
+            {/if}
+          </div>
+          {#if syncProgress.skill_id}
+            <span class="truncate font-mono text-xs text-muted-foreground">{syncProgress.skill_id}</span>
+          {/if}
+          {#if syncProgress.cache_hits + syncProgress.cache_misses > 0}
+            <span class="text-xs text-muted-foreground">
+              {t('sync.progress.cache', { hits: syncProgress.cache_hits, misses: syncProgress.cache_misses })}
+            </span>
+          {/if}
+          {#if syncProgress.status === 'failed' || syncProgress.status === 'recovery'}
+            <p class="text-sm text-destructive">{syncProgress.error ?? t(`sync.progress.status.${syncProgress.status as 'failed' | 'recovery'}`)}</p>
+          {/if}
+        </div>
+      {/if}
 
       {#if scan.error}
         <Callout tone="warning">

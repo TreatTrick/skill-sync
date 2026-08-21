@@ -3,6 +3,7 @@ export {
   appErrorSchema,
   appStateSchema,
   baselineResultSchema,
+  cacheStatsSchema,
   deviceFlowPollSchema,
   deviceFlowStartSchema,
   githubAppInfoSchema,
@@ -11,6 +12,7 @@ export {
   githubVaultCheckSchema,
   namespaceSchema,
   recoveryInfoSchema,
+  syncProgressEventSchema,
 } from './apiResponse'
 
 export type {
@@ -18,6 +20,7 @@ export type {
   AppError,
   AppState,
   BaselineResult,
+  CacheStats,
   BindGithubVaultRequest,
   DeviceFlowPoll,
   DeviceFlowStart,
@@ -28,6 +31,7 @@ export type {
   InitializeGithubVaultRequest,
   RecoveryInfo,
   RemoteConfig,
+  SyncProgressEvent,
 } from './apiResponse'
 
 export { scanResultSchema } from './scan'

@@ -148,6 +148,28 @@
     "applied": "同步完成：应用 {{count}} 项。",
     "applyError": "同步失败：{{message}}",
     "applying": "同步中…",
+    "progress": {
+      "working": "处理中…",
+      "cache": "缓存：复用 {{hits}} 项，重新计算 {{misses}} 项",
+      "status": {
+        "failed": "同步在此阶段失败。",
+        "recovery": "继续前需要完成恢复。"
+      },
+      "phase": {
+        "scan": "扫描 skills",
+        "pack": "准备 skill 包",
+        "download": "应用下载内容",
+        "delete_local": "删除本地 skill",
+        "upload": "准备上传内容",
+        "delete_remote": "准备删除云端内容",
+        "remote_commit": "发布一个 GitHub commit",
+        "state_save": "保存同步状态",
+        "cleanup": "清理临时文件",
+        "complete": "已完成",
+        "failed": "失败",
+        "recovery": "需要恢复"
+      }
+    },
     "commitNone": "不会产生 GitHub commit",
     "commitSummary": "提交摘要",
     "commitSummaryDeleteLocal": "删本地",
@@ -272,6 +294,17 @@
     "viewConflict": "查看冲突详情"
   },
   "settings": {
+    "cache": "Skill 包缓存",
+    "cacheDescription": "缓存的 skill 包可以加快重复同步检查。缓存仅保存在本机，可随时重建。",
+    "cacheEntries": "缓存条目",
+    "cacheSize": "已占用空间",
+    "cacheCapacity": "容量上限",
+    "clearCache": "清空缓存",
+    "clearCacheTitle": "清空 skill 包缓存？",
+    "clearCacheConfirm": "这只会删除本机可重建的缓存包，不会影响同步状态和云端内容。",
+    "cacheCleared": "Skill 包缓存已清空。",
+    "cacheClearError": "清空 skill 包缓存失败：{{message}}",
+    "cacheClearWhileSyncing": "同步完成后才能清空缓存。",
     "appearance": "外观",
     "copyPath": "复制路径",
     "credentialDisconnected": "未连接",

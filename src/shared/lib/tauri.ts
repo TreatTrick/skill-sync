@@ -1,7 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { error as logError } from '@tauri-apps/plugin-log'
 
-import { appErrorSchema, type AppError } from '@/shared/schemas'
+import {
+  appErrorSchema,
+  syncProgressEventSchema,
+  type AppError,
+  type SyncProgressEvent,
+} from '@/shared/schemas'
 
 const redactLogMessage = (message: string): string =>
   message
@@ -59,6 +65,25 @@ export const invokeCmd = async <T>(
       kind: 'other',
       message: String(raw),
     })
+  }
+}
+
+export const invokeWithProgress = async <T>(
+  cmd: string,
+  args: Record<string, unknown> | undefined,
+  onProgress: (event: SyncProgressEvent) => void,
+): Promise<T> => {
+  let operationId: string | null = null
+  const unlisten = await listen<unknown>('sync-progress', (event) => {
+    const parsed = syncProgressEventSchema.safeParse(event.payload)
+    if (!parsed.success) return
+    operationId ??= parsed.data.operation_id
+    if (parsed.data.operation_id === operationId) onProgress(parsed.data)
+  })
+  try {
+    return await invokeCmd<T>(cmd, args)
+  } finally {
+    unlisten()
   }
 }
 

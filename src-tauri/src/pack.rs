@@ -10,6 +10,8 @@ use crate::config::LimitsConfig;
 use crate::errors::{AppError, Result};
 use crate::ignore::is_ignored;
 use crate::portable_path::{normalize, validate_portable_path, validate_portable_paths};
+use crate::progress::ProgressReporter;
+use crate::skill_cache::{collect_metadata, options_fingerprint, SkillPackCache};
 
 /// 待打包的单个 skill 输入。
 #[derive(Debug, Clone)]
@@ -34,7 +36,7 @@ pub(crate) struct PackedSkill {
 }
 
 /// 疑似密钥/Token warning；只记录相对路径与类型，不含原文，避免 Debug 泄露。
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct PackWarning {
     pub relative_path: String,
     pub kind: SecretWarningKind,
@@ -90,6 +92,8 @@ impl Drop for PackTaskDir {
 pub(crate) struct PackBatch {
     pub _task_dir: PackTaskDir,
     pub outcomes: Vec<PackOutcome>,
+    pub cache_hits: usize,
+    pub cache_misses: usize,
 }
 
 pub(crate) struct SkillPacker;
@@ -110,6 +114,93 @@ impl SkillPacker {
         Ok(PackBatch {
             _task_dir: task_dir,
             outcomes,
+            cache_hits: 0,
+            cache_misses: inputs.len(),
+        })
+    }
+
+    pub(crate) fn pack_batch_cached(
+        inputs: &[SkillPackInput],
+        options: &PackOptions,
+        config_dir: &Path,
+        reporter: Option<&ProgressReporter>,
+    ) -> Result<PackBatch> {
+        let task_dir = PackTaskDir::new()?;
+        let Ok(mut cache) = SkillPackCache::open(config_dir) else {
+            return Self::pack_batch(inputs, options);
+        };
+        let options_fingerprint = match options_fingerprint(options) {
+            Ok(fingerprint) => fingerprint,
+            Err(_) => return Self::pack_batch(inputs, options),
+        };
+        let mut outcomes = Vec::with_capacity(inputs.len());
+        let mut cache_hits = 0;
+        let mut cache_misses = 0;
+        for (index, input) in inputs.iter().enumerate() {
+            let metadata = collect_metadata(&input.source_path, options).ok();
+            if let Some(metadata) = metadata.as_deref() {
+                if let Ok(Some(cached)) =
+                    cache.lookup(&input.source_path, metadata, &options_fingerprint)
+                {
+                    outcomes.push(PackOutcome::Packed(PackedSkill {
+                        hash: cached.hash,
+                        zip_path: cached.zip_path,
+                        zip_size: cached.zip_size,
+                        warnings: cached.warnings,
+                    }));
+                    cache_hits += 1;
+                    if let Some(reporter) = reporter {
+                        reporter.emit(
+                            "pack",
+                            index + 1,
+                            Some(inputs.len()),
+                            None,
+                            true,
+                            cache_hits,
+                            cache_misses,
+                            "running",
+                            None,
+                        );
+                    }
+                    continue;
+                }
+            }
+            cache_misses += 1;
+            let outcome = pack_one(input, options, &task_dir)?;
+            if let PackOutcome::Packed(packed) = &outcome {
+                if let Ok(current_metadata) = collect_metadata(&input.source_path, options) {
+                    drop(cache.store(
+                        &input.source_path,
+                        current_metadata,
+                        options_fingerprint.clone(),
+                        &packed.zip_path,
+                        packed.hash.clone(),
+                        packed.zip_size,
+                        &packed.warnings,
+                    ));
+                }
+            }
+            outcomes.push(outcome);
+            if let Some(reporter) = reporter {
+                reporter.emit(
+                    "pack",
+                    index + 1,
+                    Some(inputs.len()),
+                    None,
+                    true,
+                    cache_hits,
+                    cache_misses,
+                    "running",
+                    None,
+                );
+            }
+        }
+        drop(cache.flush());
+        Ok(PackBatch {
+            _task_dir: task_dir,
+            outcomes,
+            cache_hits,
+            cache_misses,
         })
     }
 }

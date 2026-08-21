@@ -148,6 +148,28 @@
     "applied": "Sync complete: applied {{count}} item(s).",
     "applyError": "Sync failed: {{message}}",
     "applying": "Syncing…",
+    "progress": {
+      "working": "Working…",
+      "cache": "Cache: {{hits}} reused, {{misses}} recalculated",
+      "status": {
+        "failed": "Sync failed during this phase.",
+        "recovery": "Recovery is required before continuing."
+      },
+      "phase": {
+        "scan": "Scanning skills",
+        "pack": "Preparing skill packages",
+        "download": "Applying downloads",
+        "delete_local": "Deleting local skills",
+        "upload": "Preparing uploads",
+        "delete_remote": "Preparing remote deletions",
+        "remote_commit": "Publishing one GitHub commit",
+        "state_save": "Saving sync state",
+        "cleanup": "Cleaning up",
+        "complete": "Complete",
+        "failed": "Failed",
+        "recovery": "Recovery required"
+      }
+    },
     "commitNone": "No GitHub commit will be created",
     "commitSummary": "Commit summary",
     "commitSummaryDeleteLocal": "Delete local",
@@ -272,6 +294,17 @@
     "viewConflict": "View conflict details"
   },
   "settings": {
+    "cache": "Skill pack cache",
+    "cacheDescription": "Cached skill packages speed up repeated sync checks. The cache is local and can be rebuilt.",
+    "cacheEntries": "Entries",
+    "cacheSize": "Used space",
+    "cacheCapacity": "Capacity",
+    "clearCache": "Clear cache",
+    "clearCacheTitle": "Clear skill pack cache?",
+    "clearCacheConfirm": "This removes only local rebuildable packages. Sync state and remote content are unchanged.",
+    "cacheCleared": "Skill pack cache cleared.",
+    "cacheClearError": "Could not clear the skill pack cache: {{message}}",
+    "cacheClearWhileSyncing": "Finish syncing before clearing the cache.",
     "appearance": "Appearance",
     "copyPath": "Copy path",
     "credentialDisconnected": "Disconnected",

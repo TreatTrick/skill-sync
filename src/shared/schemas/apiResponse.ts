@@ -119,6 +119,30 @@ export const appStateSchema = z.object({
 
 export type AppState = z.infer<typeof appStateSchema>
 
+export const syncProgressEventSchema = z.object({
+  operation_id: z.string(),
+  operation: z.enum(['plan', 'apply']),
+  phase: z.string(),
+  current: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative().nullable(),
+  skill_id: z.string().nullable(),
+  determinate: z.boolean(),
+  cache_hits: z.number().int().nonnegative(),
+  cache_misses: z.number().int().nonnegative(),
+  status: z.enum(['running', 'completed', 'failed', 'recovery']),
+  error: z.string().nullable(),
+})
+
+export type SyncProgressEvent = z.infer<typeof syncProgressEventSchema>
+
+export const cacheStatsSchema = z.object({
+  entries: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  capacity: z.number().int().positive(),
+})
+
+export type CacheStats = z.infer<typeof cacheStatsSchema>
+
 export const githubAppInfoSchema = z.object({
   configured: z.boolean(),
   app_slug: z.string().nullable(),

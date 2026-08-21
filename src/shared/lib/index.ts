@@ -1,6 +1,12 @@
 export { cn } from './utils'
 export { getAppState } from './appState'
-export { errorMessage, invokeCmd, openPath, SkillSyncError } from './tauri'
+export {
+  errorMessage,
+  invokeCmd,
+  invokeWithProgress,
+  openPath,
+  SkillSyncError,
+} from './tauri'
 export { scanSkills } from './scanSkills'
 export { isWorkspaceReady } from './workspace'
 export { INTRO_SEEN_STORAGE_KEY, resetIntroSeen } from './introSeen'
