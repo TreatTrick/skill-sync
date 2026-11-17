@@ -12,13 +12,14 @@
     options: Option[]
     value: string
     onSelect: (value: string) => void
+    ariaLabel?: string
     class?: string
   }
 
-  let { options, value, onSelect, class: className }: Props = $props()
+  let { options, value, onSelect, ariaLabel, class: className }: Props = $props()
 </script>
 
-<div class={cn('flex flex-wrap gap-2', className)}>
+<div class={cn('flex flex-wrap gap-2', className)} role="group" aria-label={ariaLabel}>
   {#each options as option (option.value)}
     {@const Icon = option.icon}
     <button
@@ -29,6 +30,7 @@
           : 'border-border bg-surface text-foreground hover:bg-surface-hover',
       )}
       onclick={() => onSelect(option.value)}
+      aria-pressed={value === option.value}
       type="button"
     >
       {#if Icon}<Icon class="size-4" />{/if}

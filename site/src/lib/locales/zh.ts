@@ -11,6 +11,7 @@ export const zh: Record<string, string> = {
   'hero.platforms': 'Windows x64 · Apple Silicon',
 
   'showcase.aria': 'Skill Sync 演示视频',
+  'showcase.caption': '界面演示使用示例数据。',
 
   'features.title': '为什么选择 Skill Sync',
   'features.subtitle':
@@ -20,24 +21,24 @@ export const zh: Record<string, string> = {
     'Skills 始终保留在各自的工具目录中，通过你掌控的 GitHub 仓库同步（建议设为私有）。无 SaaS、无同步服务器、无遥测；凭据保存在系统钥匙串中。',
   'features.preview.title': '应用前先预览',
   'features.preview.desc':
-    '在任何改动发生前，先审阅上传、下载、冲突与待删除项。',
+    '按冲突、删除、上传和下载分组查看变更，在行内处理冲突，并在执行前查看上传、下载、删除和提交摘要。',
   'features.conflicts.title': '明确的冲突选择',
   'features.conflicts.desc':
-    '基于 base / local / remote 三方内容哈希比对识别真实变更，由你决定保留本地、采用远端还是跳过。',
+    '基于 base / local / remote 三方内容哈希比对识别真实变更，可直接在列表行内选择保留本地、采用远端或跳过。',
   'features.nogit.title': '无需 Git、PAT 或 SSH',
   'features.nogit.desc':
     '通过 GitHub App 设备流授权，无需 Git CLI、无需 PAT、无需 SSH 密钥。',
 
   'how.title': '工作原理',
   'how.step1.title': '用 GitHub 授权',
-  'how.step1.desc': '在浏览器中完成设备流验证。',
+  'how.step1.desc': '通过六步引导在浏览器完成设备授权，并创建或选择 Vault。',
   'how.step2.title': '绑定你的仓库',
   'how.step2.desc': '为单个仓库安装 GitHub App（建议私有），并将其绑定为仓库。',
   'how.step3.title': '预览并应用',
-  'how.step3.desc': '审阅同步计划，解决冲突，应用所选改动。',
+  'how.step3.desc': '在变更清单中处理冲突和删除，核对执行摘要后应用所选改动。',
 
   'download.title': '下载',
-  'download.subtitle': '最新 1.0.1 版本的安装包，直接来自 GitHub。',
+  'download.subtitle': '最新 1.1.0 版本的安装包，直接来自 GitHub。',
   'download.platform': '平台',
   'download.type': '类型',
   'download.file': '下载',

@@ -36,6 +36,7 @@
         ></video>
       {/key}
     </div>
+    <p class="mt-2 text-xs text-muted-foreground">{i18n.t('showcase.caption')}</p>
     <div
       class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
     >

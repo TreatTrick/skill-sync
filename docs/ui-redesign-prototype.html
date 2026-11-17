@@ -1,0 +1,3551 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Skill Sync 重设计原型</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<style>
+  /* Layout: 顶栏 + 单列“变更清单”，按“需要你做什么”分组，底部常驻提交栏；设置为“左目录 + 设置行”；首次配置为“左步骤轨 + 右当前步骤”。 */
+  :root {
+    /* 沿用 src/index.css 的语义 token 名称与取值，落地时无需新增调色板 */
+    --background: #f6f7f9;
+    --foreground: #1a1f29;
+    --surface: #ffffff;
+    --surface-muted: #f4f5f7;
+    --surface-hover: #eef0f3;
+    --border: #e3e6eb;
+    --border-muted: #eceef1;
+    --border-strong: #d2d7de;
+    --muted-foreground: #5b6471;
+    --strong-foreground: #0e1320;
+    --primary: #0f766e;
+    --primary-foreground: #ffffff;
+    --primary-muted: #ecfdf8;
+    --primary-muted-foreground: #115e59;
+    --primary-border: #99f6e4;
+    --info-muted: #e0ecff;
+    --info-muted-foreground: #1d4ed8;
+    --info-border: #bfdbfe;
+    --remote: #7e22ce;
+    --remote-muted: #f3e8ff;
+    --remote-border: #d8b4fe;
+    --warning: #b45309;
+    --warning-muted: #fff7e6;
+    --warning-border: #fde68a;
+    --destructive: #dc2626;
+    --destructive-foreground: #ffffff;
+    --destructive-muted: #fef2f2;
+    --destructive-border: #fecaca;
+    --success: #15803d;
+    --success-muted: #f0fdf4;
+    --success-border: #bbf7d0;
+    --ring: #0f766e;
+    --shadow-sm:
+      0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+    --shadow-lg:
+      0 12px 24px -6px rgba(15, 23, 42, 0.14),
+      0 4px 8px -4px rgba(15, 23, 42, 0.08);
+    --overlay: rgba(14, 19, 32, 0.42);
+    --font-sans:
+      'Segoe UI', system-ui, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    --font-mono:
+      ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo,
+      monospace;
+    --gutter-l: max(24px, env(safe-area-inset-left, 0px));
+    --gutter-r: max(24px, env(safe-area-inset-right, 0px));
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --background: #0d1117;
+      --foreground: #e6edf3;
+      --surface: #161b22;
+      --surface-muted: #1c2128;
+      --surface-hover: #22272e;
+      --border: #2d333b;
+      --border-muted: #252a31;
+      --border-strong: #3d444d;
+      --muted-foreground: #8b949e;
+      --strong-foreground: #f0f6fc;
+      --primary: #2dd4bf;
+      --primary-foreground: #04201c;
+      --primary-muted: #0d2e2a;
+      --primary-muted-foreground: #5eead4;
+      --primary-border: #134e4a;
+      --info-muted: #0d2138;
+      --info-muted-foreground: #93b4ff;
+      --info-border: #1e3a5f;
+      --remote: #d8b4fe;
+      --remote-muted: #2e1065;
+      --remote-border: #6b21a8;
+      --warning: #f59e0b;
+      --warning-muted: #2a1f0a;
+      --warning-border: #7a5230;
+      --destructive: #f87171;
+      --destructive-foreground: #ffffff;
+      --destructive-muted: #2a1515;
+      --destructive-border: #5c2424;
+      --success: #4ade80;
+      --success-muted: #0f2818;
+      --success-border: #1f4d33;
+      --ring: #2dd4bf;
+      --overlay: rgba(0, 0, 0, 0.6);
+      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme='dark'] {
+    --background: #0d1117;
+    --foreground: #e6edf3;
+    --surface: #161b22;
+    --surface-muted: #1c2128;
+    --surface-hover: #22272e;
+    --border: #2d333b;
+    --border-muted: #252a31;
+    --border-strong: #3d444d;
+    --muted-foreground: #8b949e;
+    --strong-foreground: #f0f6fc;
+    --primary: #2dd4bf;
+    --primary-foreground: #04201c;
+    --primary-muted: #0d2e2a;
+    --primary-muted-foreground: #5eead4;
+    --primary-border: #134e4a;
+    --info-muted: #0d2138;
+    --info-muted-foreground: #93b4ff;
+    --info-border: #1e3a5f;
+    --remote: #d8b4fe;
+    --remote-muted: #2e1065;
+    --remote-border: #6b21a8;
+    --warning: #f59e0b;
+    --warning-muted: #2a1f0a;
+    --warning-border: #7a5230;
+    --destructive: #f87171;
+    --destructive-foreground: #ffffff;
+    --destructive-muted: #2a1515;
+    --destructive-border: #5c2424;
+    --success: #4ade80;
+    --success-muted: #0f2818;
+    --success-border: #1f4d33;
+    --ring: #2dd4bf;
+    --overlay: rgba(0, 0, 0, 0.6);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font: 14px/1.5 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+  button {
+    cursor: pointer;
+  }
+  h1,
+  h2,
+  h3,
+  p,
+  dl {
+    margin: 0;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    color: var(--strong-foreground);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .mono {
+    font-family: var(--font-mono);
+  }
+  .muted {
+    color: var(--muted-foreground);
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .ic {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+  .ic.sm {
+    width: 14px;
+    height: 14px;
+  }
+  .ic.lg {
+    width: 20px;
+    height: 20px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  #app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ---------- 原型控制条（不属于产品 UI） ---------- */
+  .proto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 6px var(--gutter-r) 6px var(--gutter-l);
+    background: var(--surface-muted);
+    border-bottom: 1px dashed var(--border-strong);
+    font: 12px/1.4 var(--font-mono);
+    color: var(--muted-foreground);
+  }
+  .proto b {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .proto label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .proto select {
+    height: 24px;
+    border: 1px solid var(--border-strong);
+    border-radius: 5px;
+    background: var(--surface);
+    padding: 0 4px;
+    font: 12px var(--font-sans);
+  }
+  .proto .sp {
+    flex: 1;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    height: 52px;
+    flex: none;
+    padding: 0 max(var(--gutter-r), calc((100% - 1132px) / 2)) 0
+      max(var(--gutter-l), calc((100% - 1132px) / 2));
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: var(--strong-foreground);
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .brand svg {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    box-shadow: var(--shadow-sm);
+  }
+  .tabs {
+    display: flex;
+    gap: 2px;
+  }
+  .tab {
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .tab:hover {
+    background: var(--surface-hover);
+    color: var(--foreground);
+  }
+  .tab[aria-current='page'] {
+    background: var(--primary-muted);
+    color: var(--primary-muted-foreground);
+    font-weight: 600;
+  }
+  .tab .dot {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--warning);
+    color: var(--surface);
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .top .sp {
+    flex: 1;
+  }
+  .vault {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--foreground);
+    min-width: 0;
+    max-width: 46vw;
+  }
+  .vault:hover {
+    background: var(--surface-hover);
+  }
+  .vault .led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    flex: none;
+  }
+  .vault .repo {
+    font: 12.5px var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vault .br {
+    font: 12px var(--font-mono);
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+
+  .view {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px var(--gutter-r) 32px var(--gutter-l);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ---------- 基础控件 ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--foreground);
+    font-weight: 500;
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s;
+  }
+  .btn:hover {
+    background: var(--surface-hover);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 600;
+  }
+  .btn.primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .btn.danger {
+    background: var(--surface);
+    border-color: var(--destructive-border);
+    color: var(--destructive);
+  }
+  .btn.danger:hover {
+    background: var(--destructive-muted);
+  }
+  .btn.danger.solid {
+    background: var(--destructive);
+    border-color: var(--destructive);
+    color: var(--destructive-foreground);
+  }
+  .btn.ghost {
+    border-color: transparent;
+    background: none;
+    color: var(--muted-foreground);
+  }
+  .btn.ghost:hover {
+    background: var(--surface-hover);
+    color: var(--foreground);
+  }
+  .btn.sm {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    border-radius: 7px;
+  }
+  .btn.lg {
+    height: 40px;
+    padding: 0 18px;
+    font-size: 15px;
+  }
+  .btn.icon {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
+  .spin {
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--primary);
+    cursor: pointer;
+    flex: none;
+  }
+  .input {
+    height: 34px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 0 10px;
+    min-width: 0;
+  }
+  .input:focus-visible,
+  .textarea:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 0;
+    border-color: var(--ring);
+  }
+  .textarea {
+    width: 100%;
+    min-height: 190px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 10px 12px;
+    font: 13px/1.7 var(--font-mono);
+    resize: vertical;
+  }
+
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 2px;
+    gap: 2px;
+  }
+  .seg button {
+    height: 26px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 5px;
+    background: none;
+    color: var(--muted-foreground);
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .seg button:hover {
+    color: var(--foreground);
+    background: var(--surface-hover);
+  }
+  .seg button[aria-pressed='true'] {
+    background: var(--surface-muted);
+    color: var(--strong-foreground);
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+  .seg button[aria-pressed='true'][data-tone='up'] {
+    background: var(--info-muted);
+    color: var(--info-muted-foreground);
+    box-shadow: inset 0 0 0 1px var(--info-border);
+  }
+  .seg button[aria-pressed='true'][data-tone='down'] {
+    background: var(--remote-muted);
+    color: var(--remote);
+    box-shadow: inset 0 0 0 1px var(--remote-border);
+  }
+  .seg button[aria-pressed='true'][data-tone='del'] {
+    background: var(--destructive-muted);
+    color: var(--destructive);
+    box-shadow: inset 0 0 0 1px var(--destructive-border);
+  }
+  .seg.lg button {
+    height: 30px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  .callout {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--warning-border);
+    background: var(--warning-muted);
+    color: var(--foreground);
+  }
+  .callout .ic {
+    color: var(--warning);
+    margin-top: 2px;
+  }
+  .callout.danger {
+    border-color: var(--destructive-border);
+    background: var(--destructive-muted);
+  }
+  .callout.danger .ic {
+    color: var(--destructive);
+  }
+  .callout .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .callout strong {
+    display: block;
+    color: var(--strong-foreground);
+  }
+
+  /* ---------- 同步页 ---------- */
+  .sync-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sync-head h1 {
+    font-size: 22px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+  }
+  .sync-head h1 em {
+    font-style: normal;
+    color: var(--warning);
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+  }
+  .meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .meta .mono {
+    font-size: 12px;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+  }
+  .search {
+    position: relative;
+    flex: 1 1 220px;
+    max-width: 320px;
+  }
+  .search .ic {
+    position: absolute;
+    left: 10px;
+    top: 9px;
+    color: var(--muted-foreground);
+  }
+  .search input {
+    width: 100%;
+    padding-left: 32px;
+  }
+  .search kbd {
+    position: absolute;
+    right: 8px;
+    top: 7px;
+    font: 11px var(--font-mono);
+    color: var(--muted-foreground);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    background: var(--surface-muted);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: var(--surface);
+    color: var(--muted-foreground);
+    font-size: 12.5px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .chip:hover {
+    border-color: var(--border-strong);
+    color: var(--foreground);
+  }
+  .chip b {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  .chip[aria-pressed='true'] {
+    background: var(--strong-foreground);
+    border-color: var(--strong-foreground);
+    color: var(--surface);
+  }
+  .chip[aria-pressed='true'] b {
+    color: var(--surface);
+  }
+  .chip.zero b {
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  .chip .ic {
+    width: 13px;
+    height: 13px;
+  }
+  .chip[data-k='conflict']:not([aria-pressed='true']):not(.zero) .ic {
+    color: var(--warning);
+  }
+  .chip[data-k='del']:not([aria-pressed='true']):not(.zero) .ic {
+    color: var(--destructive);
+  }
+  .chip[data-k='up']:not([aria-pressed='true']):not(.zero) .ic {
+    color: var(--info-muted-foreground);
+  }
+  .chip[data-k='down']:not([aria-pressed='true']):not(.zero) .ic {
+    color: var(--remote);
+  }
+
+  .groups {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .groups.busy {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    min-height: 32px;
+    padding: 0 4px 6px 12px;
+  }
+  .group-head .lead {
+    width: 20px;
+    display: flex;
+    justify-content: center;
+    color: var(--muted-foreground);
+  }
+  .group-head h2 {
+    font-size: 13.5px;
+    font-weight: 650;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .group-head h2 .n {
+    font-weight: 600;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .group-head .hint {
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+  .group-head .bulk {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .g-conflict .lead {
+    color: var(--warning);
+  }
+  .g-del .lead {
+    color: var(--destructive);
+  }
+  .rows {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .g-conflict .rows {
+    border-color: var(--warning-border);
+  }
+  .row + .row {
+    border-top: 1px solid var(--border-muted);
+  }
+  .row-main {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 250px) minmax(0, 1fr) auto 28px;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 8px 8px 8px 12px;
+  }
+  .row:hover .row-main {
+    background: var(--surface-muted);
+  }
+  .row .lead {
+    display: flex;
+    justify-content: center;
+    color: var(--muted-foreground);
+  }
+  .row .lead .pend {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px dashed var(--warning);
+  }
+  .row .lead .skip {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+  }
+  .row .lead .ok {
+    color: var(--primary);
+  }
+  .ident {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .ident .name {
+    font-weight: 600;
+    color: var(--strong-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ns {
+    flex: none;
+    font-size: 11.5px;
+    line-height: 18px;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+  .newtag {
+    flex: none;
+    font-size: 11px;
+    line-height: 16px;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: var(--primary-muted);
+    color: var(--primary-muted-foreground);
+    font-weight: 600;
+  }
+  .what {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+  .what span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .what.up {
+    color: var(--info-muted-foreground);
+  }
+  .what.down {
+    color: var(--remote);
+  }
+  .what.del {
+    color: var(--destructive);
+  }
+  .what.warn {
+    color: var(--warning);
+  }
+  .what.off {
+    color: var(--muted-foreground);
+  }
+  .what .because {
+    color: var(--muted-foreground);
+  }
+  .row.dim .ident .name {
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  .more {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .more:hover {
+    background: var(--surface-hover);
+    color: var(--foreground);
+  }
+  .more .ic {
+    transition: transform 0.15s;
+  }
+  .more[aria-expanded='true'] .ic {
+    transform: rotate(180deg);
+  }
+  .detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 14px 28px;
+    padding: 12px 16px 16px 44px;
+    background: var(--surface-muted);
+    border-top: 1px solid var(--border-muted);
+  }
+  .detail h3 {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .kv {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 12px;
+    font-size: 12.5px;
+    align-items: center;
+  }
+  .kv dt {
+    color: var(--muted-foreground);
+  }
+  .kv dd {
+    margin: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .kv dd .mono {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tri {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tri div {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    padding: 7px 9px;
+    min-width: 0;
+  }
+  .tri small {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--muted-foreground);
+  }
+  .tri small i {
+    font-style: normal;
+    font-weight: 600;
+  }
+  .tri .chg small i {
+    color: var(--warning);
+  }
+  .tri .gone small i {
+    color: var(--destructive);
+  }
+  .tri .same small i {
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  .tri code {
+    display: block;
+    margin-top: 2px;
+    font: 12px var(--font-mono);
+    color: var(--foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tri .gone code,
+  .tri .none code {
+    color: var(--muted-foreground);
+  }
+  .detail .warns {
+    grid-column: 1/-1;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12.5px;
+    color: var(--warning);
+    display: grid;
+    gap: 2px;
+  }
+  .fold {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    background: none;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    text-align: left;
+  }
+  .fold:hover {
+    background: var(--surface);
+    color: var(--foreground);
+  }
+  .fold .ic {
+    color: var(--success);
+  }
+
+  .hero-ok {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    border: 1px solid var(--success-border);
+    background: var(--success-muted);
+    border-radius: 12px;
+  }
+  .hero-ok .badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--success);
+    color: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+  .hero-ok h2 {
+    font-size: 17px;
+  }
+  .empty {
+    padding: 36px 16px;
+    text-align: center;
+    color: var(--muted-foreground);
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+  }
+  .skel {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px;
+  }
+  .skel i {
+    display: block;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--surface-hover);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  .scan {
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .scan .line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+  }
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--surface-hover);
+    overflow: hidden;
+  }
+  .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--primary);
+    transition: width 0.25s;
+  }
+
+  .recovery {
+    border: 1px solid var(--warning-border);
+    background: var(--warning-muted);
+    border-radius: 12px;
+    padding: 20px;
+    display: grid;
+    gap: 14px;
+    max-width: 760px;
+  }
+  .recovery h2 {
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .recovery h2 .ic {
+    color: var(--warning);
+  }
+  .recovery .steps {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .recovery .steps div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .recovery .steps .done {
+    color: var(--muted-foreground);
+  }
+  .recovery .steps .done .ic {
+    color: var(--success);
+  }
+  .recovery .steps .todo .ic {
+    color: var(--warning);
+  }
+
+  /* 提交栏 */
+  .applybar {
+    flex: none;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px -8px rgba(15, 23, 42, 0.12);
+  }
+  .applybar .in {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 10px var(--gutter-r) 10px var(--gutter-l);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 20px;
+    min-height: 60px;
+  }
+  .sum {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1 1 320px;
+  }
+  .sum .l1 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    font-size: 13.5px;
+  }
+  .sum .l1 strong {
+    color: var(--strong-foreground);
+  }
+  .sum .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .sum .pill.up {
+    color: var(--info-muted-foreground);
+  }
+  .sum .pill.down {
+    color: var(--remote);
+  }
+  .sum .pill.del {
+    color: var(--destructive);
+  }
+  .sum .l2 {
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+  }
+  .sum .l2 span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .sum .l2 .warn {
+    color: var(--warning);
+  }
+  .applybar .right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+  }
+  .ack {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--warning);
+    font-weight: 500;
+  }
+  .prog {
+    flex: 1 1 100%;
+    display: grid;
+    gap: 6px;
+  }
+  .prog .line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+  }
+  .prog .line b {
+    color: var(--strong-foreground);
+  }
+
+  /* ---------- 设置页 ---------- */
+  .settings {
+    display: grid;
+    grid-template-columns: 168px minmax(0, 1fr);
+    gap: 36px;
+    align-items: start;
+  }
+  .snav {
+    position: sticky;
+    top: 8px;
+    display: grid;
+    gap: 2px;
+  }
+  .snav button {
+    height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    text-align: left;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .snav button:hover {
+    background: var(--surface-hover);
+    color: var(--foreground);
+  }
+  .snav button.on {
+    color: var(--strong-foreground);
+    font-weight: 600;
+    background: var(--surface-hover);
+  }
+  .saved {
+    margin-top: 12px;
+    padding: 0 10px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .saved .ic {
+    color: var(--success);
+  }
+  .secs {
+    display: grid;
+    gap: 36px;
+    min-width: 0;
+  }
+  .sec {
+    display: grid;
+    gap: 4px;
+    scroll-margin-top: 8px;
+  }
+  .sec > h2 {
+    font-size: 16px;
+    font-weight: 650;
+  }
+  .sec > p {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    max-width: 46em;
+    text-wrap: pretty;
+  }
+  .srows {
+    margin-top: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .srow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 24px;
+    align-items: center;
+    padding: 12px 16px;
+  }
+  .srow + .srow {
+    border-top: 1px solid var(--border-muted);
+  }
+  .srow .lab b {
+    display: block;
+    font-weight: 600;
+    color: var(--strong-foreground);
+  }
+  .srow .lab small {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    max-width: 34em;
+    text-wrap: pretty;
+  }
+  .srow .ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .unit {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .unit input {
+    width: 84px;
+    height: 32px;
+    border: 0;
+    background: none;
+    padding: 0 8px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit input:focus-visible {
+    outline: 0;
+  }
+  .unit:focus-within {
+    outline: 2px solid var(--ring);
+    border-color: var(--ring);
+  }
+  .unit span {
+    padding: 0 9px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    background: var(--surface-muted);
+    border-left: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    min-width: 52px;
+    justify-content: center;
+  }
+  .unit.bad {
+    border-color: var(--destructive);
+  }
+  .err {
+    padding: 10px 16px;
+    border-top: 1px solid var(--destructive-border);
+    background: var(--destructive-muted);
+    color: var(--destructive);
+    font-size: 13px;
+    border-radius: 0 0 10px 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  .vcard {
+    padding: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .vcard .repo {
+    font: 600 16px var(--font-mono);
+    color: var(--strong-foreground);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    word-break: break-all;
+  }
+  .tag {
+    font: 500 11.5px/18px var(--font-sans);
+    padding: 0 7px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    background: var(--surface-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .tag.ok {
+    border-color: var(--success-border);
+    background: var(--success-muted);
+    color: var(--success);
+  }
+  .vcard .sub {
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+  }
+  details.tech {
+    border-top: 1px solid var(--border-muted);
+    padding: 10px 16px;
+  }
+  details.tech summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  details.tech .kv {
+    margin-top: 8px;
+  }
+  .meter {
+    display: grid;
+    gap: 6px;
+    min-width: 220px;
+  }
+  .meter .bar {
+    height: 8px;
+    border-radius: 4px;
+  }
+  .srow .lab .meter small {
+    max-width: none;
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .root .path {
+    font: 12px var(--font-mono);
+    color: var(--muted-foreground);
+    word-break: break-all;
+  }
+  .led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    display: inline-block;
+  }
+  .danger-zone {
+    margin-top: 10px;
+    border: 1px solid var(--destructive-border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+
+  /* ---------- 首次配置 ---------- */
+  .ob {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+  .ob-rail {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px var(--gutter-l);
+    padding-right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    overflow: auto;
+  }
+  .ob-rail h2 {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    margin-top: 6px;
+  }
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 12px;
+    position: relative;
+    padding-bottom: 18px;
+  }
+  .steps li:last-child {
+    padding-bottom: 0;
+  }
+  .steps li::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 24px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .steps li:last-child::before {
+    display: none;
+  }
+  .steps li.done::before {
+    background: var(--primary);
+  }
+  .steps .mk {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    border: 2px solid var(--border-strong);
+    color: var(--muted-foreground);
+    background: var(--surface);
+    z-index: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .steps .done .mk {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .steps .cur .mk {
+    border-color: var(--primary);
+    color: var(--primary-muted-foreground);
+    background: var(--primary-muted);
+  }
+  .steps b {
+    display: block;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    line-height: 24px;
+  }
+  .steps .cur b {
+    color: var(--strong-foreground);
+    font-weight: 650;
+  }
+  .steps .done b {
+    color: var(--foreground);
+  }
+  .steps small {
+    display: block;
+    font: 12px var(--font-mono);
+    color: var(--muted-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ob-rail .foot {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ob-main {
+    overflow: auto;
+    padding: 48px var(--gutter-r) 40px 48px;
+  }
+  .panel {
+    max-width: 580px;
+    display: grid;
+    gap: 18px;
+  }
+  .eyebrow {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--primary-muted-foreground);
+    letter-spacing: 0.04em;
+  }
+  .panel h1 {
+    font-size: 26px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .panel .lede {
+    font-size: 15px;
+    color: var(--muted-foreground);
+    max-width: 36em;
+    text-wrap: balance;
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+  }
+  .todo {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 4px 12px;
+    align-items: start;
+  }
+  .todo .n {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+  .todo b {
+    line-height: 24px;
+    color: var(--strong-foreground);
+  }
+  .todo p {
+    grid-column: 2;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+  .todo .a {
+    grid-column: 2;
+    margin-top: 6px;
+  }
+  .code {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .code span {
+    width: 38px;
+    height: 48px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 700 22px var(--font-mono);
+    color: var(--strong-foreground);
+  }
+  .code i {
+    width: 10px;
+    height: 2px;
+    background: var(--border-strong);
+  }
+  .wait {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+  .gh {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-muted);
+    padding: 12px 14px;
+    display: grid;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .gh .cap {
+    font-size: 11.5px;
+    color: var(--muted-foreground);
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  .gh .opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .gh .radio {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    flex: none;
+  }
+  .gh .radio.on {
+    border: 4px solid var(--primary);
+  }
+  .gh .no {
+    color: var(--muted-foreground);
+    text-decoration: line-through;
+  }
+  .gh .pick {
+    margin-left: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font: 12.5px var(--font-mono);
+  }
+  .gh .note {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .gh .note.good {
+    color: var(--success);
+  }
+  .gh .note.bad {
+    color: var(--destructive);
+  }
+  .perm {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 12.5px;
+    color: var(--muted-foreground);
+  }
+  .perm span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .perm .ic {
+    color: var(--success);
+  }
+  .flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr) auto minmax(
+        0,
+        1fr
+      );
+    align-items: center;
+    gap: 10px;
+  }
+  .node {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 12px;
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+    min-width: 0;
+  }
+  .node.v {
+    border-color: var(--primary-border);
+    background: var(--primary-muted);
+  }
+  .node b {
+    font-size: 13px;
+    color: var(--strong-foreground);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .node small {
+    font: 11.5px/1.5 var(--font-mono);
+    color: var(--muted-foreground);
+    word-break: break-all;
+  }
+  .flow .arr {
+    color: var(--muted-foreground);
+    display: grid;
+    justify-items: center;
+    font-size: 11px;
+  }
+  .sel {
+    height: 36px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 0 10px;
+    min-width: 220px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .statusico {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--success-muted);
+    color: var(--success);
+  }
+  .statusico.warn {
+    background: var(--warning-muted);
+    color: var(--warning);
+  }
+  .statusico.bad {
+    background: var(--destructive-muted);
+    color: var(--destructive);
+  }
+  .lang {
+    display: inline-flex;
+    gap: 2px;
+    font-size: 12.5px;
+  }
+  .lang button {
+    border: 0;
+    background: none;
+    padding: 3px 7px;
+    border-radius: 5px;
+    color: var(--muted-foreground);
+  }
+  .lang button.on {
+    color: var(--strong-foreground);
+    font-weight: 600;
+    background: var(--surface-hover);
+  }
+
+  /* ---------- 浮层 ---------- */
+  .toasts {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    gap: 8px;
+    z-index: 40;
+    pointer-events: none;
+  }
+  .toast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 9px;
+    background: var(--strong-foreground);
+    color: var(--surface);
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    animation: rise 0.18s ease-out;
+    max-width: min(420px, calc(100vw - 32px));
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 50;
+  }
+  .modal {
+    width: 100%;
+    max-width: 440px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    padding: 20px;
+    display: grid;
+    gap: 10px;
+  }
+  .modal h2 {
+    font-size: 16px;
+  }
+  .modal p {
+    font-size: 13.5px;
+    color: var(--muted-foreground);
+  }
+  .modal .acts {
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  /* ---------- 窄屏 ---------- */
+  @media (max-width: 820px) {
+    :root {
+      --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+      --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+    }
+    .row-main {
+      grid-template-columns: 20px minmax(0, 1fr) 28px;
+      gap: 6px 10px;
+    }
+    .row-main .what {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .row-main .act {
+      grid-column: 2/-1;
+      grid-row: 3;
+    }
+    .row-main .more {
+      grid-column: 3;
+      grid-row: 1;
+    }
+    .detail {
+      grid-template-columns: 1fr;
+      padding-left: 16px;
+    }
+    .settings {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .snav {
+      position: static;
+      display: flex;
+      overflow-x: auto;
+      gap: 4px;
+      padding-bottom: 4px;
+    }
+    .saved {
+      display: none;
+    }
+    .srow {
+      grid-template-columns: 1fr;
+    }
+    .srow .ctl {
+      justify-content: flex-start;
+    }
+    .ob {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .ob-rail {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      padding-block: 14px;
+      gap: 10px;
+    }
+    .ob-rail h2,
+    .steps li:not(.cur) {
+      display: none;
+    }
+    .steps li {
+      padding-bottom: 0;
+    }
+    .ob-main {
+      padding: 24px var(--gutter-r) 32px var(--gutter-l);
+    }
+    .flow {
+      grid-template-columns: 1fr;
+    }
+    .flow .arr {
+      transform: rotate(90deg);
+    }
+    .vault .br {
+      display: none;
+    }
+    .top {
+      gap: 10px;
+    }
+    .brand span {
+      display: none;
+    }
+  }
+</style>
+
+<div id="app"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="modal"></div>
+
+<script>
+  ;(() => {
+    'use strict'
+    /* ===================== 工具 ===================== */
+    const $ = (s, r = document) => r.querySelector(s)
+    const esc = (s) =>
+      String(s).replace(
+        /[&<>"]/g,
+        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
+      )
+    const P = {
+      up: 'M12 19V5M5 12l7-7 7 7',
+      down: 'M12 5v14M19 12l-7 7-7-7',
+      refresh:
+        'M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5',
+      check: 'M20 6 9 17l-5-5',
+      chev: 'm6 9 6 6 6-6',
+      right: 'm9 18 6-6-6-6',
+      x: 'M18 6 6 18M6 6l12 12',
+      alert:
+        'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3ZM12 9v4M12 17h.01',
+      trash:
+        'M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+      folder:
+        'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z',
+      copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+      ext: 'M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
+      search: 'M21 21l-4.3-4.3M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z',
+      sliders:
+        'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4',
+      swap: 'M17 3l4 4-4 4M3 7h18M7 21l-4-4 4-4M21 17H3',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+      moon: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z',
+      monitor: 'M2 4h20v13H2zM8 21h8M12 17v4',
+      lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
+      cloud: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z',
+      laptop: 'M4 5h16v11H4zM2 20h20',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      undo: 'M3 7v6h6M3 13a9 9 0 1 0 3-7.7L3 8',
+      commit: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 12h6M15 12h6',
+      ban: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM4.9 4.9l14.2 14.2',
+      loader: 'M21 12a9 9 0 1 1-6.2-8.6',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 16v-4M12 8h.01',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2',
+    }
+    const ic = (n, c = '') =>
+      `<svg class="ic ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[n]}"/></svg>`
+    const GH = `<svg class="ic" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>`
+    const LOGO = `<svg viewBox="166 166 180 180" fill="none" aria-hidden="true"><defs><linearGradient id="lg" x1="202" y1="200" x2="314" y2="314" gradientUnits="userSpaceOnUse"><stop stop-color="#14B8A6"/><stop offset=".58" stop-color="#38BDF8"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs><rect x="166" y="166" width="180" height="180" rx="52" fill="#F8FAFC"/><rect x="190" y="190" width="132" height="132" rx="36" fill="#E8EEF7"/><circle cx="256" cy="256" r="28" fill="url(#lg)"/><path d="M218 236C218 218 232 206 253 206H292" stroke="#0F172A" stroke-width="15" stroke-linecap="round"/><path d="M286 190L306 206L286 222" stroke="#0F172A" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><path d="M294 276C294 294 280 306 259 306H220" stroke="#0F172A" stroke-width="15" stroke-linecap="round"/><path d="M226 290L206 306L226 322" stroke="#0F172A" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="256" cy="256" r="10" fill="#F8FAFC"/></svg>`
+    const hash = (s) => {
+      let h = 2166136261,
+        o = ''
+      for (let k = 0; k < 2; k++) {
+        for (const c of s + k) {
+          h ^= c.charCodeAt(0)
+          h = Math.imul(h, 16777619)
+        }
+        o += (h >>> 0).toString(16).padStart(8, '0')
+      }
+      return o
+    }
+    const short = (h) => (h ? h.slice(0, 10) : '—')
+
+    /* ===================== 示例数据（原型用，非真实扫描结果） ===================== */
+    const VAULT = {
+      owner: 'treattrick',
+      repo: 'skill-vault',
+      branch: 'main',
+      user: 'treattrick',
+      device: 'BRUCE-PC',
+      slug: 'tt-skills-sync',
+      installation: 71930442,
+      repoId: 1018834571,
+    }
+    const NS = {
+      'claude-code': {
+        label: 'Claude Code',
+        root: 'C:\\Users\\bruce\\.claude\\skills',
+        title: 'Claude Code Skills 目录',
+      },
+      codex: {
+        label: 'Codex',
+        root: 'C:\\Users\\bruce\\.codex\\skills',
+        title: 'Codex Skills 目录',
+      },
+      agents: {
+        label: 'Agents',
+        root: 'C:\\Users\\bruce\\.agents\\skills',
+        title: 'Agent Skills 共享目录',
+      },
+    }
+    const HS = {
+      synced: 'bbb',
+      up_mod: 'blb',
+      up_new: '-l-',
+      down_mod: 'bbr',
+      down_new: '--r',
+      both_changed: 'blr',
+      same_name_first_seen: '-lr',
+      local_deleted_remote_changed: 'b-r',
+      remote_deleted_local_changed: 'bl-',
+      local_deleted: 'b-b',
+      remote_deleted: 'bb-',
+      blocked: 'blb',
+    }
+    function mk(ns, name, status, o = {}) {
+      const id = `${ns}:${name}`,
+        v = {
+          b: hash(id + 'b'),
+          l: hash(id + 'l'),
+          r: hash(id + 'r'),
+          '-': null,
+        }
+      const [b, l, r] = [...HS[o.h || o.reason || status]].map((c) => v[c])
+      return {
+        id,
+        action: 'a:' + id,
+        ns,
+        name,
+        status,
+        reason: o.reason || null,
+        isNew: !!o.isNew,
+        base: b,
+        local: l,
+        remote: r,
+        path: l ? NS[ns].root + '\\' + name : null,
+        warnings: o.warnings || [],
+        blocked: o.blocked || null,
+      }
+    }
+    const SYNCED = {
+      'claude-code': [
+        'architecture-design',
+        'brainstorming',
+        'branch',
+        'codebase-design',
+        'diagnosing-bugs',
+        'executing-plans',
+        'explain-simply',
+        'find-skills',
+        'receiving-code-review',
+        'requesting-code-review',
+        'research',
+        'simplify',
+        'systematic-debugging',
+        'tdd',
+        'test-driven-development',
+        'unified-review',
+        'using-git-worktrees',
+        'verification-before-completion',
+        'writing-plans',
+        'writing-skills',
+      ],
+      codex: [
+        'architecture-design',
+        'brainstorming',
+        'branch',
+        'clean-ddd-hexagonal',
+        'ddd-aggregates',
+        'ddd-context-map',
+        'ddd-contexts',
+        'ddd-discover',
+        'openspec-apply-change',
+        'openspec-archive-change',
+        'openspec-explore',
+        'tdd',
+        'writing-plans',
+      ],
+      agents: [
+        'lark-attendance',
+        'lark-base',
+        'lark-calendar',
+        'lark-doc',
+        'lark-drive',
+        'lark-im',
+        'lark-markdown',
+        'lark-sheets',
+        'lark-task',
+        'lark-wiki',
+      ],
+    }
+    const syncedEntries = () =>
+      Object.entries(SYNCED).flatMap(([ns, names]) =>
+        names.map((n) => mk(ns, n, 'synced')),
+      )
+    const PENDING = () => [
+      mk('claude-code', 'code-review', 'conflict', { reason: 'both_changed' }),
+      mk('agents', 'lark-approval', 'conflict', {
+        reason: 'local_deleted_remote_changed',
+      }),
+      mk('codex', 'zentao-bug-export', 'local_deleted'),
+      mk('claude-code', 'scaffold-exercises', 'remote_deleted'),
+      mk('claude-code', 'grilling', 'local_update', { h: 'up_mod' }),
+      mk('claude-code', 'domain-modeling', 'local_update', {
+        h: 'up_mod',
+        warnings: ['references/glossary.md 命中忽略规则 **/tmp/**，未打包'],
+      }),
+      mk('codex', 'ponytail', 'local_update', { h: 'up_new', isNew: true }),
+      mk('agents', 'lark-apps', 'remote_update', { h: 'down_mod' }),
+      mk('codex', 'openspec-propose', 'remote_update', {
+        h: 'down_new',
+        isNew: true,
+      }),
+      mk('claude-code', 'vtk-source-analyzer', 'blocked', {
+        blocked: '压缩包 23.4 MiB，超过“单个 Skill 压缩上限”20 MiB',
+      }),
+    ]
+    const GUARD_NAMES = [
+      'ddd-domain-interactions',
+      'ddd-model-review',
+      'ddd-openspec-bridge',
+      'ddd-scope',
+      'ddd-subdomains',
+      'migrate-to-shoehorn',
+      'react-frontend-scaffold',
+      'redeploy-lamtaux-service',
+      'resolving-merge-conflicts',
+      'setup-pre-commit',
+      'git-guardrails-claude-code',
+      'delete-git-branches-by-keyword',
+    ]
+    const SCENARIOS = {
+      pending: {
+        label: '有待处理的变更',
+        entries: () => [...PENDING(), ...syncedEntries()],
+      },
+      synced: { label: '全部已同步', entries: () => syncedEntries() },
+      guard: {
+        label: '删除数量异常（护栏）',
+        guard: true,
+        entries: () => [
+          ...GUARD_NAMES.map((n) => mk('codex', n, 'local_deleted')),
+          ...PENDING().filter((e) => e.status === 'local_update'),
+          ...syncedEntries(),
+        ],
+      },
+      changed: {
+        label: '计划已变化（选择被重置）',
+        notice: true,
+        entries: () => [...PENDING(), ...syncedEntries()],
+      },
+      recovery: {
+        label: '上次同步需要恢复',
+        recovery: true,
+        entries: () => [],
+      },
+      error: { label: '计划加载失败', error: true, entries: () => [] },
+    }
+
+    /* ===================== 状态 ===================== */
+    const S = {
+      route: 'sync',
+      scenario: 'pending',
+      theme: document.documentElement.dataset.theme || 'system',
+      entries: [],
+      selected: new Set(),
+      decisions: {},
+      open: new Set(),
+      filter: 'pending',
+      search: '',
+      syncedOpen: false,
+      guard: false,
+      guardAck: false,
+      notice: '',
+      loading: null,
+      applying: null,
+      recovery: null,
+      error: false,
+      baseUpdates: 0,
+      commit: '8c41e07a2f',
+      checked: '刚刚',
+      cfg: {
+        zip: 20,
+        files: 2000,
+        single: 50,
+        total: 100,
+        autoDel: 10,
+        ignore: [
+          '**/.git/**',
+          '**/node_modules/**',
+          '**/.env',
+          '**/.DS_Store',
+          '**/cache/**',
+          '**/.cache/**',
+          '**/tmp/**',
+          '**/temp/**',
+          '**/*.log',
+        ].join('\n'),
+      },
+      cache: { entries: 46, bytes: 312 * 1048576, capacity: 1024 * 1048576 },
+      sec: 'look',
+      saving: false,
+      lang: 'zh',
+      ob: {
+        stage: 'intro',
+        busy: false,
+        msg: '',
+        branch: 'main',
+        rebind: false,
+        reconfigure: false,
+        expires: 0,
+      },
+    }
+    function loadScenario(k) {
+      const sc = SCENARIOS[k]
+      S.scenario = k
+      S.entries = sc.entries()
+      S.decisions = {}
+      S.open = new Set()
+      S.guardAck = false
+      S.guard = !!sc.guard
+      S.error = !!sc.error
+      S.filter = 'pending'
+      S.search = ''
+      S.syncedOpen = false
+      S.applying = null
+      S.loading = null
+      S.notice = sc.notice
+        ? 'skill 已变化，之前的选择已清空。请重新确认后再同步。'
+        : ''
+      S.baseUpdates = k === 'pending' ? 2 : 0
+      S.recovery = sc.recovery
+        ? {
+            phase: 'local_replace_failed',
+            done: 4,
+            pending: 2,
+            message:
+              '写入 C:\\Users\\bruce\\.agents\\skills\\lark-apps 时文件被占用。云端 commit 已发布，剩余本地替换尚未完成。',
+          }
+        : null
+      S.selected = new Set(
+        sc.notice
+          ? []
+          : S.entries
+              .filter(
+                (e) =>
+                  e.status === 'local_update' || e.status === 'remote_update',
+              )
+              .map((e) => e.action),
+      )
+    }
+
+    /* ===================== 同步逻辑（与现有 syncStatus.ts 语义一致） ===================== */
+    const isDel = (e) =>
+      e.status === 'local_deleted' || e.status === 'remote_deleted'
+    const isSimple = (e) =>
+      e.status === 'local_update' || e.status === 'remote_update'
+    const REASON = {
+      both_changed: '本地和云端都已修改',
+      same_name_first_seen: '首次发现时本地和云端内容不同',
+      local_deleted_remote_changed: '本地已删除，但云端已修改',
+      remote_deleted_local_changed: '云端已删除，但本地已修改',
+    }
+    function options(e) {
+      if (e.status === 'conflict') {
+        if (e.reason === 'local_deleted_remote_changed')
+          return [
+            ['delete_remote', '删除云端', 'del'],
+            ['restore_remote', '恢复到本地', 'down'],
+            ['skip', '跳过', ''],
+          ]
+        if (e.reason === 'remote_deleted_local_changed')
+          return [
+            ['keep_local', '保留本地', 'up'],
+            ['accept_delete', '删除本地', 'del'],
+            ['skip', '跳过', ''],
+          ]
+        return [
+          ['keep_local', '保留本地', 'up'],
+          ['use_remote', '使用云端', 'down'],
+          ['skip', '跳过', ''],
+        ]
+      }
+      if (e.status === 'local_deleted')
+        return [
+          ['delete', '删除云端', 'del'],
+          ['restore_remote', '恢复到本地', 'down'],
+          ['none', '暂不处理', ''],
+        ]
+      if (e.status === 'remote_deleted')
+        return [
+          ['delete', '删除本地', 'del'],
+          ['keep_local', '重新上传', 'up'],
+          ['none', '暂不处理', ''],
+        ]
+      return []
+    }
+    function choiceOf(e) {
+      if (e.status === 'conflict') return S.decisions[e.id] || null
+      if (isDel(e))
+        return S.selected.has(e.action) ? 'delete' : S.decisions[e.id] || 'none'
+      return null
+    }
+    function setChoice(e, c) {
+      if (e.status === 'conflict') {
+        S.decisions[e.id] === c
+          ? delete S.decisions[e.id]
+          : (S.decisions[e.id] = c)
+        return
+      }
+      S.selected.delete(e.action)
+      delete S.decisions[e.id]
+      if (c === 'delete') S.selected.add(e.action)
+      else if (c !== 'none') S.decisions[e.id] = c
+    }
+    // 每一行最终会发生什么：kind ∈ up | down | delRemote | delLocal | null
+    function effect(e) {
+      if (e.status === 'local_update')
+        return S.selected.has(e.action) ? 'up' : null
+      if (e.status === 'remote_update')
+        return S.selected.has(e.action) ? 'down' : null
+      const c = choiceOf(e)
+      if (c === 'keep_local') return 'up'
+      if (c === 'use_remote' || c === 'restore_remote') return 'down'
+      if (
+        c === 'delete_remote' ||
+        (c === 'delete' && e.status === 'local_deleted')
+      )
+        return 'delRemote'
+      if (
+        c === 'accept_delete' ||
+        (c === 'delete' && e.status === 'remote_deleted')
+      )
+        return 'delLocal'
+      return null
+    }
+    function summary() {
+      const s = { up: 0, down: 0, delRemote: 0, delLocal: 0, undecided: 0 }
+      for (const e of S.entries) {
+        const k = effect(e)
+        if (k) s[k]++
+        else if (e.status === 'conflict' && !S.decisions[e.id]) s.undecided++
+      }
+      s.n = s.up + s.down + s.delRemote + s.delLocal
+      s.hasDel = s.delRemote + s.delLocal > 0
+      s.commit = s.up > 0 || s.delRemote > 0
+      return s
+    }
+    const counts = () => {
+      const c = { conflict: 0, del: 0, up: 0, down: 0, blocked: 0, synced: 0 }
+      for (const e of S.entries) c[kind(e)]++
+      c.pending = c.conflict + c.del + c.up + c.down
+      return c
+    }
+    const kind = (e) =>
+      e.status === 'conflict'
+        ? 'conflict'
+        : isDel(e)
+          ? 'del'
+          : e.status === 'local_update'
+            ? 'up'
+            : e.status === 'remote_update'
+              ? 'down'
+              : e.status === 'blocked'
+                ? 'blocked'
+                : 'synced'
+
+    /* ===================== 渲染：外壳 ===================== */
+    const OB_STAGES = {
+      intro: '欢迎页',
+      authorize: '1 授权 GitHub',
+      device_pending: '1 等待验证码授权',
+      create_repository: '2 新建 Vault 仓库',
+      install_app: '3 安装 GitHub App',
+      repository_scope_blocked: '3 授权范围过大',
+      confirm_public_repository: '4 公开仓库确认',
+      select_branch: '4 选择分支',
+      checking_vault: '4 正在检查',
+      vault_unavailable: '4 Vault 不可用',
+      confirm_initialize: '5 初始化 Vault',
+      invalid_manifest: '5 manifest 无效',
+      rate_limited: '5 API 受限',
+      ready: '6 完成绑定',
+      rebind: '6 切换 Vault（重新配置）',
+    }
+    function proto() {
+      const opt = (o, cur) =>
+        Object.entries(o)
+          .map(
+            ([k, v]) =>
+              `<option value="${k}"${k === cur ? ' selected' : ''}>${esc(v.label || v)}</option>`,
+          )
+          .join('')
+      return `<div class="proto"><b>原型演示</b>
+    <label>界面<select id="p-route" data-change="route"><option value="sync"${S.route !== 'onboarding' ? ' selected' : ''}>主应用（同步 / 设置）</option><option value="onboarding"${S.route === 'onboarding' ? ' selected' : ''}>首次配置流程</option></select></label>
+    ${
+      S.route === 'onboarding'
+        ? `<label>步骤<select id="p-ob" data-change="ob">${opt(OB_STAGES, S.ob.rebind && S.ob.stage === 'ready' ? 'rebind' : S.ob.stage)}</select></label>`
+        : `<label>同步页场景<select id="p-sc" data-change="scenario">${opt(SCENARIOS, S.scenario)}</select></label>`
+    }
+    <span class="sp"></span>
+    <label>主题<select id="p-theme" data-change="theme">${[
+      ['system', '跟随系统'],
+      ['light', '亮色'],
+      ['dark', '暗色'],
+    ]
+      .map(
+        ([k, v]) =>
+          `<option value="${k}"${S.theme === k ? ' selected' : ''}>${v}</option>`,
+      )
+      .join('')}</select></label>
+    <span>示例数据，非真实扫描结果</span></div>`
+    }
+    function top() {
+      const c = counts(),
+        attn = c.conflict + c.del
+      return `<header class="top">
+    <div class="brand">${LOGO}<span>Skill Sync</span></div>
+    <nav class="tabs" aria-label="应用导航">
+      <button class="tab" data-act="go" data-id="sync" ${S.route === 'sync' ? 'aria-current="page"' : ''}>${ic('swap')}同步${attn && !S.recovery ? `<span class="dot num" title="${attn} 项需要你决定">${attn}</span>` : ''}</button>
+      <button class="tab" data-act="go" data-id="settings" ${S.route === 'settings' ? 'aria-current="page"' : ''}>${ic('sliders')}设置</button>
+    </nav>
+    <span class="sp"></span>
+    <button class="vault" data-act="go-sec" data-id="vault" title="查看 Vault 设置"><span class="led"></span><span class="repo">${VAULT.owner}/${VAULT.repo}</span><span class="br">${VAULT.branch}</span></button>
+  </header>`
+    }
+    function render() {
+      const a = document.activeElement,
+        key = a && a.dataset && a.dataset.act ? keyOf(a) : null
+      const sc = $('.view') ? $('.view').scrollTop : 0,
+        keep = $('.view') && $('.view').dataset.r === S.route
+      const app = $('#app')
+      if (S.route === 'onboarding') app.innerHTML = proto() + onboarding()
+      else
+        app.innerHTML =
+          proto() +
+          top() +
+          `<main class="view" data-r="${S.route}">${S.route === 'sync' ? syncPage() : settingsPage()}</main>` +
+          (S.route === 'sync' ? applyBar() : '')
+      if (keep && $('.view')) $('.view').scrollTop = sc
+      document
+        .querySelectorAll('[data-ind="1"]')
+        .forEach((el) => (el.indeterminate = true))
+      if (key) {
+        const el = [...document.querySelectorAll('[data-act]')].find(
+          (e) => keyOf(e) === key,
+        )
+        el && el.focus({ preventScroll: true })
+      }
+      if (S.route === 'settings') watchSections()
+    }
+    const keyOf = (el) =>
+      [el.dataset.act, el.dataset.id, el.dataset.v].join('|')
+
+    /* ===================== 渲染：同步页 ===================== */
+    function syncPage() {
+      if (S.recovery) return `<div class="page">${recoveryView()}</div>`
+      const c = counts(),
+        total = S.entries.length
+      let h1,
+        sub = ''
+      if (S.loading) h1 = '正在检查变更…'
+      else if (S.error) h1 = '无法加载同步计划'
+      else if (c.pending === 0) h1 = '全部已同步'
+      else {
+        const attn = S.entries.filter(
+          (e) =>
+            (e.status === 'conflict' && !S.decisions[e.id]) ||
+            (isDel(e) && choiceOf(e) === 'none'),
+        ).length
+        h1 = `${c.pending} 项变更待处理${attn ? `，<em>还有 ${attn} 项等你决定</em>` : ''}`
+      }
+      return `<div class="page">
+    <header class="sync-head">
+      <div><h1>${h1}</h1>
+        <div class="meta">
+          <span>${ic('laptop', 'sm')}本机 ${VAULT.device} · <span class="num">${total || '—'}</span> 个 skills</span>
+          <span>${ic('commit', 'sm')}云端版本 <span class="mono">${S.commit.slice(0, 7)}</span></span>
+          <span>${ic('clock', 'sm')}${S.loading ? '检查中' : '上次检查 ' + S.checked}</span>
+        </div></div>
+      <button class="btn" data-act="recheck" ${S.loading || S.applying ? 'disabled' : ''}>${ic(S.loading ? 'loader' : 'refresh', S.loading ? 'spin' : '')}重新检查</button>
+    </header>
+    ${
+      S.loading
+        ? loadingView()
+        : S.error
+          ? errorView()
+          : `
+      ${S.notice ? `<div class="callout">${ic('info')}<div class="grow">${esc(S.notice)}</div><button class="btn ghost sm icon" data-act="dismiss" aria-label="关闭提示">${ic('x')}</button></div>` : ''}
+      ${S.guard ? `<div class="callout">${ic('alert')}<div class="grow"><strong>删除数量异常</strong>本次计划包含 ${c.del} 项删除，超过自动删除上限 ${S.cfg.autoDel}。请确认 Skill 目录可读、删除符合预期；执行前需要在底部勾选确认。</div></div>` : ''}
+      ${c.pending === 0 && c.blocked === 0 ? '' : toolbar(c)}
+      <div id="list">${listView(c)}</div>`
+    }
+  </div>`
+    }
+    function toolbar(c) {
+      const chip = (k, label, n, icon) =>
+        `<button class="chip${n ? '' : ' zero'}" data-act="filter" data-id="${k}" data-k="${k}" aria-pressed="${S.filter === k}">${icon ? ic(icon) : ''}${label}<b>${n}</b></button>`
+      return `<div class="toolbar">
+    <div class="search">${ic('search')}<input class="input" id="q" type="search" placeholder="搜索名称、工具或路径" value="${esc(S.search)}" autocomplete="off" aria-label="搜索 skill">${S.search ? '' : '<kbd>/</kbd>'}</div>
+    <div class="chips" role="group" aria-label="按状态筛选">
+      ${chip('pending', '待处理', c.pending)}${chip('conflict', '冲突', c.conflict, 'alert')}${chip('del', '删除', c.del, 'trash')}${chip('up', '上传', c.up, 'up')}${chip('down', '下载', c.down, 'down')}${chip('synced', '已同步', c.synced, 'check')}
+    </div></div>`
+    }
+    function listView(c) {
+      c = c || counts()
+      const q = S.search.trim().toLowerCase()
+      const E = S.entries.filter(
+        (e) =>
+          !q ||
+          [e.name, e.id, NS[e.ns].label, e.path || ''].some((v) =>
+            v.toLowerCase().includes(q),
+          ),
+      )
+      const by = (k) => E.filter((e) => kind(e) === k),
+        show = (k) =>
+          S.filter === 'pending'
+            ? k !== 'synced'
+            : S.filter === k || (k === 'blocked' && false)
+      const G = {
+        conflict: by('conflict'),
+        del: by('del'),
+        up: by('up'),
+        down: by('down'),
+        blocked: by('blocked'),
+        synced: by('synced'),
+      }
+      let html = ''
+      if (c.pending === 0 && !q && S.filter === 'pending')
+        html += `<div class="hero-ok"><span class="badge">${ic('check', 'lg')}</span><div><h2>${c.synced} 个 skills 与 Vault 一致</h2><p class="muted">没有需要上传、下载或删除的内容。在任意一台机器上修改 skill 后，回到这里点“重新检查”。</p></div></div>`
+      if (show('conflict') && G.conflict.length)
+        html += group(
+          'conflict',
+          'alert',
+          '需要你决定',
+          G.conflict,
+          '两边都有改动，Skill Sync 不会替你选。未决定的项本次跳过。',
+          `<button class="btn sm" data-act="bulk" data-id="conflict" data-v="local">${ic('up', 'sm')}全部保留本地</button><button class="btn sm" data-act="bulk" data-id="conflict" data-v="remote">${ic('down', 'sm')}全部使用云端</button>`,
+        )
+      if (show('del') && G.del.length)
+        html += group(
+          'del',
+          'trash',
+          '删除',
+          G.del,
+          '删除不会自动执行，逐项确认后才生效。本地删除会移入回收目录。',
+          `<button class="btn sm danger" data-act="bulk" data-id="del" data-v="delete">${ic('trash', 'sm')}全部确认删除</button><button class="btn sm" data-act="bulk" data-id="del" data-v="recover">${ic('undo', 'sm')}全部恢复</button><button class="btn sm ghost" data-act="bulk" data-id="del" data-v="none">全部暂不处理</button>`,
+        )
+      if (show('up') && G.up.length)
+        html += group('up', null, '上传', G.up, '本地 → 云端')
+      if (show('down') && G.down.length)
+        html += group('down', null, '下载', G.down, '云端 → 本地')
+      if (S.filter === 'pending' && G.blocked.length)
+        html += group(
+          'blocked',
+          'ban',
+          '无法同步',
+          G.blocked,
+          '解决阻止原因后重新检查。',
+        )
+      if (S.filter === 'synced' || q) {
+        if (G.synced.length)
+          html += group(
+            'synced',
+            'check',
+            '已同步',
+            G.synced,
+            '与云端一致，无需操作',
+          )
+      } else if (S.filter === 'pending' && c.synced)
+        html += S.syncedOpen
+          ? group(
+              'synced',
+              'check',
+              '已同步',
+              G.synced,
+              '与云端一致，无需操作',
+              `<button class="btn sm ghost" data-act="toggle-synced">收起</button>`,
+            )
+          : `<button class="fold" data-act="toggle-synced">${ic('check')}<span><b class="num">${c.synced}</b> 个 skill 已同步，无需操作</span><span style="flex:1"></span>${ic('chev')}</button>`
+      if (!html)
+        html = `<div class="empty"><p>${q ? `没有匹配“${esc(S.search)}”的 skill` : '这个分类下没有条目'}</p><button class="btn sm" data-act="clear-filter">清除筛选</button></div>`
+      return `<div class="groups${S.applying ? ' busy' : ''}">${html}</div>`
+    }
+    function group(k, icon, title, rows, hint, bulk = '') {
+      let lead = icon ? ic(icon) : ''
+      if (k === 'up' || k === 'down') {
+        const on = rows.filter((e) => S.selected.has(e.action)).length
+        lead = `<input type="checkbox" data-act="group-check" data-id="${k}" aria-label="选择全部${title}" ${on === rows.length ? 'checked' : ''} ${on && on < rows.length ? 'data-ind="1"' : ''}>`
+      }
+      return `<section class="g-${k}"><div class="group-head"><span class="lead">${lead}</span><h2>${title}<span class="n">${rows.length}</span></h2><span class="hint">${hint}</span><div class="bulk">${bulk}</div></div>
+    <div class="rows">${rows.map(row).join('')}</div></section>`
+    }
+    function row(e) {
+      const k = kind(e),
+        open = S.open.has(e.id),
+        c = choiceOf(e),
+        eff = effect(e)
+      let lead,
+        what,
+        act = ''
+      if (isSimple(e)) {
+        const on = S.selected.has(e.action)
+        lead = `<input type="checkbox" data-act="check" data-id="${esc(e.id)}" aria-label="选择 ${esc(e.name)}" ${on ? 'checked' : ''}>`
+        const why =
+          e.status === 'local_update'
+            ? e.isNew
+              ? '云端尚无此 skill'
+              : '本地已修改'
+            : e.isNew
+              ? '本机尚无此 skill'
+              : '云端已修改'
+        what = on
+          ? `<div class="what ${k}">${ic(k)}<span>${k === 'up' ? '上传到云端' : '下载到本地'} <span class="because">· ${why}</span></span></div>`
+          : `<div class="what off"><span>本次跳过 · ${why}</span></div>`
+      } else if (k === 'conflict' || k === 'del') {
+        const base =
+          k === 'conflict'
+            ? REASON[e.reason]
+            : e.status === 'local_deleted'
+              ? '本地已删除，云端仍保留'
+              : '云端已删除，本地仍保留'
+        const OUT = {
+          up: [
+            'up',
+            'up',
+            e.status === 'remote_deleted'
+              ? '重新上传到云端'
+              : '用本地版本覆盖云端',
+          ],
+          down: [
+            'down',
+            'down',
+            e.local ? '用云端版本覆盖本地' : '从云端重新下载',
+          ],
+          delRemote: ['del', 'trash', '从云端删除'],
+          delLocal: ['del', 'trash', '删除本地（移入回收目录）'],
+        }
+        lead = eff
+          ? `<span class="ok">${ic('check')}</span>`
+          : k === 'conflict' && !c
+            ? '<span class="pend" title="待决定"></span>'
+            : '<span class="skip" title="本次跳过"></span>'
+        what = eff
+          ? `<div class="what ${OUT[eff][0]}">${ic(OUT[eff][1])}<span>${OUT[eff][2]} <span class="because">· ${base}</span></span></div>`
+          : `<div class="what ${k === 'conflict' && !c ? 'warn' : 'off'}"><span>${base}${c === 'skip' ? ' · 本次跳过' : ''}</span></div>`
+        act = `<div class="seg" role="group" aria-label="${esc(e.name)} 的处理方式">${options(
+          e,
+        )
+          .map(
+            ([v, label, tone]) =>
+              `<button data-act="choose" data-id="${esc(e.id)}" data-v="${v}" data-tone="${tone}" aria-pressed="${c === v}">${label}</button>`,
+          )
+          .join('')}</div>`
+      } else if (k === 'blocked') {
+        lead = `<span style="color:var(--destructive)">${ic('ban')}</span>`
+        what = `<div class="what del"><span>${esc(e.blocked)}</span></div>`
+        act = `<button class="btn sm" data-act="go-sec" data-id="limits">调整资源限制</button>`
+      } else {
+        lead = `<span style="color:var(--success)">${ic('check')}</span>`
+        what = `<div class="what off"><span class="mono" style="font-size:12px">${esc(e.path)}</span></div>`
+      }
+      return `<div class="row${!eff && k !== 'synced' && k !== 'blocked' && !(k === 'conflict' && !c) ? ' dim' : ''}">
+    <div class="row-main"><span class="lead">${lead}</span>
+      <div class="ident"><span class="name" title="${esc(e.id)}">${esc(e.name)}</span><span class="ns">${NS[e.ns].label}</span>${e.isNew ? '<span class="newtag">新增</span>' : ''}${e.warnings.length ? `<span style="color:var(--warning);display:flex" title="${e.warnings.length} 条提示">${ic('info', 'sm')}</span>` : ''}</div>
+      ${what}<div class="act">${act}</div>
+      <button class="more" data-act="toggle" data-id="${esc(e.id)}" aria-expanded="${open}" aria-label="${open ? '收起' : '展开'} ${esc(e.name)} 的详情">${ic('chev')}</button></div>
+    ${open ? detail(e) : ''}</div>`
+    }
+    function detail(e) {
+      const cell = (label, h, isBase) => {
+        let cls, st
+        if (isBase) {
+          cls = h ? 'same' : 'none'
+          st = h ? '上次同步' : '从未同步'
+        } else if (!h) {
+          cls = e.base ? 'gone' : 'none'
+          st = e.base ? '已删除' : '不存在'
+        } else if (h === e.base) {
+          cls = 'same'
+          st = '未变'
+        } else {
+          cls = 'chg'
+          st = e.base ? '已修改' : '新增'
+        }
+        return `<div class="${cls}"><small>${label}<i>${st}</i></small><code>${short(h)}</code></div>`
+      }
+      return `<div class="detail">
+    <div><h3>位置</h3><dl class="kv">
+      <dt>Skill ID</dt><dd><span class="mono">${esc(e.id)}</span></dd>
+      <dt>本地路径</dt><dd>${e.path ? `<span class="mono" title="${esc(e.path)}">${esc(e.path)}</span><button class="btn ghost sm icon" data-act="open-folder" data-id="${esc(e.id)}" title="打开目录" aria-label="打开目录">${ic('folder', 'sm')}</button><button class="btn ghost sm icon" data-act="copy" data-v="${esc(e.path)}" title="复制路径" aria-label="复制路径">${ic('copy', 'sm')}</button>` : '<span class="muted">本机不存在</span>'}</dd>
+    </dl></div>
+    <div><h3>内容 hash 三方对比</h3><div class="tri">${cell('基线', e.base, true)}${cell('本地', e.local)}${cell('云端', e.remote)}</div></div>
+    ${e.warnings.length ? `<ul class="warns">${e.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}</div>`
+    }
+    function loadingView() {
+      const L = S.loading,
+        pct = Math.round((L.cur / L.total) * 100)
+      return `<div class="scan" aria-live="polite"><div class="line"><b>${L.cur < L.total ? '扫描 skills' : '准备 skill 包'}</b><span class="muted num">${L.cur}/${L.total}</span></div><div class="bar"><i style="width:${pct}%"></i></div><small class="muted">缓存：复用 ${Math.max(0, L.cur - 3)} 项，重新计算 ${Math.min(3, L.cur)} 项</small></div>
+    <div class="rows">${[62, 48, 70, 40, 56].map((w) => `<div class="skel"><i style="width:16px;height:16px"></i><i style="width:${w * 2}px"></i><i style="width:${w}px"></i><span style="flex:1"></span><i style="width:140px"></i></div>`).join('')}</div>`
+    }
+    function errorView() {
+      return `<div class="callout danger">${ic('alert')}<div class="grow"><strong>加载同步计划失败</strong>无法连接 api.github.com（请求超时）。检查网络或代理后重试；本地文件没有被改动。</div><button class="btn sm" data-act="recheck">${ic('refresh', 'sm')}重试</button></div>`
+    }
+    function recoveryView() {
+      const r = S.recovery
+      return `<header class="sync-head"><div><h1>上次同步中断，需要先恢复</h1><div class="meta"><span>恢复完成前不能开始新的同步，已完成的步骤不会重复执行。</span></div></div></header>
+    <div class="recovery"><h2>${ic('alert', 'lg')}本地文件替换未完成</h2><p>${esc(r.message)}</p>
+      <div class="steps"><div class="done">${ic('check')}已完成 ${r.done} 个动作（含云端 commit <span class="mono">${S.commit.slice(0, 7)}</span>）</div><div class="todo">${ic('clock')}待完成 ${r.pending} 个动作</div></div>
+      <div class="bar"><i style="width:${(r.done / (r.done + r.pending)) * 100}%;background:var(--warning)"></i></div>
+      <div class="acts"><button class="btn primary" data-act="resume" ${r.busy ? 'disabled' : ''}>${r.busy ? ic('loader', 'spin') : ''}继续恢复</button><span class="muted" style="font-size:12.5px">阶段：${r.phase}</span></div></div>`
+    }
+    function applyBar() {
+      if (S.recovery || S.error || S.loading) return ''
+      const c = counts()
+      if (c.pending === 0 && !S.applying) return ''
+      if (S.applying) {
+        const A = S.applying
+        return `<footer class="applybar"><div class="in"><div class="prog" aria-live="polite"><div class="line"><span><b>${A.label}</b>${A.of ? ` <span class="num muted">${A.i}/${A.of}</span>` : ''}${A.skill ? ` <span class="mono muted" style="font-size:12px">${esc(A.skill)}</span>` : ''}</span><span class="muted">同步中，请勿关闭应用</span></div><div class="bar"><i style="width:${A.pct}%"></i></div></div></div></footer>`
+      }
+      const s = summary(),
+        needAck = S.guard && s.hasDel,
+        can = (s.n > 0 || S.baseUpdates > 0) && (!needAck || S.guardAck)
+      const pill = (k, icon, n, label) =>
+        n ? `<span class="pill ${k}">${ic(icon, 'sm')}${label} ${n}</span>` : ''
+      return `<footer class="applybar"><div class="in">
+    <div class="sum"><div class="l1">${s.n ? `<strong>已选 <span class="num">${s.n}</span> 项</strong>${pill('up', 'up', s.up, '上传')}${pill('down', 'down', s.down, '下载')}${pill('del', 'trash', s.delRemote, '删云端')}${pill('del', 'trash', s.delLocal, '删本地')}` : '<strong>未选择任何变更</strong>'}</div>
+      <div class="l2"><span>${ic('commit', 'sm')}${s.commit ? '将创建 1 个 GitHub commit' : '不会产生 GitHub commit'}</span>${S.baseUpdates ? `<span>更新 ${S.baseUpdates} 个本机基线</span>` : ''}${s.undecided ? `<span class="warn">${ic('alert', 'sm')}${s.undecided} 个冲突未决定，本次跳过</span>` : ''}</div></div>
+    <div class="right">${needAck ? `<label class="ack"><input type="checkbox" id="ack" data-act="ack" ${S.guardAck ? 'checked' : ''}>我确认这 ${s.delRemote + s.delLocal} 项删除</label>` : ''}
+      <button class="btn primary lg" data-act="apply" ${can ? '' : 'disabled'}>执行同步${s.n ? ` · ${s.n} 项` : ''}</button></div>
+  </div></footer>`
+    }
+
+    /* ===================== 渲染：设置页 ===================== */
+    const SECS = [
+      ['look', '外观与语言'],
+      ['vault', 'GitHub Vault'],
+      ['ignore', '忽略规则'],
+      ['limits', '资源限制'],
+      ['cache', 'Skill 包缓存'],
+      ['roots', 'Skill 目录'],
+      ['about', '关于'],
+    ]
+    const fmt = (b) =>
+      b >= 1073741824
+        ? (b / 1073741824).toFixed(1) + ' GiB'
+        : Math.round(b / 1048576) + ' MiB'
+    function settingsPage() {
+      const g = S.cfg,
+        bad = g.single > g.total,
+        segs = (opts, cur, act) =>
+          `<div class="seg lg" role="group">${opts.map(([v, l, i]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${cur === v}">${i ? ic(i, 'sm') : ''}${l}</button>`).join('')}</div>`
+      const num = (id, label, help, val, unit, isBad) =>
+        `<div class="srow"><div class="lab"><b>${label}</b><small>${help}</small></div><div class="ctl"><label class="unit${isBad ? ' bad' : ''}"><input id="lim-${id}" data-input="limit" data-id="${id}" type="number" min="${id === 'autoDel' ? 0 : 1}" step="1" value="${val}" aria-label="${label}"><span>${unit}</span></label></div></div>`
+      const pct = (S.cache.bytes / S.cache.capacity) * 100
+      return `<div class="page"><div class="settings">
+    <nav class="snav" aria-label="设置分区">${SECS.map(([k, l]) => `<button data-act="sec" data-id="${k}" class="${S.sec === k ? 'on' : ''}">${l}</button>`).join('')}
+      <div class="saved" id="saved">${S.saving ? ic('loader', 'sm spin') + '保存中…' : ic('check', 'sm') + '更改会自动保存'}</div></nav>
+    <div class="secs">
+      <section class="sec" id="sec-look"><h2>外观与语言</h2>
+        <div class="srows"><div class="srow"><div class="lab"><b>主题</b></div><div class="ctl">${segs(
+          [
+            ['light', '亮色', 'sun'],
+            ['dark', '暗色', 'moon'],
+            ['system', '跟随系统', 'monitor'],
+          ],
+          S.theme,
+          'theme',
+        )}</div></div>
+          <div class="srow"><div class="lab"><b>语言</b></div><div class="ctl">${segs(
+            [
+              ['zh', '简体中文'],
+              ['en', 'English'],
+            ],
+            S.lang,
+            'lang',
+          )}</div></div></div></section>
+
+      <section class="sec" id="sec-vault"><h2>GitHub Vault</h2><p>skills 同步到这个仓库。更换仓库或分支需要重新走一遍配置流程。</p>
+        <div class="srows"><div class="vcard"><div><div class="repo">${GH}${VAULT.owner}/${VAULT.repo}<span class="tag">${VAULT.branch}</span><span class="tag">${ic('lock', 'sm')}私有</span></div>
+            <div class="sub"><span><span class="led"></span> 已授权 · @${VAULT.user}</span><span>本机 ${VAULT.device}</span><span>云端版本 <span class="mono">${S.commit.slice(0, 7)}</span></span></div></div>
+            <button class="btn" data-act="reconfigure">${ic('refresh')}重新配置 Vault</button></div>
+          <details class="tech"><summary>技术详情</summary><dl class="kv"><dt>GitHub App</dt><dd><span class="mono">${VAULT.slug}</span></dd><dt>Installation ID</dt><dd><span class="mono">${VAULT.installation}</span></dd><dt>Repository ID</dt><dd><span class="mono">${VAULT.repoId}</span></dd><dt>完整 commit</dt><dd><span class="mono">${S.commit}${hash(S.commit).slice(0, 30)}</span></dd></dl></details></div>
+        <div class="danger-zone"><div class="srow"><div class="lab"><b>断开 GitHub</b><small>清除本机授权并归档本机同步基线。不会卸载 GitHub App，也不会删除仓库里的内容。</small></div><div class="ctl"><button class="btn danger" data-act="disconnect">断开 GitHub</button></div></div></div></section>
+
+      <section class="sec" id="sec-ignore"><h2>忽略规则</h2><p>每行一个 glob。匹配的文件不参与打包，也不影响 skill 的 hash、大小和同步状态。</p>
+        <div style="margin-top:10px"><textarea class="textarea" id="ignore" data-input="ignore" spellcheck="false" aria-label="忽略规则">${esc(g.ignore)}</textarea>
+        <small class="muted num">${g.ignore.split('\n').filter((l) => l.trim()).length} 条规则 · <span class="mono">*</span> 匹配单层路径内的任意字符</small></div></section>
+
+      <section class="sec" id="sec-limits"><h2>资源限制</h2><p>超过限制的 skill 会出现在同步页的“无法同步”里，不会被上传或解包。</p>
+        <div class="srows">
+          ${num('zip', '单个 Skill 压缩上限', '上传到 Vault 的压缩包大小。', g.zip, 'MiB')}
+          ${num('files', '单个 Skill 最大文件数', '同时保护本地打包与远端解包。', g.files, '个文件')}
+          ${num('single', '单文件解压上限', '不能大于下面的累计解压上限。', g.single, 'MiB', bad)}
+          ${num('total', '单个 Skill 累计解压上限', '一个 skill 解压后的总大小。', g.total, 'MiB', bad)}
+          ${num('autoDel', '自动删除上限', '一次计划的删除超过这个数量时，需要额外勾选确认。填 0 表示任何删除都要确认。', g.autoDel, '项')}
+          ${bad ? `<div class="err">${ic('alert')}单文件解压上限不能大于累计解压上限。修正前不会保存。</div>` : ''}
+        </div></section>
+
+      <section class="sec" id="sec-cache"><h2>Skill 包缓存</h2><p>缓存的 skill 包让重复检查更快。只保存在本机，随时可以重建。</p>
+        <div class="srows"><div class="srow"><div class="lab"><div class="meter"><div class="bar"><i style="width:${pct}%"></i></div><small><span class="num">${S.cache.entries} 个缓存包 · 已用 ${fmt(S.cache.bytes)}</span><span class="num">上限 ${fmt(S.cache.capacity)}</span></small></div></div>
+          <div class="ctl"><button class="btn" data-act="clear-cache" ${S.cache.entries ? '' : 'disabled'}>${ic('trash')}清空缓存</button></div></div></div></section>
+
+      <section class="sec" id="sec-roots"><h2>Skill 目录</h2><p>目录由各工具约定，只读。项目级目录不在管理范围内。</p>
+        <div class="srows">${Object.entries(NS)
+          .map(([k, n]) => {
+            const cnt = S.entries.filter((e) => e.ns === k && e.local).length
+            return `<div class="srow root"><div class="lab"><b>${n.title}</b><span class="path">${esc(n.root)}</span></div><div class="ctl"><span class="tag ok">就绪${cnt ? ` · ${cnt} 个` : ''}</span><button class="btn sm" data-act="open-root" data-id="${k}">${ic('ext', 'sm')}打开</button><button class="btn sm ghost icon" data-act="copy" data-v="${esc(n.root)}" title="复制路径" aria-label="复制路径">${ic('copy', 'sm')}</button></div></div>`
+          })
+          .join('')}</div></section>
+
+      <section class="sec" id="sec-about"><h2>关于</h2>
+        <div class="srows"><div class="srow"><div class="lab"><b>Skill Sync 1.0.1</b><small>本地优先，无遥测。如果它对你有帮助，可以在 GitHub 上点个 Star。</small></div><div class="ctl"><button class="btn" data-act="star">${ic('star')}在 GitHub 上支持</button></div></div></div></section>
+    </div></div></div>`
+    }
+    function watchSections() {
+      const v = $('.view')
+      if (!v || v._w) return
+      v._w = true
+      v.addEventListener(
+        'scroll',
+        () => {
+          if (S.route !== 'settings') return
+          let cur = SECS[0][0]
+          for (const [k] of SECS) {
+            const el = $('#sec-' + k)
+            if (
+              el &&
+              el.getBoundingClientRect().top - v.getBoundingClientRect().top <
+                80
+            )
+              cur = k
+          }
+          if (v.scrollTop + v.clientHeight >= v.scrollHeight - 4)
+            cur = SECS[SECS.length - 1][0]
+          if (cur !== S.sec) {
+            S.sec = cur
+            document
+              .querySelectorAll('.snav button')
+              .forEach((b) => b.classList.toggle('on', b.dataset.id === cur))
+          }
+        },
+        { passive: true },
+      )
+    }
+    let saveT
+    function autosave() {
+      S.saving = true
+      paintSaved()
+      clearTimeout(saveT)
+      saveT = setTimeout(() => {
+        S.saving = false
+        paintSaved()
+      }, 700)
+    }
+    const paintSaved = () => {
+      const el = $('#saved')
+      if (el)
+        el.innerHTML = S.saving
+          ? ic('loader', 'sm spin') + '保存中…'
+          : ic('check', 'sm') + '已保存'
+    }
+
+    /* ===================== 渲染：首次配置 ===================== */
+    const OB_STEPS = [
+      '授权 GitHub',
+      '新建 Vault 仓库',
+      '安装 GitHub App',
+      '选择分支',
+      '检查 Vault',
+      '完成绑定',
+    ]
+    const stepOf = (st) =>
+      ({
+        intro: 0,
+        authorize: 1,
+        device_pending: 1,
+        create_repository: 2,
+        install_app: 3,
+        repository_scope_blocked: 3,
+        confirm_public_repository: 4,
+        select_branch: 4,
+        checking_vault: 4,
+        vault_unavailable: 4,
+        confirm_initialize: 5,
+        invalid_manifest: 5,
+        rate_limited: 5,
+        ready: 6,
+      })[st]
+    function onboarding() {
+      const o = S.ob,
+        cur = stepOf(o.stage),
+        done = [
+          '@' + VAULT.user,
+          '',
+          '仅授权 ' + VAULT.repo,
+          o.branch,
+          'manifest.json 就绪',
+        ]
+      return `<div class="ob"><aside class="ob-rail">
+      <div><div class="brand">${LOGO}<span style="display:inline">Skill Sync</span></div><h2>${o.reconfigure ? '重新配置 Vault' : '连接你的 Vault，之后才能进入同步'}</h2></div>
+      <ol class="steps" aria-label="配置进度，第 ${Math.max(cur, 1)}/6 步">${OB_STEPS.map(
+        (l, i) => {
+          const n = i + 1,
+            st = n < cur ? 'done' : n === cur ? 'cur' : ''
+          return `<li class="${st}"${st === 'cur' ? ' aria-current="step"' : ''}><span class="mk">${st === 'done' ? ic('check', 'sm') : n}</span><div><b>${l}</b>${st === 'done' ? `<small>${esc(done[i] || '')}</small>` : ''}</div></li>`
+        },
+      ).join('')}</ol>
+      <div class="foot"><div class="lang" role="group" aria-label="语言"><button class="on" data-act="lang" data-v="zh">中文</button><button data-act="lang" data-v="en">EN</button></div>
+        ${o.reconfigure ? `<button class="btn ghost sm" data-act="cancel-reconfigure">取消重新配置</button>` : ''}</div>
+    </aside>
+    <main class="ob-main"><div class="panel">
+      ${o.msg ? `<div class="callout danger">${ic('alert')}<div class="grow">${esc(o.msg)}</div></div>` : ''}
+      ${stage(o)}</div></main></div>`
+    }
+    const busyBtn = (label, act, o, cls = 'primary lg') =>
+      `<button class="btn ${cls}" data-act="${act}" ${o.busy ? 'disabled' : ''}>${o.busy ? ic('loader', 'spin') : ''}${label}</button>`
+    const eyebrow = (n) => `<div class="eyebrow">第 ${n}/6 步</div>`
+    function stage(o) {
+      const repo = `${VAULT.owner}/${VAULT.repo}`
+      switch (o.stage) {
+        case 'intro':
+          return `<h1>让每台电脑上的 skills 保持一致</h1>
+      <p class="lede">Skill Sync 把 Claude Code、Codex 和 Agent 的 skills 同步到一个你自己的 GitHub 仓库。没有第三方服务器，每次变更都先给你看再执行。</p>
+      <div class="flow"><div class="node"><b>${ic('laptop')}这台电脑</b><small>~/.claude/skills<br>~/.codex/skills<br>~/.agents/skills</small></div>
+        <div class="arr">${ic('swap', 'lg')}</div>
+        <div class="node v"><b>${GH}你的 Vault 仓库</b><small>推荐私有，仅你可见<br>manifest.json + blobs/</small></div>
+        <div class="arr">${ic('swap', 'lg')}</div>
+        <div class="node"><b>${ic('laptop')}其他电脑</b><small>连接同一个 Vault<br>即可下载</small></div></div>
+      <div class="box"><b style="color:var(--strong-foreground)">接下来大约 3 分钟</b>
+        <div class="perm"><span>${ic('check', 'sm')}用 GitHub 授权</span><span>${ic('check', 'sm')}新建一个仓库当作 Vault</span><span>${ic('check', 'sm')}只把这一个仓库授权给 Skill Sync</span></div></div>
+      <div class="acts"><button class="btn primary lg" data-act="ob-next" data-id="authorize">开始配置</button></div>`
+        case 'authorize':
+          return `${eyebrow(1)}<h1>连接 GitHub</h1>
+      <p class="lede">Skill Sync 会给你一个验证码，你在 GitHub 网页上输入它来完成授权。应用里不保存密码，凭据存放在系统钥匙串。</p>
+      <div class="acts">${`<button class="btn primary lg" data-act="ob-start" ${o.busy ? 'disabled' : ''}>${o.busy ? ic('loader', 'spin') : GH}使用 GitHub 授权</button>`}</div>`
+        case 'device_pending':
+          return `${eyebrow(1)}<h1>在 GitHub 输入验证码</h1>
+      <p class="lede">打开验证页面，输入下面的验证码并确认。授权完成后这里会自动继续。</p>
+      <div class="box"><div class="code" aria-label="验证码 WDJB-MJHT">${[...'WDJB'].map((c) => `<span>${c}</span>`).join('')}<i></i>${[...'MJHT'].map((c) => `<span>${c}</span>`).join('')}
+          <button class="btn sm" data-act="copy" data-v="WDJB-MJHT" style="margin-left:8px">${ic('copy', 'sm')}复制</button></div>
+        <div class="acts"><button class="btn primary" data-act="ob-verify">打开 GitHub 验证页面${ic('ext')}</button></div>
+        <div class="wait">${ic('loader', 'spin')}<span>等待 GitHub 完成授权… 验证码 <span class="num" id="cd">${countdown()}</span> 后过期</span></div></div>
+      <div class="acts" style="margin-left:-10px"><button class="btn ghost sm" data-act="ob-next" data-id="authorize">重新获取验证码</button></div>`
+        case 'create_repository':
+          return `${eyebrow(2)}<h1>新建一个仓库当作 Vault</h1>
+      <p class="lede">Vault 是存放 skills 的 GitHub 仓库。建议专门新建一个，不要和代码仓库混用。</p>
+      <div class="box"><div class="todo"><span class="n">1</span><b>在 GitHub 新建仓库</b><p>名字随意，例如 <span class="mono">skill-vault</span>。可见性选 <b>Private</b>，这样 skills 只有你能看到。</p><div class="a"><button class="btn" data-act="ob-open" data-v="github.com/new">打开 GitHub 新建页面${ic('ext')}</button></div></div>
+        <div class="todo"><span class="n">2</span><b>建好后回到这里</b><p>已经有现成的 Vault 仓库也可以直接继续。</p></div></div>
+      <div class="acts"><button class="btn primary lg" data-act="ob-next" data-id="install_app">仓库已建好，下一步</button></div>`
+        case 'install_app':
+        case 'repository_scope_blocked': {
+          const blocked = o.stage === 'repository_scope_blocked'
+          return `${eyebrow(3)}<h1>${blocked ? '授权范围需要缩小' : '只把 Vault 仓库授权给 Skill Sync'}</h1>
+      <p class="lede">${blocked ? '当前 GitHub App 能访问不止一个仓库。Skill Sync 要求只授权一个 Vault 仓库，请在 GitHub 上调整后重新检查。' : '在 GitHub 上安装 Skill Sync 的 GitHub App，并且只勾选刚才的 Vault 仓库。'}</p>
+      <div class="gh"><span class="cap">GITHUB 页面上这样选 · REPOSITORY ACCESS</span>
+        <div class="opt"><span class="radio"></span><span class="no">All repositories</span><span class="note bad">不要选这个</span></div>
+        <div class="opt"><span class="radio on"></span><span>Only select repositories</span><span class="note good">选这个</span></div>
+        <div><span class="pick">${ic('lock', 'sm')}${VAULT.repo}</span> <span class="muted" style="font-size:12.5px">只勾选 Vault 这一个</span></div></div>
+      <div class="perm"><span>${ic('check', 'sm')}Contents：读写</span><span>${ic('check', 'sm')}Metadata：只读</span><span class="muted">不会请求其他权限</span></div>
+      <div class="acts"><button class="btn lg" data-act="ob-open" data-v="github.com/apps/${VAULT.slug}">${blocked ? '调整 GitHub App 安装' : '安装 GitHub App'}${ic('ext')}</button>${busyBtn(blocked ? '重新检查' : '已安装，检查', 'ob-check-install', o)}</div>`
+        }
+        case 'confirm_public_repository':
+          return `${eyebrow(4)}<div class="statusico warn">${ic('alert', 'lg')}</div><h1>${repo} 是公开仓库</h1>
+      <p class="lede">公开仓库里的 skill 文件和 Git 历史对所有人可见，还可能被复制或缓存。确认里面不含敏感信息再继续，或者换一个私有仓库。</p>
+      <div class="acts"><button class="btn lg" data-act="ob-open" data-v="github.com/new">新建其他 Vault 仓库${ic('ext')}</button><button class="btn lg" data-act="ob-open" data-v="github.com/apps/${VAULT.slug}">调整 GitHub App 安装${ic('ext')}</button></div>
+      <div class="acts">${busyBtn('继续使用公开仓库', 'ob-next-busy', o, 'danger')}</div>`
+        case 'select_branch':
+          return `${eyebrow(4)}<h1>选择 Vault 分支</h1>
+      <p class="lede">已找到仓库 <span class="mono">${repo}</span>。Skill Sync 只读写你选的这一个分支。</p>
+      <label style="display:grid;gap:6px;justify-items:start"><b>分支</b><select class="sel" id="branch" data-change="branch">${['main', 'develop', 'backup-2026'].map((b) => `<option${o.branch === b ? ' selected' : ''}>${b}</option>`).join('')}</select></label>
+      <div class="acts">${busyBtn('检查 Vault', 'ob-check-vault', o)}</div>`
+        case 'checking_vault':
+          return `${eyebrow(4)}<h1>正在检查 Vault…</h1><div class="wait">${ic('loader', 'spin')}<span>读取 <span class="mono">${repo}@${o.branch}</span> 的 manifest.json</span></div>`
+        case 'vault_unavailable':
+          return `${eyebrow(4)}<div class="statusico warn">${ic('alert', 'lg')}</div><h1>Vault 当前不可用</h1>
+      <p class="lede">当前授权无权访问 <span class="mono">${repo}</span>。请检查 GitHub App 的仓库范围、分支是否存在，然后重试。</p>
+      <div class="acts">${busyBtn('重试', 'ob-check-vault', o)}<button class="btn lg" data-act="ob-open" data-v="github.com/apps/${VAULT.slug}">调整 GitHub App 安装${ic('ext')}</button></div>`
+        case 'confirm_initialize':
+          return `${eyebrow(5)}<h1>初始化这个 Vault</h1>
+      <p class="lede">仓库 <span class="mono">${repo}@${o.branch}</span> 还没有 Vault 结构。初始化会创建一个只包含 <span class="mono">manifest.json</span> 的 commit，不会改动仓库里的其他文件。</p>
+      <div class="box mono" style="font-size:12.5px;gap:2px"><span class="muted">将创建</span><span>+ manifest.json</span></div>
+      <div class="acts">${busyBtn('确认并创建初始化 commit', 'ob-init', o)}</div>`
+        case 'invalid_manifest':
+          return `${eyebrow(5)}<div class="statusico bad">${ic('alert', 'lg')}</div><h1>manifest.json 格式无效</h1>
+      <p class="lede">仓库里已有 <span class="mono">manifest.json</span>，但 Skill Sync 读不懂它。为了不破坏你的数据，应用不会覆盖它。请在仓库里修复或删除该文件后重新检查。</p>
+      <div class="acts"><button class="btn lg" data-act="ob-open" data-v="github.com/${repo}">打开仓库${ic('ext')}</button>${busyBtn('重新检查', 'ob-check-vault', o)}</div>`
+        case 'rate_limited':
+          return `${eyebrow(5)}<div class="statusico warn">${ic('clock', 'lg')}</div><h1>GitHub 暂时限制了请求</h1>
+      <p class="lede">GitHub API 请求受限，请在 14:32 后重试。已完成的步骤不会丢失。</p><div class="acts">${busyBtn('重试', 'ob-check-vault', o)}</div>`
+        case 'ready':
+          return `${eyebrow(6)}<div class="statusico">${ic('check', 'lg')}</div><h1>Vault 已就绪</h1>
+      <p class="lede">确认下面的信息无误后绑定。绑定后会进入同步页，你可以先预览再决定上传或下载什么。</p>
+      <div class="box"><dl class="kv"><dt>仓库</dt><dd><span class="mono">${repo}</span><span class="tag">${ic('lock', 'sm')}私有</span></dd><dt>分支</dt><dd><span class="mono">${o.branch}</span></dd><dt>GitHub 用户</dt><dd>@${VAULT.user}</dd></dl></div>
+      ${o.rebind ? `<div class="callout">${ic('alert')}<label class="grow" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="rebind-ok" data-act="ob-rebind-ok" ${o.rebindOk ? 'checked' : ''} style="margin-top:3px"><span><strong>你正在切换到另一个 Vault</strong>我确认切换，并归档当前本机同步基线。</span></label></div>` : ''}
+      <div class="acts">${busyBtn('绑定此 Vault', 'ob-bind', o)}</div>`
+      }
+      return ''
+    }
+    const countdown = () => {
+      const s = Math.max(0, Math.round((S.ob.expires - Date.now()) / 1000))
+      return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+    }
+    setInterval(() => {
+      const el = $('#cd')
+      if (el) el.textContent = countdown()
+    }, 1000)
+    function obGo(stage, msg = '') {
+      S.ob.stage = stage
+      S.ob.msg = msg
+      S.ob.busy = false
+      render()
+      const m = $('.ob-main')
+      if (m) m.scrollTop = 0
+    }
+    function obBusy(ms, then) {
+      S.ob.busy = true
+      S.ob.msg = ''
+      render()
+      setTimeout(() => {
+        S.ob.busy = false
+        then()
+      }, ms)
+    }
+
+    /* ===================== 浮层 ===================== */
+    function toast(msg, icon = 'check') {
+      const t = document.createElement('div')
+      t.className = 'toast'
+      t.innerHTML = ic(icon) + `<span>${esc(msg)}</span>`
+      $('#toasts').append(t)
+      setTimeout(() => t.remove(), 3200)
+    }
+    let modalCb = null
+    function modal(title, body, label, cb, danger = true) {
+      modalCb = cb
+      $('#modal').innerHTML =
+        `<div class="scrim" data-act="modal-x"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-t"><h2 id="m-t">${title}</h2><p>${body}</p><div class="acts"><button class="btn" data-act="modal-x">取消</button><button class="btn ${danger ? 'danger solid' : 'primary'}" data-act="modal-ok">${label}</button></div></div></div>`
+      $('#modal .btn').focus()
+    }
+    const closeModal = () => {
+      $('#modal').innerHTML = ''
+      modalCb = null
+    }
+
+    /* ===================== 模拟：检查 / 执行 ===================== */
+    function recheck() {
+      if (S.error) {
+        S.error = false
+        S.scenario = 'pending'
+      }
+      const total = S.entries.length || SCENARIOS.pending.entries().length
+      S.loading = { cur: 0, total }
+      S.notice = ''
+      render()
+      const t = setInterval(() => {
+        S.loading.cur = Math.min(total, S.loading.cur + Math.ceil(total / 9))
+        if (S.loading.cur >= total) {
+          clearInterval(t)
+          setTimeout(() => {
+            const k = S.scenario
+            if (!S.entries.length) loadScenario(k === 'error' ? 'pending' : k)
+            S.loading = null
+            S.checked = '刚刚'
+            render()
+          }, 350)
+        }
+        render()
+      }, 160)
+    }
+    function apply() {
+      const s = summary(),
+        names = (k) =>
+          S.entries.filter((e) => effect(e) === k).map((e) => e.id),
+        steps = []
+      const add = (label, ids) =>
+        ids.forEach((id, i) =>
+          steps.push({ label, skill: id, i: i + 1, of: ids.length }),
+        )
+      add('准备 skill 包', names('up'))
+      add('应用下载内容', names('down'))
+      add('删除本地 skill', names('delLocal'))
+      add('准备上传内容', names('up'))
+      add('准备删除云端内容', names('delRemote'))
+      if (s.commit) steps.push({ label: '发布一个 GitHub commit' })
+      steps.push({ label: '保存同步状态' }, { label: '清理临时文件' })
+      let i = 0
+      const tick = () => {
+        if (i >= steps.length) return finish(s)
+        S.applying = {
+          ...steps[i],
+          pct: Math.round(((i + 1) / steps.length) * 100),
+        }
+        i++
+        render()
+        setTimeout(tick, 300)
+      }
+      tick()
+    }
+    function finish(s) {
+      S.entries = S.entries.flatMap((e) => {
+        const k = effect(e)
+        if (!k) return [e]
+        if (k === 'delRemote' || k === 'delLocal') return []
+        const h = k === 'up' ? e.local : e.remote
+        return [
+          {
+            ...e,
+            status: 'synced',
+            reason: null,
+            isNew: false,
+            base: h,
+            local: h,
+            remote: h,
+            path: NS[e.ns].root + '\\' + e.name,
+            warnings: [],
+          },
+        ]
+      })
+      if (s.commit) S.commit = hash(S.commit + Date.now()).slice(0, 10)
+      S.selected = new Set()
+      S.decisions = {}
+      S.applying = null
+      S.guardAck = false
+      S.baseUpdates = 0
+      S.notice = ''
+      S.checked = '刚刚'
+      if (!S.entries.some(isDel)) S.guard = false
+      render()
+      toast(
+        `同步完成：应用 ${s.n} 项${s.commit ? '，已创建 commit ' + S.commit.slice(0, 7) : ''}`,
+      )
+    }
+
+    /* ===================== 事件 ===================== */
+    const entry = (id) => S.entries.find((e) => e.id === id)
+    function applyTheme() {
+      const r = document.documentElement
+      S.theme === 'system'
+        ? r.removeAttribute('data-theme')
+        : r.setAttribute('data-theme', S.theme)
+    }
+    document.addEventListener('click', (ev) => {
+      const el = ev.target.closest('[data-act]')
+      if (!el) return
+      const { act, id, v } = el.dataset,
+        e = id && entry(id)
+      if (act === 'modal-x') {
+        if (ev.target === el) closeModal()
+        return
+      }
+      if (act === 'modal-ok') {
+        const cb = modalCb
+        closeModal()
+        cb && cb()
+        return
+      }
+      switch (act) {
+        case 'go':
+          S.route = id
+          break
+        case 'go-sec':
+          S.route = 'settings'
+          S.sec = id
+          render()
+          requestAnimationFrame(() => {
+            const t = $('#sec-' + id)
+            t && t.scrollIntoView({ block: 'start' })
+          })
+          return
+        case 'sec':
+          S.sec = id
+          $('#sec-' + id).scrollIntoView({ behavior: 'smooth', block: 'start' })
+          document
+            .querySelectorAll('.snav button')
+            .forEach((b) => b.classList.toggle('on', b.dataset.id === id))
+          return
+        case 'filter':
+          S.filter = id
+          break
+        case 'clear-filter':
+          S.filter = 'pending'
+          S.search = ''
+          break
+        case 'toggle':
+          S.open.has(id) ? S.open.delete(id) : S.open.add(id)
+          break
+        case 'toggle-synced':
+          S.syncedOpen = !S.syncedOpen
+          break
+        case 'check':
+          el.checked ? S.selected.add(e.action) : S.selected.delete(e.action)
+          break
+        case 'group-check':
+          S.entries
+            .filter((x) => kind(x) === id)
+            .forEach((x) =>
+              el.checked
+                ? S.selected.add(x.action)
+                : S.selected.delete(x.action),
+            )
+          break
+        case 'choose':
+          setChoice(e, v)
+          break
+        case 'bulk':
+          S.entries
+            .filter((x) => kind(x) === id)
+            .forEach((x) => {
+              if (id === 'conflict') {
+                S.decisions[x.id] =
+                  v === 'remote'
+                    ? x.reason === 'local_deleted_remote_changed'
+                      ? 'restore_remote'
+                      : x.reason === 'remote_deleted_local_changed'
+                        ? 'accept_delete'
+                        : 'use_remote'
+                    : x.reason === 'local_deleted_remote_changed'
+                      ? 'delete_remote'
+                      : 'keep_local'
+              } else
+                setChoice(
+                  x,
+                  v === 'recover'
+                    ? x.status === 'local_deleted'
+                      ? 'restore_remote'
+                      : 'keep_local'
+                    : v,
+                )
+            })
+          break
+        case 'ack':
+          S.guardAck = el.checked
+          break
+        case 'dismiss':
+          S.notice = ''
+          break
+        case 'recheck':
+          recheck()
+          return
+        case 'apply':
+          apply()
+          return
+        case 'resume':
+          S.recovery.busy = true
+          render()
+          setTimeout(() => {
+            loadScenario('synced')
+            S.scenario = 'synced'
+            render()
+            toast('同步恢复已完成。')
+          }, 1400)
+          return
+        case 'copy':
+          navigator.clipboard &&
+            navigator.clipboard.writeText(v).catch(() => {})
+          toast(v.includes('\\') ? '路径已复制' : '验证码已复制')
+          return
+        case 'open-folder':
+          toast('（原型）将在资源管理器中打开 ' + e.path, 'folder')
+          return
+        case 'open-root':
+          toast('（原型）将在资源管理器中打开 ' + NS[id].root, 'folder')
+          return
+        case 'star':
+          toast('（原型）将打开 github.com/TreatTrick/skill-sync', 'ext')
+          return
+        case 'theme':
+          S.theme = v
+          applyTheme()
+          break
+        case 'lang':
+          if (v === 'en') {
+            toast('原型只做了中文；实现时沿用现有 i18n 双语', 'info')
+            return
+          }
+          break
+        case 'clear-cache':
+          modal(
+            '清空 skill 包缓存？',
+            '只会删除本机可重建的缓存包，不影响同步状态和云端内容。下一次检查会慢一些。',
+            '清空缓存',
+            () => {
+              S.cache.entries = 0
+              S.cache.bytes = 0
+              render()
+              toast('Skill 包缓存已清空。')
+            },
+          )
+          return
+        case 'disconnect':
+          modal(
+            '断开 GitHub 连接？',
+            '将清除本机授权并归档本机同步基线。不会卸载 GitHub App，也不会删除远端内容。之后需要重新走一遍配置流程。',
+            '断开 GitHub',
+            () => {
+              S.route = 'onboarding'
+              S.ob = {
+                ...S.ob,
+                stage: 'intro',
+                msg: '',
+                rebind: false,
+                reconfigure: false,
+              }
+              render()
+            },
+          )
+          return
+        case 'reconfigure':
+          S.route = 'onboarding'
+          S.ob = {
+            ...S.ob,
+            stage: 'install_app',
+            msg: '',
+            rebind: true,
+            rebindOk: false,
+            reconfigure: true,
+          }
+          break
+        case 'cancel-reconfigure':
+          S.route = 'sync'
+          break
+        /* onboarding */
+        case 'ob-next':
+          obGo(id)
+          return
+        case 'ob-start':
+          obBusy(700, () => {
+            S.ob.expires = Date.now() + 899000
+            obGo('device_pending')
+          })
+          return
+        case 'ob-verify':
+          toast(
+            '（原型）已打开 github.com/login/device，2 秒后模拟授权完成',
+            'ext',
+          )
+          setTimeout(() => {
+            if (S.ob.stage === 'device_pending') obGo('create_repository')
+          }, 2200)
+          return
+        case 'ob-open':
+          toast('（原型）将在浏览器打开 ' + v, 'ext')
+          return
+        case 'ob-check-install':
+          obBusy(1000, () => obGo('select_branch'))
+          return
+        case 'ob-next-busy':
+          obBusy(800, () => obGo('select_branch'))
+          return
+        case 'ob-check-vault':
+          obBusy(500, () => {
+            obGo('checking_vault')
+            setTimeout(() => {
+              if (S.ob.stage === 'checking_vault')
+                obGo(S.ob.rebind ? 'ready' : 'confirm_initialize')
+            }, 1200)
+          })
+          return
+        case 'ob-init':
+          obBusy(1100, () => obGo('ready'))
+          return
+        case 'ob-rebind-ok':
+          S.ob.rebindOk = el.checked
+          return
+        case 'ob-bind':
+          if (S.ob.rebind && !S.ob.rebindOk) {
+            S.ob.msg = '切换到其他 Vault 前必须确认归档当前本机同步基线。'
+            render()
+            return
+          }
+          obBusy(1100, () => {
+            loadScenario('pending')
+            S.route = 'sync'
+            S.ob.rebind = false
+            S.ob.reconfigure = false
+            render()
+            toast('Vault 已绑定，已建立 43 个 skill 的本地同步基线')
+          })
+          return
+      }
+      render()
+    })
+    document.addEventListener('change', (ev) => {
+      const el = ev.target.closest('[data-change]')
+      if (!el) return
+      const k = el.dataset.change,
+        v = el.value
+      if (k === 'route') {
+        S.route = v
+        if (v === 'onboarding')
+          S.ob = {
+            ...S.ob,
+            stage: 'intro',
+            msg: '',
+            rebind: false,
+            reconfigure: false,
+          }
+      }
+      if (k === 'scenario') {
+        loadScenario(v)
+        S.route = 'sync'
+      }
+      if (k === 'theme') {
+        S.theme = v
+        applyTheme()
+      }
+      if (k === 'branch') {
+        S.ob.branch = v
+      }
+      if (k === 'ob') {
+        S.ob.msg = ''
+        S.ob.busy = false
+        S.ob.rebind = v === 'rebind'
+        S.ob.rebindOk = false
+        S.ob.reconfigure = v === 'rebind'
+        S.ob.stage = v === 'rebind' ? 'ready' : v
+        S.ob.expires = Date.now() + 899000
+        if (v === 'repository_scope_blocked')
+          S.ob.msg =
+            '当前 installation 包含 7 个仓库，必须调整为只授权一个 vault 仓库。'
+      }
+      render()
+    })
+    document.addEventListener('input', (ev) => {
+      const el = ev.target
+      if (el.id === 'q') {
+        S.search = el.value
+        $('#list').innerHTML = listView()
+        const k = el.parentElement.querySelector('kbd')
+        if (k) k.hidden = !!S.search
+        return
+      }
+      if (el.dataset.input === 'ignore') {
+        S.cfg.ignore = el.value
+        autosave()
+        return
+      }
+      if (el.dataset.input === 'limit') {
+        const was = S.cfg.single > S.cfg.total
+        S.cfg[el.dataset.id] = Math.max(0, Number(el.value) || 0)
+        const bad = S.cfg.single > S.cfg.total
+        if (was !== bad) {
+          const id = el.id,
+            pos = el.value.length
+          render()
+          const n = document.getElementById(id)
+          n && n.focus()
+        }
+        if (!bad) autosave()
+      }
+    })
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && $('#modal').innerHTML) return closeModal()
+      if (
+        ev.key === '/' &&
+        S.route === 'sync' &&
+        !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)
+      ) {
+        const q = $('#q')
+        if (q) {
+          ev.preventDefault()
+          q.focus()
+        }
+      }
+    })
+
+    /* ===================== 启动（#route=settings&scenario=guard&theme=dark&ob=ready 可直达某个状态） ===================== */
+    const H = new URLSearchParams(location.hash.slice(1))
+    loadScenario(SCENARIOS[H.get('scenario')] ? H.get('scenario') : 'pending')
+    if (H.get('theme')) {
+      S.theme = H.get('theme')
+      applyTheme()
+    }
+    if (H.get('route')) S.route = H.get('route')
+    if (H.get('ob')) {
+      S.route = 'onboarding'
+      S.ob.stage = H.get('ob')
+      S.ob.expires = Date.now() + 899000
+    }
+    if (H.get('open'))
+      H.get('open')
+        .split(',')
+        .forEach((n) => {
+          const e = S.entries.find((x) => x.name === n)
+          e && S.open.add(e.id)
+        })
+    if (H.get('pick')) {
+      S.decisions['claude-code:code-review'] = 'keep_local'
+      S.selected.add('a:codex:zentao-bug-export')
+    }
+    render()
+    if (H.get('sec'))
+      requestAnimationFrame(() => {
+        const t = $('#sec-' + H.get('sec'))
+        t && t.scrollIntoView()
+      })
+  })()
+</script>

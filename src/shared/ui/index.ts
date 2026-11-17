@@ -23,6 +23,7 @@ export {
   DialogTrigger,
 } from './dialog'
 export { EmptyState } from './empty-state'
+export { GithubMark } from './github-mark'
 export { Input } from './input'
 export { Select, SelectContent, SelectItem, SelectTrigger } from './select'
 export { SegmentedControl } from './segmented-control'

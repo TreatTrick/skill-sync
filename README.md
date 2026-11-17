@@ -26,15 +26,17 @@
   <img src="gif/skillSyncEnglish.gif" alt="Skill Sync demo" width="720" />
 </p>
 
+<p align="center"><sub>The interface demo uses sample data.</sub></p>
+
 ## Download
 
-Installers for the latest **1.0.1** release, direct from GitHub:
+Installers for the latest **1.1.0** release, direct from GitHub:
 
 | Platform      | Download                                                                                                                           | Type          |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| Windows x64   | [Skill.Sync_1.0.1_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64-setup.exe) | EXE installer |
-| Windows x64   | [Skill.Sync_1.0.1_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64_en-US.msi) | MSI installer |
-| Apple Silicon | [Skill.Sync_1.0.1_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_aarch64.dmg)     | macOS DMG     |
+| Windows x64   | [Skill.Sync_1.1.0_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_x64-setup.exe) | EXE installer |
+| Windows x64   | [Skill.Sync_1.1.0_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_x64_en-US.msi) | MSI installer |
+| Apple Silicon | [Skill.Sync_1.1.0_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_aarch64.dmg)     | macOS DMG     |
 
 Windows may show a security warning because the current installer is unsigned. For other builds and older versions, see the [releases page](https://github.com/TreatTrick/skill-sync/releases).
 
@@ -52,7 +54,7 @@ Install the GitHub App for the Vault repository only. Skill Sync needs read and 
 
 ### Review every change before it happens
 
-See uploads, downloads, proposed deletes, and conflicts before applying anything. Search the plan, inspect individual Skills, and choose exactly which changes to sync.
+Review a grouped change list for conflicts, deletes, uploads, and downloads. Resolve conflicts and deletes inline, inspect each Skill's path and base/local/remote hashes, then check the upload, download, delete, and commit summary before applying.
 
 ### Continue on another machine without losing edits
 
@@ -67,17 +69,18 @@ There is no SaaS account or custom sync server, no Git, PAT, or SSH setup, and n
 ## Highlights
 
 - **Local-first:** your Skills stay in their normal tool directories and sync through a repository you control (a private one is recommended).
-- **Preview before apply:** review uploads, downloads, conflicts, and proposed deletes before anything changes.
-- **Explicit conflict choices:** when both sides changed, you decide whether to keep local content, use remote content, or skip.
+- **A clear change list:** review conflicts, deletes, uploads, downloads, and blocked items in that order; synced Skills are collapsed by default.
+- **Inline decisions:** when both sides changed, choose whether to keep local content, use remote content, or skip directly in the row and see the outcome immediately.
+- **Predictable apply:** the persistent footer summarizes selected items, uploads, downloads, deletes, commit creation, and unresolved conflicts before apply.
+- **Safer deletes:** each deletion starts at “defer”; deleting more than the configured threshold requires an additional confirmation in the footer, and accepted local deletes go to a local trash directory.
 - **Content-based comparison:** a three-way `base` / `local` / `remote` content-hash comparison detects real changes without relying on timestamps.
-- **Safer deletes:** deletes are advisory and require explicit selection; accepted local deletes go to a local trash directory.
 - **Recovery-aware apply:** interrupted applies retain recovery state so the app can resume instead of blindly repeating completed work.
 
 ## How it works
 
-1. Start in-app **Onboarding** and authorize with the GitHub App Device Flow.
+1. Follow the six-step in-app **Onboarding** flow and authorize with the GitHub App Device Flow.
 2. Install the GitHub App for selected repositories and bind exactly one repository (private recommended) as the Vault.
-3. Open **Sync**, preview the plan, resolve any conflicts, and explicitly apply the selected changes.
+3. Open **Sync**, make inline conflict and delete choices, review the action summary, and apply the selected changes.
 
 The workspace is available only after the Vault is ready. Ongoing configuration lives in **Settings**.
 

@@ -26,15 +26,17 @@
   <img src="gif/skillSyncChinese.gif" alt="Skill Sync 演示" width="720" />
 </p>
 
+<p align="center"><sub>界面演示使用示例数据。</sub></p>
+
 ## 下载
 
-以下是最新 **1.0.1** 版本的安装包，直接从 GitHub 下载：
+以下是最新 **1.1.0** 版本的安装包，直接从 GitHub 下载：
 
 | 平台          | 下载                                                                                                                               | 类型       |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| Windows x64   | [Skill.Sync_1.0.1_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64-setup.exe) | EXE 安装包 |
-| Windows x64   | [Skill.Sync_1.0.1_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_x64_en-US.msi) | MSI 安装包 |
-| Apple Silicon | [Skill.Sync_1.0.1_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.0.1/Skill.Sync_1.0.1_aarch64.dmg)     | macOS DMG  |
+| Windows x64   | [Skill.Sync_1.1.0_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_x64-setup.exe) | EXE 安装包 |
+| Windows x64   | [Skill.Sync_1.1.0_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_x64_en-US.msi) | MSI 安装包 |
+| Apple Silicon | [Skill.Sync_1.1.0_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_aarch64.dmg)     | macOS DMG  |
 
 由于当前 Windows 安装包未签名，安装时 Windows 可能显示安全警告。其它构建和历史版本请前往 [releases 页面](https://github.com/TreatTrick/skill-sync/releases)。
 
@@ -52,7 +54,7 @@ Skills 仍然保存在各工具原本的目录中。Skill Sync 提供清晰的�
 
 ### 所有变更先预览，后应用
 
-在实际修改前查看上传、下载、建议删除和冲突。你可以搜索同步计划、检查单个 Skill，并准确选择本次要同步的内容。
+按冲突、删除、上传、下载和无法同步分组查看变更。可以直接在行内处理冲突和删除，展开查看路径及 base/local/remote hash，并在执行前核对上传、下载、删除和 commit 摘要。
 
 ### 换一台电脑也能继续同步
 
@@ -67,17 +69,18 @@ Skills 仍然保存在各工具原本的目录中。Skill Sync 提供清晰的�
 ## 核心亮点
 
 - **本地优先：** Skills 保留在各工具原本的目录中，通过你掌控的仓库同步（推荐私有）。
-- **apply 前预览：** 在发生变更前检查上传、下载、冲突和建议删除项。
-- **冲突由你决定：** 两端都发生修改时，可明确选择保留本地、采用远端或跳过。
+- **变更清单一目了然：** 冲突、删除、上传、下载和无法同步按操作分组，已同步项目默认折叠。
+- **行内处理冲突：** 两端都发生修改时，可直接在行内选择保留本地、采用云端或跳过，并立即看到操作结果。
+- **执行前看清影响：** 底栏汇总已选项、上传、下载、删除、是否创建 commit 和未决定的冲突。
+- **删除默认暂缓：** 每项删除默认不处理；删除数量超过配置阈值时，还需在底栏勾选护栏确认。接受本地删除后，目录会进入本机 trash。
 - **按内容比较：** 使用 `base` / `local` / `remote` 三方内容 hash 判断真实变化，不依赖文件时间。
-- **更安全的删除：** 删除属于 advisory 操作，必须显式选择；接受本地删除后，目录会进入本机 trash。
 - **可恢复的 apply：** apply 中断时保留恢复状态，继续执行时不会盲目重复已经完成的操作。
 
 ## 工作方式
 
-1. 从应用内 **Onboarding** 开始，通过 GitHub App Device Flow 授权。
+1. 按应用内六步 **Onboarding** 引导，通过 GitHub App Device Flow 授权。
 2. 使用 selected repositories 安装 GitHub App，并将唯一一个仓库（推荐私有）绑定为 Vault。
-3. 进入 **Sync** 预览计划、处理冲突，再显式 apply 已选变更。
+3. 进入 **Sync**，行内处理冲突和删除，确认执行摘要后 apply 已选变更。
 
 只有 Vault 就绪后才能进入工作区，后续配置位于 **Settings**。
 

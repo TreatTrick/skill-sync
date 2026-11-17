@@ -1,37 +1,23 @@
 <script lang="ts">
-  import { cn } from '@/shared/lib'
-
-  interface Props {
-    current: number
-    total?: number
-    ariaLabel?: string
-  }
-
-  let { current, total = 5, ariaLabel }: Props = $props()
-
-  const steps = $derived(Array.from({ length: total }, (_, i) => i))
+  import { Check } from '@lucide/svelte'
+  import { t } from '@/shared/i18n'
+  interface Props { current: number; ariaLabel?: string; summaries?: string[] }
+  let { current, ariaLabel, summaries = [] }: Props = $props()
+  const steps = [
+    'onboarding.stage.authorize',
+    'onboarding.stage.createRepository',
+    'onboarding.stage.installApp',
+    'onboarding.stage.branch',
+    'onboarding.stage.vault',
+    'onboarding.stage.ready',
+  ] as const
 </script>
-
-<ol class="flex items-center gap-2" aria-label={ariaLabel}>
-  {#each steps as i (i)}
-    <li class="flex flex-1 items-center gap-2">
-      <span
-        class={cn(
-          'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
-          i < current - 1
-            ? 'bg-primary text-primary-foreground'
-            : i === current - 1
-              ? 'bg-primary-muted text-primary-muted-foreground ring-2 ring-primary'
-              : 'bg-surface-muted text-muted-foreground',
-        )}
-      >
-        {i + 1}
-      </span>
-      {#if i < total - 1}
-        <span
-          class={cn('h-0.5 flex-1 rounded-full', i < current - 1 ? 'bg-primary' : 'bg-border')}
-        ></span>
-      {/if}
+<ol class="steps" aria-label={ariaLabel}>
+  {#each steps as step, i (step)}
+    {@const number = i + 1}
+    <li class:done={number < current} class:cur={number === current} aria-current={number === current ? 'step' : undefined}>
+      <span class="mk">{#if number < current}<Check class="size-3.5" />{:else}{number}{/if}</span>
+      <div><b>{t(step)}</b>{#if number < current && summaries[i]}<small>{summaries[i]}</small>{/if}</div>
     </li>
   {/each}
 </ol>

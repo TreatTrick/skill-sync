@@ -41,7 +41,9 @@
 {:else if isOnboarding}
   {@render children?.()}
 {:else if ready}
-  <AppLayout>{@render children?.()}</AppLayout>
+  <AppLayout remoteConfig={appState.data?.config.remote ?? null}>
+    {@render children?.()}
+  </AppLayout>
 {:else}
   <div class="flex min-h-screen items-center justify-center bg-background">
     <Spinner class="size-6" />

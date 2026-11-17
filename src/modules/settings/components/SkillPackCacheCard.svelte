@@ -5,12 +5,6 @@
   import type { CacheStats } from '@/shared/schemas'
   import {
     Button,
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
     Dialog,
     DialogContent,
     DialogDescription,
@@ -42,45 +36,20 @@
     onClear()
   }
 </script>
-
-<Card>
-  <CardHeader>
-    <CardTitle>{t('settings.cache')}</CardTitle>
-    <CardDescription>{t('settings.cacheDescription')}</CardDescription>
-  </CardHeader>
-  <CardContent>
-    {#if loading || !stats}
-      <p class="text-sm text-muted-foreground">{t('sync.progress.working')}</p>
+<div class="srows"><div class="srow">
+  <div class="lab">
+    {#if loading || !stats}<small>{t('sync.progress.working')}</small>
     {:else}
-      <dl class="grid gap-3 text-sm sm:grid-cols-3">
-        <div>
-          <dt class="text-muted-foreground">{t('settings.cacheEntries')}</dt>
-          <dd class="font-medium text-foreground">{stats.entries}</dd>
+      <div class="meter">
+        <div aria-label={t('settings.cacheUsage')} aria-valuemax={stats.capacity} aria-valuemin="0" aria-valuenow={Math.min(stats.bytes, stats.capacity)} class="bar" role="progressbar">
+          <i style:width={Math.min(stats.capacity > 0 ? stats.bytes / stats.capacity * 100 : 0, 100) + '%'}></i>
         </div>
-        <div>
-          <dt class="text-muted-foreground">{t('settings.cacheSize')}</dt>
-          <dd class="font-medium text-foreground">{formatBytes(stats.bytes)}</dd>
-        </div>
-        <div>
-          <dt class="text-muted-foreground">{t('settings.cacheCapacity')}</dt>
-          <dd class="font-medium text-foreground">{formatBytes(stats.capacity)}</dd>
-        </div>
-      </dl>
+        <small><span class="num">{t('settings.cacheUsed', { count: stats.entries, size: formatBytes(stats.bytes) })}</span><span class="num">{t('settings.cacheLimit', { size: formatBytes(stats.capacity) })}</span></small>
+      </div>
     {/if}
-  </CardContent>
-  <CardFooter>
-    <Button
-      disabled={disabled || clearPending || loading}
-      loading={clearPending}
-      variant="outline"
-      onclick={() => (confirmOpen = true)}
-    >
-      <Trash2 class="size-4" />
-      {t('settings.clearCache')}
-    </Button>
-  </CardFooter>
-</Card>
-
+  </div>
+  <div class="ctl"><Button class="btn" disabled={disabled || clearPending || loading || !stats?.entries} loading={clearPending} variant="outline" onclick={() => (confirmOpen = true)}><Trash2 class="size-4" />{t('settings.clearCache')}</Button></div>
+</div></div>
 <Dialog bind:open={confirmOpen}>
   <DialogContent>
     <DialogHeader>

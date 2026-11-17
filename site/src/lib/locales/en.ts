@@ -11,6 +11,7 @@ export const en: Record<string, string> = {
   'hero.platforms': 'Windows x64 · Apple Silicon',
 
   'showcase.aria': 'Skill Sync demo video',
+  'showcase.caption': 'The interface demo uses sample data.',
 
   'features.title': 'Why Skill Sync',
   'features.subtitle':
@@ -20,27 +21,28 @@ export const en: Record<string, string> = {
     'Skills stay in their tool directories; sync through a GitHub repo you control (private recommended). No SaaS, no sync server, no telemetry; credentials stay in the OS keyring.',
   'features.preview.title': 'Preview before apply',
   'features.preview.desc':
-    'Review uploads, downloads, conflicts, and proposed deletes before anything changes.',
+    'Review changes grouped by conflicts, deletes, uploads, and downloads. Resolve conflicts inline and see the upload, download, delete, and commit summary before applying.',
   'features.conflicts.title': 'Explicit conflict choices',
   'features.conflicts.desc':
-    'A three-way base / local / remote content-hash comparison detects real changes; you keep local, use remote, or skip.',
+    'A three-way base / local / remote content-hash comparison detects real changes. Choose keep local, use remote, or skip directly in each row.',
   'features.nogit.title': 'No Git, PAT, or SSH',
   'features.nogit.desc':
     'Authorize with the GitHub App Device Flow. No Git CLI, no PAT, no SSH keys.',
 
   'how.title': 'How it works',
   'how.step1.title': 'Authorize with GitHub',
-  'how.step1.desc': 'Complete the Device Flow verification in your browser.',
+  'how.step1.desc':
+    'Follow the six-step setup to authorize in your browser and create or select a Vault.',
   'how.step2.title': 'Bind your Vault',
   'how.step2.desc':
     'Install the GitHub App for one repository (private recommended) and bind it as the Vault.',
   'how.step3.title': 'Preview & apply',
   'how.step3.desc':
-    'Review the plan, resolve conflicts, and apply the selected changes.',
+    'Resolve conflicts and deletes in the change list, review the action summary, and apply selected changes.',
 
   'download.title': 'Download',
   'download.subtitle':
-    'Installers for the latest 1.0.1 release, direct from GitHub.',
+    'Installers for the latest 1.1.0 release, direct from GitHub.',
   'download.platform': 'Platform',
   'download.type': 'Type',
   'download.file': 'Download',

@@ -1,22 +1,17 @@
 <script lang="ts">
   import { createQuery, useQueryClient } from '@tanstack/svelte-query'
   import { goto } from '$app/navigation'
-  import { Monitor, Moon, Star, Sun } from '@lucide/svelte'
+  import { Check, LoaderCircle, Monitor, Moon, Star, Sun } from '@lucide/svelte'
   import type { Component } from 'svelte'
+  import { version } from '../../../../package.json'
 
 import { errorMessage, getAppState, openPath, resetIntroSeen, scanSkills } from '@/shared/lib'
   import { t } from '@/shared/i18n'
   import { languageState, themeState, type ThemeMode } from '@/shared/state'
   import {
     Button,
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-    SegmentedControl,
     Spinner,
+    SegmentedControl,
     Textarea,
     toast,
   } from '@/shared/ui'
@@ -56,8 +51,20 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
   let prefilled = $state(false)
   let disconnectDialogOpen = $state(false)
   let clearCachePending = $state(false)
+  let saving = $state(false)
+  let saveFailed = $state(false)
+  let activeSection = $state('preferences')
   let lastSaved: string | null = null
   let saveTimer: ReturnType<typeof setTimeout> | undefined
+  const sections = [
+    { id: 'preferences', label: 'settings.preferences' },
+    { id: 'vault', label: 'settings.githubVault' },
+    { id: 'ignore', label: 'settings.ignoreTitle' },
+    { id: 'limits', label: 'settings.limits' },
+    { id: 'cache', label: 'settings.cache' },
+    { id: 'roots', label: 'settings.skillRoots' },
+    { id: 'about', label: 'settings.about' },
+  ] as const
 
   $effect(() => {
     if (appState.data && !prefilled) {
@@ -83,23 +90,34 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
 
   $effect(() => {
     const current = effectiveConfig
-    if (!current || limitsInvalid) return
+    clearTimeout(saveTimer)
+    if (!current || limitsInvalid) {
+      saving = false
+      return
+    }
     const snapshot = JSON.stringify(current)
     // Cancel any pending save before deciding, so a "change then revert" within
     // the debounce window never persists the intermediate value.
-    clearTimeout(saveTimer)
-    if (snapshot === lastSaved) return
+    if (snapshot === lastSaved) {
+      saving = false
+      return
+    }
     if (lastSaved === null) {
       lastSaved = snapshot
       return
     }
+    saving = true
+    saveFailed = false
     saveTimer = setTimeout(() => {
       void saveConfig(current)
         .then(() => {
+          saving = false
           lastSaved = snapshot
           void queryClient.invalidateQueries({ queryKey: ['app-state'] })
         })
         .catch((error) => {
+          saving = false
+          saveFailed = true
           toast.error(errorMessage(error))
         })
     }, 400)
@@ -174,90 +192,81 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
       clearCachePending = false
     }
   }
+  const updateActiveSection = (event: Event): void => {
+    const view = event.currentTarget as HTMLDivElement
+    const top = view.getBoundingClientRect().top
+    let current: string = sections[0].id
+    for (const section of sections) {
+      const element = view.querySelector('#settings-' + section.id)
+      if (element && element.getBoundingClientRect().top - top < 80) current = section.id
+    }
+    if (view.scrollTop + view.clientHeight >= view.scrollHeight - 4) current = 'about'
+    activeSection = current
+  }
 </script>
-
-<div class="grid gap-4">
-  <Card>
-    <CardHeader>
-      <CardTitle>{t('settings.preferences')}</CardTitle>
-      <CardDescription>{t('settings.preferencesDesc')}</CardDescription>
-    </CardHeader>
-    <CardContent class="grid gap-5">
-      <div class="grid gap-2">
-        <span class="text-sm font-medium text-foreground">{t('settings.appearance')}</span>
-        <SegmentedControl
-          options={themeOptions}
-          value={themeState.theme}
-          onSelect={(v) => themeState.setTheme(v as ThemeMode)}
-        />
+<div class="view" onscroll={updateActiveSection}>
+  <div class="page">
+    <div class="settings">
+      <nav aria-label={t('settings.sectionNav')} class="snav">
+        {#each sections as section (section.id)}
+          <button class:on={activeSection === section.id} onclick={() => document.getElementById('settings-' + section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} type="button">{t(section.label)}</button>
+        {/each}
+        <div class="saved" aria-live="polite">
+          {#if saving}<LoaderCircle class="ic sm animate-spin" />{t('settings.saving')}
+          {:else if saveFailed}<span class="text-destructive">{t('settings.saveFailed')}</span>
+          {:else}<Check class="ic sm" />{t('settings.autoSave')}{/if}
+        </div>
+      </nav>
+      <div class="secs">
+        <section id="settings-preferences" class="sec">
+          <h2>{t('settings.preferences')}</h2>
+          <div class="srows">
+            <div class="srow"><div class="lab"><b>{t('settings.appearance')}</b></div><div class="ctl">
+              <SegmentedControl class="seg lg" ariaLabel={t('settings.appearance')} options={themeOptions} value={themeState.theme} onSelect={(value) => themeState.setTheme(value as ThemeMode)} />
+            </div></div>
+            <div class="srow"><div class="lab"><b>{t('common.language')}</b></div><div class="ctl">
+              <SegmentedControl class="seg lg" ariaLabel={t('common.language')} options={languageOptions} value={languageState.language} onSelect={(value) => void languageState.setLanguage(value as 'zh-CN' | 'en-US')} />
+            </div></div>
+          </div>
+        </section>
+        {#if appState.error}<div class="callout danger" role="alert">{errorMessage(appState.error)}</div>{/if}
+        {#if !config}<div class="flex justify-center py-12"><Spinner class="size-6" /></div>
+        {:else}
+          <section id="settings-vault" class="sec">
+            <h2>{t('settings.githubVault')}</h2><p>{t('settings.githubVaultReadOnly')}</p>
+            <GithubVaultCard config={config} appState={appState.data} onReconfigure={() => void goto('/app/onboarding?mode=reconfigure')} />
+            <div class="danger-zone"><div class="srow"><div class="lab"><b>{t('settings.disconnectGithub')}</b><small>{t('settings.dangerDescription')}</small></div><div class="ctl">
+              <Button class="btn danger" disabled={appState.data?.repository_id === null || appState.data?.repository_id === undefined} onclick={openDisconnectDialog} variant="outline">{t('settings.disconnectGithub')}</Button>
+            </div></div></div>
+          </section>
+          <section id="settings-ignore" class="sec">
+            <h2>{t('settings.ignoreTitle')}</h2><p>{t('settings.ignoreDescription')}</p>
+            <div class="mt-2.5">
+              <Textarea aria-label={t('settings.ignoreTitle')} bind:value={ignore} class="textarea" spellcheck="false"></Textarea>
+              <small class="muted num">{t('settings.ignoreCount', { count: fromLines(ignore).length })} · <span class="mono">*</span> {t('settings.ignoreGlobHint')}</small>
+            </div>
+          </section>
+          <section id="settings-limits" class="sec">
+            <h2>{t('settings.limits')}</h2><p>{t('settings.limitsDescription')}</p>
+            <LimitsCard bind:limits={config.limits} {limitsInvalid} />
+          </section>
+          <section id="settings-cache" class="sec">
+            <h2>{t('settings.cache')}</h2><p>{t('settings.cacheDescription')}</p>
+            <SkillPackCacheCard clearPending={clearCachePending} disabled={false} loading={cache.isLoading} onClear={() => void handleClearCache()} stats={cache.data} />
+          </section>
+          <section id="settings-roots" class="sec">
+            <h2>{t('settings.skillRoots')}</h2><p>{t('settings.skillRootsReadOnly')}</p>
+            <SkillRootsSection isLoading={scan.isLoading} roots={scan.data?.roots ?? []} onOpenPath={(path) => void openPath(path)} onCopyPath={(path) => void copyPath(path)} />
+          </section>
+          <section id="settings-about" class="sec">
+            <h2>{t('settings.about')}</h2>
+            <div class="srows"><div class="srow"><div class="lab"><b>{t('settings.appVersion', { version })}</b><small>{t('settings.supportProjectDescription')}</small></div><div class="ctl">
+              <Button class="btn" variant="outline" onclick={() => void openProjectRepository()}><Star class="size-4" />{t('settings.supportOnGithub')}</Button>
+            </div></div></div>
+          </section>
+        {/if}
       </div>
-      <div class="grid gap-2">
-        <span class="text-sm font-medium text-foreground">{t('common.language')}</span>
-        <SegmentedControl
-          options={languageOptions}
-          value={languageState.language}
-          onSelect={(v) => void languageState.setLanguage(v as 'zh-CN' | 'en-US')}
-        />
-      </div>
-    </CardContent>
-  </Card>
-
-  {#if appState.error}
-    <Card class="border-destructive-border bg-destructive-muted">
-      <CardContent class="pt-6 text-sm text-destructive">{errorMessage(appState.error)}</CardContent>
-    </Card>
-  {/if}
-
-  {#if !config}
-    <div class="flex justify-center py-12"><Spinner class="size-6" /></div>
-  {:else}
-    <GithubVaultCard
-      config={config}
-      appState={appState.data}
-      onReconfigure={() => void goto('/app/onboarding?mode=reconfigure')}
-      onDisconnect={openDisconnectDialog}
-    />
-
-    <LimitsCard bind:limits={config.limits} limitsInvalid={limitsInvalid} />
-
-    <SkillPackCacheCard
-      clearPending={clearCachePending}
-      disabled={false}
-      loading={cache.isLoading}
-      onClear={() => void handleClearCache()}
-      stats={cache.data}
-    />
-
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('settings.ignore')}</CardTitle>
-        <CardDescription>{t('settings.ignoreDescription')}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Textarea bind:value={ignore} class="min-h-[180px]" />
-      </CardContent>
-    </Card>
-
-    <SkillRootsSection
-      isLoading={scan.isLoading}
-      roots={scan.data?.roots ?? []}
-      onOpenPath={(path) => void openPath(path)}
-      onCopyPath={(path) => void copyPath(path)}
-    />
-
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('settings.supportProject')}</CardTitle>
-        <CardDescription>{t('settings.supportProjectDescription')}</CardDescription>
-      </CardHeader>
-      <CardFooter>
-        <Button variant="outline" onclick={() => void openProjectRepository()}>
-          <Star />
-          {t('settings.supportOnGithub')}
-        </Button>
-      </CardFooter>
-    </Card>
-  {/if}
-
-  <DisconnectGithubDialog bind:open={disconnectDialogOpen} onConfirm={() => void handleDisconnect()} />
+    </div>
+  </div>
 </div>
+<DisconnectGithubDialog bind:open={disconnectDialogOpen} onConfirm={() => void handleDisconnect()} />

@@ -6,38 +6,54 @@ import type {
 } from '../schemas/syncPlan'
 
 export const SYNC_STATUS_FILTERS = [
-  'all',
-  'synced',
-  'local_update',
-  'remote_update',
-  'delete_remote',
-  'delete_local',
+  'pending',
   'conflict',
+  'delete',
+  'up',
+  'down',
+  'synced',
 ] as const
 
 export type SyncStatusFilter = (typeof SYNC_STATUS_FILTERS)[number]
 
 export const summarizeSyncSelection = (
   entries: SyncSkillEntry[],
-  decisions: SyncDecision[],
+  decisions: Record<string, SyncDecision>,
+  conflicts: SyncSkillEntry[] = [],
 ) => {
-  const actions: (SyncStatus | SyncDecision)[] = [
-    ...entries.map((entry) => entry.status),
-    ...decisions,
-  ]
-  const count = (...types: (SyncStatus | SyncDecision)[]): number =>
-    actions.filter((action) => types.includes(action)).length
-  const uploads = count('local_update', 'keep_local')
-  const downloads = count('remote_update', 'use_remote', 'restore_remote')
-  const deleteRemote = count('local_deleted', 'delete_remote')
-  const deleteLocal = count('remote_deleted', 'accept_delete')
+  const selectedEntries = entries.filter((entry) => !decisions[entry.skill_id])
+  const decisionValues = Object.values(decisions)
+  const uploads =
+    selectedEntries.filter((entry) => entry.status === 'local_update').length +
+    decisionValues.filter((decision) => decision === 'keep_local').length
+  const downloads =
+    selectedEntries.filter((entry) => entry.status === 'remote_update').length +
+    decisionValues.filter(
+      (decision) => decision === 'use_remote' || decision === 'restore_remote',
+    ).length
+  const deleteRemote =
+    selectedEntries.filter((entry) => entry.status === 'local_deleted').length +
+    decisionValues.filter((decision) => decision === 'delete_remote').length
+  const deleteLocal =
+    selectedEntries.filter((entry) => entry.status === 'remote_deleted')
+      .length +
+    decisionValues.filter((decision) => decision === 'accept_delete').length
+  const skipped = decisionValues.filter(
+    (decision) => decision === 'skip',
+  ).length
+  const unresolvedConflicts = conflicts.filter(
+    (entry) => decisions[entry.skill_id] === undefined,
+  ).length
+  const selected = uploads + downloads + deleteRemote + deleteLocal
 
   return {
-    selected: actions.length,
+    selected,
     uploads,
     downloads,
     deleteRemote,
     deleteLocal,
+    skipped,
+    unresolvedConflicts,
     hasDelete: deleteRemote > 0 || deleteLocal > 0,
     willCreateCommit: uploads > 0 || deleteRemote > 0,
   }
@@ -52,10 +68,16 @@ const matchesStatusFilter = (
   status: SyncStatus,
   filter: SyncStatusFilter,
 ): boolean => {
-  if (filter === 'all') return true
-  if (filter === 'delete_remote') return status === 'local_deleted'
-  if (filter === 'delete_local') return status === 'remote_deleted'
-  return status === filter
+  if (filter === 'pending')
+    return status !== 'synced' && status !== 'both_deleted'
+  if (filter === 'delete') {
+    return status === 'local_deleted' || status === 'remote_deleted'
+  }
+  if (filter === 'up') return status === 'local_update'
+  if (filter === 'down') return status === 'remote_update'
+  if (filter === 'synced')
+    return status === 'synced' || status === 'both_deleted'
+  return status === 'conflict'
 }
 
 const matchesSearch = (entry: SyncSkillEntry, search: string): boolean => {
@@ -80,22 +102,6 @@ export const matchesEntry = (
 ): boolean =>
   matchesStatusFilter(entry.status, filter) && matchesSearch(entry, search)
 
-export const statusLabelKey = (
-  status: SyncStatus,
-): `sync.status.${SyncStatus}` => `sync.status.${status}`
-
-export const statusTone = (
-  status: SyncStatus,
-): 'neutral' | 'success' | 'warning' | 'destructive' | 'info' => {
-  if (status === 'synced') return 'success'
-  if (status === 'conflict' || status === 'blocked') return 'destructive'
-  if (status === 'local_deleted' || status === 'remote_deleted') {
-    return 'warning'
-  }
-  if (status === 'unknown') return 'neutral'
-  return 'info'
-}
-
 export const conflictDecisionOptions = (
   reason: ConflictReason | null,
 ): readonly SyncDecision[] => {
@@ -112,10 +118,10 @@ export const deleteDecisionOptions = (
   entry: SyncSkillEntry,
 ): readonly SyncDecision[] => {
   if (entry.status === 'local_deleted') {
-    return ['restore_remote', 'delete_remote', 'skip']
+    return ['delete_remote', 'restore_remote', 'skip']
   }
   if (entry.status === 'remote_deleted') {
-    return ['keep_local', 'accept_delete', 'skip']
+    return ['accept_delete', 'keep_local', 'skip']
   }
   return []
 }

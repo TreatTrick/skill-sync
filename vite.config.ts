@@ -10,6 +10,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    watch: {
+      // Rust 编译产物由 Tauri 监听，避免 Windows 文件锁中断 Vite。
+      ignored: ['**/src-tauri/target/**'],
+    },
   },
   // Tauri expects a clear console; HMR noise is suppressed.
   clearScreen: false,

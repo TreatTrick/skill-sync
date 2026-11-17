@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './shared/ui/prototype.css';
 
 :root {
   /* Neutral scale - cool, cohesive slate */
@@ -48,6 +49,7 @@
 
   /* Focus ring */
   --ring: #0f766e;
+  --shadow-apply: 0 -4px 16px -8px rgba(15, 23, 42, 0.12);
 
   /* shadcn-svelte token aliases - map shadcn token names to existing values so
      generated shadcn components resolve against the project's token system. */
