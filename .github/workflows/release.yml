@@ -39,7 +39,7 @@ jobs:
           '
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: ${{ matrix.targets }}
@@ -55,7 +55,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           generateReleaseNotes: true
-          uploadUpdaterJson: true
+          includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
 

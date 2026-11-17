@@ -30,3 +30,9 @@
 - 应用、Rust crate、官网与下载链接已统一为 `1.1.1`，CHANGELOG 已补充本次变更。
 - 已核对本机签名密钥与应用公钥配对，并将私钥配置为本仓库 Actions Secret `TAURI_SIGNING_PRIVATE_KEY`；密钥未进入 Git。
 - 关于、导航与设置主规范已同步，变更已归档至 `2026-11-17-add-about-and-app-updates`。
+
+## v1.1.1 打包兼容性修复
+
+- 首次 CI 在 Tauri 版本预检阶段失败：前端 API 的宽泛版本范围解析为 `2.12.5`，与锁定的 Rust Tauri `2.11.5` 次版本不一致；已在本地用 `npm run tauri build -- --no-bundle` 复现。
+- 将 `@tauri-apps/api` 固定为 `2.11.1` 后，实际 Tauri 打包通过版本预检和前端生产构建，进入原生编译；重新运行 `npm run lint`、`npm run test:updates`、`npm run format:check` 均通过。
+- 发布工作流采用 Node 24，使用 Tauri Action 支持的 `includeUpdaterJson` 参数；失败运行已取消，尚未公开 v1.1.1 Release。
