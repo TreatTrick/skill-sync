@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Skill Sync",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "identifier": "com.skillsync.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -26,6 +26,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "macOS": {
       "signingIdentity": "-"
@@ -37,5 +38,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU1MTg0RjhDNzc0NjBCQzEKUldUQkMwWjNqRThZNVIvS1NSZE5lSVlSZlRhNmxNc3dmZkQzVVl1QTlJSExQeWVoWnZDYzF3MG8K",
+      "endpoints": [
+        "https://github.com/TreatTrick/skill-sync/releases/latest/download/latest.json"
+      ],
+      "windows": { "installMode": "passive" }
+    }
   }
 }

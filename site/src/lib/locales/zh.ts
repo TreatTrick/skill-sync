@@ -38,7 +38,7 @@ export const zh: Record<string, string> = {
   'how.step3.desc': '在变更清单中处理冲突和删除，核对执行摘要后应用所选改动。',
 
   'download.title': '下载',
-  'download.subtitle': '最新 1.1.0 版本的安装包，直接来自 GitHub。',
+  'download.subtitle': '最新 1.1.1 版本的安装包，直接来自 GitHub。',
   'download.platform': '平台',
   'download.type': '类型',
   'download.file': '下载',

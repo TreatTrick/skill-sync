@@ -1,7 +1,7 @@
-import { FolderSync, Settings as SettingsIcon } from '@lucide/svelte'
+import { FolderSync, Info, Settings as SettingsIcon } from '@lucide/svelte'
 import type { Component } from 'svelte'
 
-type RouteTitleKey = 'routes.settings' | 'routes.sync'
+type RouteTitleKey = 'routes.settings' | 'routes.sync' | 'routes.about'
 
 export interface AppRouteConfig {
   path: string
@@ -20,5 +20,10 @@ export const appRoutes: AppRouteConfig[] = [
     path: '/app/settings',
     title: 'routes.settings',
     icon: SettingsIcon,
+  },
+  {
+    path: '/app/about',
+    title: 'routes.about',
+    icon: Info,
   },
 ]

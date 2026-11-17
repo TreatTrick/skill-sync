@@ -2,6 +2,20 @@
 
 All notable changes to Skill Sync are documented here.
 
+## [1.1.1] - 2026-11-17
+
+### Added
+
+- Added a dedicated About page alongside Sync and Settings, with application details, project links, and GitHub stable release checks.
+- Added a green update indicator in the About navigation entry, release notes, download progress, signature verification, installation confirmation, and restart controls.
+- Added signed updater packages and a complete multi-platform update manifest to the GitHub release workflow.
+
+### Changed
+
+- Moved software information out of Settings into the About page and added English and Simplified Chinese update messages.
+- Publish releases only after Windows x64 and macOS Apple Silicon builds complete.
+- Updated application, website, Rust crate, and installer links to version `1.1.1`.
+
 ## [1.1.0] - 2026-11-17
 
 ### Changed

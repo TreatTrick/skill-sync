@@ -1,9 +1,8 @@
 <script lang="ts">
   import { createQuery, useQueryClient } from '@tanstack/svelte-query'
   import { goto } from '$app/navigation'
-  import { Check, LoaderCircle, Monitor, Moon, Star, Sun } from '@lucide/svelte'
+  import { Check, LoaderCircle, Monitor, Moon, Sun } from '@lucide/svelte'
   import type { Component } from 'svelte'
-  import { version } from '../../../../package.json'
 
 import { errorMessage, getAppState, openPath, resetIntroSeen, scanSkills } from '@/shared/lib'
   import { t } from '@/shared/i18n'
@@ -30,7 +29,6 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
-  const PROJECT_REPOSITORY_URL = 'https://github.com/TreatTrick/skill-sync'
 
   const queryClient = useQueryClient()
   const appState = createQuery(() => ({
@@ -63,7 +61,6 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
     { id: 'limits', label: 'settings.limits' },
     { id: 'cache', label: 'settings.cache' },
     { id: 'roots', label: 'settings.skillRoots' },
-    { id: 'about', label: 'settings.about' },
   ] as const
 
   $effect(() => {
@@ -144,14 +141,6 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
     }
   }
 
-  const openProjectRepository = async (): Promise<void> => {
-    try {
-      await openPath(PROJECT_REPOSITORY_URL)
-    } catch (error) {
-      toast.error(errorMessage(error))
-    }
-  }
-
   const openDisconnectDialog = (): void => {
     if (
       appState.data?.repository_id === null ||
@@ -200,7 +189,7 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
       const element = view.querySelector('#settings-' + section.id)
       if (element && element.getBoundingClientRect().top - top < 80) current = section.id
     }
-    if (view.scrollTop + view.clientHeight >= view.scrollHeight - 4) current = 'about'
+    if (view.scrollTop + view.clientHeight >= view.scrollHeight - 4) current = 'roots'
     activeSection = current
   }
 </script>
@@ -257,12 +246,6 @@ import SkillPackCacheCard from '../components/SkillPackCacheCard.svelte'
           <section id="settings-roots" class="sec">
             <h2>{t('settings.skillRoots')}</h2><p>{t('settings.skillRootsReadOnly')}</p>
             <SkillRootsSection isLoading={scan.isLoading} roots={scan.data?.roots ?? []} onOpenPath={(path) => void openPath(path)} onCopyPath={(path) => void copyPath(path)} />
-          </section>
-          <section id="settings-about" class="sec">
-            <h2>{t('settings.about')}</h2>
-            <div class="srows"><div class="srow"><div class="lab"><b>{t('settings.appVersion', { version })}</b><small>{t('settings.supportProjectDescription')}</small></div><div class="ctl">
-              <Button class="btn" variant="outline" onclick={() => void openProjectRepository()}><Star class="size-4" />{t('settings.supportOnGithub')}</Button>
-            </div></div></div>
           </section>
         {/if}
       </div>

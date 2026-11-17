@@ -45,6 +45,7 @@
     "userName": "Developer"
   },
   "routes": {
+    "about": "About",
     "onboarding": "Setup",
     "settings": "Settings",
     "sync": "Sync"
@@ -418,6 +419,58 @@
     "noneSelected": "No changes selected",
     "syncingHint": "Syncing; keep the app open",
     "collapseSynced": "Collapse"
+  },
+  "about": {
+    "description": "Software information, updates and the open-source project.",
+    "softwareInfo": "Software information",
+    "name": "Application",
+    "currentVersion": "Current version",
+    "platform": "Platform",
+    "arch": "Architecture",
+    "channel": "Release channel",
+    "stable": "Stable",
+    "license": "License",
+    "infoFailed": "Could not read software information: {{message}}",
+    "updates": "Software updates",
+    "checkUpdates": "Check for updates",
+    "navUpdateAvailable": "About, an update is available",
+    "versionChange": "Current {{current}} → New version {{latest}}",
+    "updateSource": "Check GitHub Releases for the latest stable version.",
+    "checkFailed": "Could not check for updates: {{message}}",
+    "checkFailureHint": "Check your connection and try again. Updates may also be unavailable if no update package has been published or this platform is unsupported.",
+    "downloadUpdate": "Download update",
+    "installUpdate": "Install update",
+    "restartNow": "Restart now",
+    "viewRelease": "View release on GitHub",
+    "downloadProgress": "Update download progress",
+    "downloadPercent": "{{percent}}% downloaded",
+    "downloadBytes": "{{size}} MiB downloaded",
+    "downloadVerified": "Downloaded and signature verified. The update will only install after you confirm.",
+    "restartHint": "The update is installed and will take effect after a restart. You can restart later.",
+    "waitForOperations": "Wait for the current sync or recovery operation to finish before installing or restarting.",
+    "releaseNotes": "Release notes",
+    "noReleaseNotes": "No release notes were provided. You can view the release on GitHub.",
+    "project": "Open-source project",
+    "viewLicense": "View license",
+    "installTitle": "Install the downloaded update",
+    "installWindows": "Installation will close Skill Sync and launch the installer, then reopen the app when complete. Finish your current work first.",
+    "installOther": "A restart is needed to use the new version. After installation, you can restart immediately or later.",
+    "updateState": {
+      "checking": "Checking for updates…",
+      "failed": "Could not check for updates",
+      "latest": "You are up to date",
+      "available": "An update is available",
+      "downloading": "Downloading and verifying update…",
+      "downloaded": "Update ready to install",
+      "installing": "Installing update…",
+      "installed": "Update installed, restart needed",
+      "restarting": "Restarting…"
+    },
+    "errors": {
+      "download": "Download or signature verification failed. Try again: {{message}}",
+      "install": "Installation failed. Try again: {{message}}",
+      "restart": "Restart failed. Try again or reopen the app manually: {{message}}"
+    }
   },
   "settings": {
     "sectionNav": "Settings sections",

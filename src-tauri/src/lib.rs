@@ -39,6 +39,15 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(logging::plugin())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(
+            tauri_plugin_updater::Builder::new()
+                .default_version_comparator(|current, release| {
+                    release.version.pre.is_empty() && release.version > current
+                })
+                .build(),
+        )
         .setup(|app| {
             match app.path().app_log_dir() {
                 Ok(log_dir) => match logging::cleanup_old_logs(&log_dir) {

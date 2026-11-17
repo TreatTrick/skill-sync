@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { page } from '$app/state'
-  import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte'
+  import { beforeNavigate } from '$app/navigation'
+  import { createQuery } from '@tanstack/svelte-query'
+  import { CircleArrowUp, PanelLeftClose, PanelLeftOpen } from '@lucide/svelte'
+
+  import { appUpdateQueryOptions, updateInstaller } from '@/modules/about'
 
   import { cn } from '@/shared/lib'
   import { t } from '@/shared/i18n'
@@ -16,6 +20,11 @@
   }
 
   let { children, remoteConfig }: Props = $props()
+
+  const updates = createQuery(() => appUpdateQueryOptions)
+  beforeNavigate(({ cancel }) => {
+    if (updateInstaller.status === 'installing' || updateInstaller.status === 'restarting') cancel()
+  })
 
 </script>
 
@@ -52,9 +61,10 @@
         {#each appRoutes as route (route.path)}
           {@const Icon = route.icon}
           {@const isActive = page.url.pathname === route.path}
+          {@const hasUpdate = route.path === '/app/about' && !!updates.data && !updates.isError}
           <a
             class={cn(
-              'flex min-h-10 items-center justify-center gap-2.5 rounded-lg text-sm font-medium transition-colors lg:justify-start lg:px-2.5',
+              'relative flex min-h-10 items-center justify-center gap-2.5 rounded-lg text-sm font-medium transition-colors lg:justify-start lg:px-2.5',
               uiState.sidebarCollapsed && 'lg:justify-center lg:px-0',
               isActive
                 ? 'bg-primary-muted font-bold text-primary-muted-foreground'
@@ -62,12 +72,16 @@
             )}
             href={route.path}
             aria-current={isActive ? 'page' : undefined}
-            title={t(route.title)}
+            aria-label={hasUpdate ? t('about.navUpdateAvailable') : t(route.title)}
+            title={hasUpdate ? t('about.navUpdateAvailable') : t(route.title)}
           >
             <Icon class="size-4 shrink-0" />
             <span class={cn('hidden truncate lg:block', uiState.sidebarCollapsed && 'lg:hidden')}>
               {t(route.title)}
             </span>
+            {#if hasUpdate}
+              <CircleArrowUp aria-hidden="true" class={cn('absolute right-0.5 top-1 size-3 text-success lg:static lg:ml-auto lg:size-4', uiState.sidebarCollapsed && 'lg:absolute lg:right-0.5 lg:top-1 lg:ml-0 lg:size-3')} />
+            {/if}
           </a>
         {/each}
       </div>

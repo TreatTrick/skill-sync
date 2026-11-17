@@ -30,13 +30,13 @@
 
 ## Download
 
-Installers for the latest **1.1.0** release, direct from GitHub:
+Installers for the latest **1.1.1** release, direct from GitHub:
 
 | Platform      | Download                                                                                                                           | Type          |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| Windows x64   | [Skill.Sync_1.1.0_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_x64-setup.exe) | EXE installer |
-| Windows x64   | [Skill.Sync_1.1.0_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_x64_en-US.msi) | MSI installer |
-| Apple Silicon | [Skill.Sync_1.1.0_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.0/Skill.Sync_1.1.0_aarch64.dmg)     | macOS DMG     |
+| Windows x64   | [Skill.Sync_1.1.1_x64-setup.exe](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.1/Skill.Sync_1.1.1_x64-setup.exe) | EXE installer |
+| Windows x64   | [Skill.Sync_1.1.1_x64_en-US.msi](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.1/Skill.Sync_1.1.1_x64_en-US.msi) | MSI installer |
+| Apple Silicon | [Skill.Sync_1.1.1_aarch64.dmg](https://github.com/TreatTrick/skill-sync/releases/download/v1.1.1/Skill.Sync_1.1.1_aarch64.dmg)     | macOS DMG     |
 
 Windows may show a security warning because the current installer is unsigned. For other builds and older versions, see the [releases page](https://github.com/TreatTrick/skill-sync/releases).
 
