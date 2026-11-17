@@ -1,7 +1,17 @@
 <script lang="ts">
   import { base } from '$app/paths'
+  import { onMount } from 'svelte'
   import { i18n } from '../i18n.svelte'
   import { LATEST_RELEASE_URL, REPO_URL } from '../links'
+
+  let showcaseVideo = $state<HTMLVideoElement>()
+  const showcaseVideoSrc = $derived(
+    `${base}/video/${i18n.locale === 'zh' ? 'skillSyncChinese.mp4' : 'skillSyncEnglish.mp4'}`,
+  )
+
+  onMount(() => {
+    if (showcaseVideo) showcaseVideo.src = showcaseVideoSrc
+  })
 </script>
 
 <section class="relative overflow-hidden">
@@ -26,8 +36,9 @@
     >
       {#key i18n.locale}
         <video
+          bind:this={showcaseVideo}
           class="aspect-video w-full object-contain"
-          src={`${base}/video/${i18n.locale === 'zh' ? 'skillSyncChinese.mp4' : 'skillSyncEnglish.mp4'}`}
+          src={showcaseVideoSrc}
           autoplay
           muted
           loop
